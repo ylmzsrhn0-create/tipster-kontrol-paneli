@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: tipster-kontrol-paneli
+    runtime: docker
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATA_DIR
+        value: /app/data
+      - key: TRUST_PROXY
+        value: 1
+    disk:
+      name: tipster-data
+      mountPath: /app/data
+      sizeGB: 1
