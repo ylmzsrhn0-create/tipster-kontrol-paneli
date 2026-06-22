@@ -8,6 +8,7 @@ let detailUploadId = "";
 const loginView = document.getElementById("loginView");
 const appView = document.getElementById("appView");
 const adminPanel = document.getElementById("adminPanel");
+const ownerPanel = document.getElementById("ownerPanel");
 const memberPanel = document.getElementById("memberPanel");
 const loginHint = document.getElementById("loginHint");
 const detailModal = document.getElementById("memberDetailModal");
@@ -42,8 +43,10 @@ function api(path, options = {}) {
 function showApp(user) {
   loginView.classList.add("hidden");
   appView.classList.remove("hidden");
-  document.getElementById("panelTitle").textContent = user.role === "admin" ? "Admin Paneli" : user.name;
-  document.getElementById("panelSubtitle").textContent = user.role === "admin"
+  document.getElementById("panelTitle").textContent = user.role === "owner" ? "Ana Admin Paneli" : user.role === "admin" ? "Admin Paneli" : user.name;
+  document.getElementById("panelSubtitle").textContent = user.role === "owner"
+    ? "Admin hesaplari ve kendi paneliniz burada yonetilir."
+    : user.role === "admin"
     ? "Tipsterlar, Excel haftalari ve hesaplamalar burada yonetilir."
     : "Numaralarini ve haftalik hesaplarini buradan takip ediyorsun.";
 }
@@ -51,6 +54,7 @@ function showApp(user) {
 function showLogin() {
   appView.classList.add("hidden");
   loginView.classList.remove("hidden");
+  ownerPanel.classList.add("hidden");
   adminPanel.classList.add("hidden");
   memberPanel.classList.add("hidden");
   detailModal.classList.add("hidden");
@@ -69,9 +73,10 @@ function renderUploadSelect(selectId, uploads, selected) {
   select.value = selected || uploads[0]?.id || "all";
 }
 
-function renderAdmin(data) {
+function renderAdmin(data, keepOwnerPanel = false) {
   currentDashboard = data;
   selectedUploadId = data.selectedUploadId;
+  if (!keepOwnerPanel) ownerPanel.classList.add("hidden");
   adminPanel.classList.remove("hidden");
   memberPanel.classList.add("hidden");
   renderUploadSelect("adminUploadSelect", data.uploads, data.selectedUploadId);
@@ -86,6 +91,27 @@ function renderAdmin(data) {
       ${escapeHtml(upload.filename)} - ${upload.rowCount} satir - ${new Date(upload.createdAt).toLocaleString("tr-TR")}
     </div>
   `).join("") || `<p class="muted">Henuz Excel yuklenmedi.</p>`;
+}
+
+function renderOwner(data) {
+  ownerPanel.classList.remove("hidden");
+  renderAdmin(data, true);
+  renderAdmins(data.admins || []);
+}
+
+function renderAdmins(admins) {
+  document.getElementById("adminRows").innerHTML = admins.map(admin => `
+    <div class="admin-item">
+      <div>
+        <strong>${escapeHtml(admin.name)}</strong>
+        <span>${escapeHtml(admin.username)}</span>
+      </div>
+      <form class="reset-admin-form" data-admin-reset="${admin.id}">
+        <input type="password" minlength="8" placeholder="Yeni sifre" required>
+        <button class="ghost small" type="submit">Sifre yenile</button>
+      </form>
+    </div>
+  `).join("") || `<p class="muted">Henuz alt admin olusturulmadi.</p>`;
 }
 
 function renderMembers() {
@@ -155,7 +181,8 @@ function renderNumbers(numbers) {
 async function loadDashboard(uploadId = selectedUploadId) {
   const query = uploadId ? `?uploadId=${encodeURIComponent(uploadId)}` : "";
   const data = await api(`/api/dashboard${query}`);
-  if (data.role === "admin") renderAdmin(data);
+  if (data.role === "owner") renderOwner(data);
+  else if (data.role === "admin") renderAdmin(data);
   else renderMember(data);
 }
 
@@ -211,7 +238,10 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
       })
     });
 
-    if (data.user.role !== selectedLoginType) {
+    const loginMatches = selectedLoginType === "admin"
+      ? (data.user.role === "admin" || data.user.role === "owner")
+      : data.user.role === "member";
+    if (!loginMatches) {
       await api("/api/logout", { method: "POST" }).catch(() => {});
       throw new Error(selectedLoginType === "admin" ? "Bu hesap admin hesabi degil." : "Bu hesap tipster hesabi degil.");
     }
@@ -222,6 +252,45 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
     await loadDashboard("");
   } catch (error) {
     setMessage("loginMessage", error.message);
+  }
+});
+
+document.getElementById("adminCreateForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  setMessage("adminCreateMessage", "");
+  try {
+    await api("/api/admins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: document.getElementById("adminName").value,
+        username: document.getElementById("adminUsername").value,
+        password: document.getElementById("adminPassword").value
+      })
+    });
+    event.target.reset();
+    setMessage("adminCreateMessage", "Admin olusturuldu.", true);
+    await loadDashboard(selectedUploadId);
+  } catch (error) {
+    setMessage("adminCreateMessage", error.message);
+  }
+});
+
+document.getElementById("adminRows").addEventListener("submit", async event => {
+  const form = event.target.closest("form[data-admin-reset]");
+  if (!form) return;
+  event.preventDefault();
+  const input = form.querySelector("input");
+  try {
+    await api(`/api/admins/${encodeURIComponent(form.dataset.adminReset)}/password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: input.value })
+    });
+    input.value = "";
+    setMessage("adminCreateMessage", "Admin sifresi yenilendi.", true);
+  } catch (error) {
+    setMessage("adminCreateMessage", error.message);
   }
 });
 
