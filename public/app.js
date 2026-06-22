@@ -133,6 +133,7 @@ function renderMembers() {
     <tr>
       <td><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
       <td>${escapeHtml(numberRecordText(member) || "-")}</td>
+      <td><strong>${member.numberCount ?? numberRecordsOf(member).length}</strong></td>
       <td>%${money.format(member.percentage)}</td>
       <td>${member.rowCount}</td>
       <td>${money.format(member.total)}</td>
@@ -142,7 +143,7 @@ function renderMembers() {
         <button class="danger small" data-delete="${member.id}" type="button">Sil</button>
       </td>
     </tr>
-  `).join("") || `<tr><td colspan="7">Tipster bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="8">Tipster bulunamadi.</td></tr>`;
 }
 
 function renderMember(data) {
@@ -207,7 +208,8 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
   detailUploadId = data.selectedUploadId;
   detailModal.classList.remove("hidden");
   document.getElementById("detailTitle").textContent = data.member.name;
-  document.getElementById("detailSubtitle").textContent = `${data.member.username} - ${numberRecordText(data.member) || "Numara yok"}`;
+  const detailCount = numberRecordsOf(data.member).length;
+  document.getElementById("detailSubtitle").textContent = `${data.member.username} - ${detailCount} uye/numara - ${numberRecordText(data.member) || "Numara yok"}`;
   document.getElementById("detailName").value = data.member.name;
   document.getElementById("detailGsm").value = data.member.gsmMasked || data.member.gsmList[0] || "";
   document.getElementById("detailPercentage").value = data.member.percentage;
