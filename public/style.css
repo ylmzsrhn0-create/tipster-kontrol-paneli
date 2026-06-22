@@ -290,7 +290,7 @@ input:focus, select:focus {
 
 table {
   width: 100%;
-  min-width: 760px;
+  min-width: 860px;
   border-collapse: collapse;
 }
 
@@ -328,6 +328,13 @@ td:last-child, th:last-child { text-align: right; }
 }
 
 .number-list { display: grid; gap: 10px; }
+
+.section-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 
 .admin-list { display: grid; gap: 10px; }
 
@@ -372,7 +379,38 @@ td:last-child, th:last-child { text-align: right; }
   background: #f9fbfd;
 }
 
-.number-item strong { overflow-wrap: anywhere; }
+.number-item strong,
+.number-item span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.number-item span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.status-pill.active {
+  color: var(--ok);
+  background: #e9f7ef;
+}
+
+.status-pill.passive {
+  color: #8a4b00;
+  background: #fff4df;
+}
+
 .muted { color: var(--muted); }
 
 .modal {
@@ -442,6 +480,7 @@ td:last-child, th:last-child { text-align: right; }
   .login-card { width: calc(100% - 24px); padding: 22px; }
   .topbar { align-items: stretch; flex-direction: column; padding: 16px; }
   .admin-panel, .member-panel, .owner-panel { width: min(100% - 20px, 1200px); }
+  .section-inline { align-items: stretch; flex-direction: column; }
   .panel { padding: 18px; }
   .modal { padding: 10px; }
   th, td { padding: 12px; }
