@@ -385,10 +385,12 @@ function adminSummary(db, uploadId) {
   const members = db.users.filter(user => user.role === "member");
   const rows = selectedRows(db, uploadId);
   const totalAmount = rows.reduce((sum, row) => sum + row.totalAmount, 0);
+  const totalCommission = members.reduce((sum, member) => sum + memberSummary(db, member, uploadId).calculated, 0);
   return {
     memberCount: members.length,
     rowCount: rows.length,
     totalAmount,
+    totalCommission,
     uploadCount: db.uploads.length
   };
 }
@@ -448,6 +450,27 @@ async function handleApi(req, res) {
     }
     const user = db.users.find(item => item.id === session.userId);
     sendJson(res, 200, { csrf: session.csrf, user: publicUser(user) });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/password") {
+    const session = requireAuth(req, res, "admin");
+    if (!session) return;
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const user = db.users.find(item => item.id === session.userId);
+    const currentPassword = String(body.currentPassword || "");
+    const newPassword = String(body.newPassword || "");
+    if (!verifyPassword(currentPassword, user.passwordHash)) {
+      sendJson(res, 400, { error: "Mevcut sifre hatali." });
+      return;
+    }
+    if (newPassword.length < 8) {
+      sendJson(res, 400, { error: "Yeni sifre en az 8 karakter olmali." });
+      return;
+    }
+    user.passwordHash = hashPassword(newPassword);
+    writeDb(db);
+    sendJson(res, 200, { ok: true });
     return;
   }
 
@@ -512,6 +535,64 @@ async function handleApi(req, res) {
     });
     writeDb(db);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/api/members/") && url.pathname.endsWith("/details")) {
+    const session = requireAuth(req, res, "admin");
+    if (!session) return;
+    const id = url.pathname.split("/")[3];
+    const member = db.users.find(user => user.id === id && user.role === "member");
+    if (!member) {
+      sendJson(res, 404, { error: "Tipster bulunamadi." });
+      return;
+    }
+    const latestUpload = db.uploads[db.uploads.length - 1];
+    const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
+    const summary = memberSummary(db, member, uploadId);
+    sendJson(res, 200, {
+      member: publicUser(member),
+      total: summary.total,
+      calculated: summary.calculated,
+      percentage: Number(member.percentage) || 0,
+      rows: summary.rows,
+      numberSummaries: summary.numberSummaries,
+      uploads: db.uploads.slice().reverse(),
+      selectedUploadId: uploadId
+    });
+    return;
+  }
+
+  if (req.method === "PATCH" && url.pathname.startsWith("/api/members/")) {
+    const session = requireAuth(req, res, "admin");
+    if (!session) return;
+    const id = url.pathname.split("/").pop();
+    const member = db.users.find(user => user.id === id && user.role === "member");
+    if (!member) {
+      sendJson(res, 404, { error: "Tipster bulunamadi." });
+      return;
+    }
+    const body = JSON.parse((await readBody(req, 1024 * 50)).toString("utf8"));
+    const percentage = Number(body.percentage);
+    if (body.percentage !== undefined) {
+      if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+        sendJson(res, 400, { error: "Yuzde 0 ile 100 arasinda olmali." });
+        return;
+      }
+      member.percentage = percentage;
+    }
+    if (body.name !== undefined && String(body.name).trim()) member.name = String(body.name).trim();
+    if (body.gsmMasked !== undefined && normalizeGsm(body.gsmMasked)) member.gsmMasked = normalizeGsm(body.gsmMasked);
+    if (body.password) {
+      const password = String(body.password);
+      if (password.length < 6) {
+        sendJson(res, 400, { error: "Tipster sifresi en az 6 karakter olmali." });
+        return;
+      }
+      member.passwordHash = hashPassword(password);
+    }
+    writeDb(db);
+    sendJson(res, 200, { ok: true, member: publicUser(member) });
     return;
   }
 
