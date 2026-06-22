@@ -98,7 +98,10 @@ function normalizeDb(db) {
   db.users.forEach(user => {
     if (user.role === "member" && !user.ownerId) user.ownerId = ownerId;
     if (user.role === "admin" && !user.createdBy) user.createdBy = ownerId;
-    user.gsmList = getUserGsms(user).slice(user.gsmMasked ? 1 : 0);
+    const records = getUserNumberRecords(user);
+    user.numberRecords = records;
+    user.gsmMasked = records[0]?.number || user.gsmMasked || "";
+    user.gsmList = records.slice(user.gsmMasked ? 1 : 0).map(record => record.name ? { number: record.number, name: record.name } : record.number);
   });
   return db;
 }
@@ -217,6 +220,7 @@ function requireStaff(req, res) {
 
 function publicUser(user) {
   const gsmList = getUserGsms(user);
+  const numberRecords = getUserNumberRecords(user);
   return {
     id: user.id,
     role: user.role,
@@ -224,6 +228,7 @@ function publicUser(user) {
     name: user.name,
     gsmMasked: user.gsmMasked,
     gsmList,
+    numberRecords,
     percentage: user.percentage,
     ownerId: user.ownerId,
     createdAt: user.createdAt
@@ -251,8 +256,34 @@ function normalizeGsm(value) {
   return String(value ?? "").trim().replace(/\s+/g, "");
 }
 
+function normalizeNumberName(value) {
+  return String(value ?? "").trim().slice(0, 80);
+}
+
+function numberRecordFrom(value) {
+  if (typeof value === "object" && value !== null) {
+    return {
+      number: normalizeGsm(value.number || value.gsmMasked || value.gsm || ""),
+      name: normalizeNumberName(value.name || value.label || "")
+    };
+  }
+  return { number: normalizeGsm(value), name: "" };
+}
+
+function getUserNumberRecords(user) {
+  const records = [];
+  const add = record => {
+    if (!record.number || records.some(item => item.number === record.number)) return;
+    records.push(record);
+  };
+  if (Array.isArray(user.numberRecords)) user.numberRecords.map(numberRecordFrom).forEach(add);
+  add({ number: normalizeGsm(user.gsmMasked), name: normalizeNumberName(user.gsmName || "") });
+  (user.gsmList || []).map(numberRecordFrom).forEach(add);
+  return records;
+}
+
 function getUserGsms(user) {
-  return [...new Set([user.gsmMasked, ...(user.gsmList || [])].map(normalizeGsm).filter(Boolean))];
+  return getUserNumberRecords(user).map(record => record.number);
 }
 
 function zipEntries(buffer) {
@@ -409,17 +440,20 @@ function selectedRows(db, uploadId, ownerId) {
 
 function memberSummary(db, user, uploadId) {
   const ownerId = user.role === "member" ? user.ownerId : user.id;
-  const numbers = getUserGsms(user);
+  const numberRecords = getUserNumberRecords(user);
+  const numbers = numberRecords.map(record => record.number);
   const gsmSet = new Set(numbers);
   const sourceRows = selectedRows(db, uploadId, ownerId);
   const rows = sourceRows.filter(row => gsmSet.has(row.gsmMasked));
   const total = rows.reduce((sum, row) => sum + row.totalAmount, 0);
   const calculated = total * (Number(user.percentage) || 0) / 100;
-  const numberSummaries = numbers.map(number => {
-    const numberRows = sourceRows.filter(row => row.gsmMasked === number);
+  const numberSummaries = numberRecords.map(record => {
+    const numberRows = sourceRows.filter(row => row.gsmMasked === record.number);
     const numberTotal = numberRows.reduce((sum, row) => sum + row.totalAmount, 0);
     return {
-      number,
+      number: record.number,
+      name: record.name,
+      active: numberRows.length > 0,
       rowCount: numberRows.length,
       total: numberTotal,
       calculated: numberTotal * (Number(user.percentage) || 0) / 100
@@ -440,6 +474,139 @@ function adminSummary(db, uploadId, ownerId) {
     totalCommission,
     uploadCount: db.uploads.length
   };
+}
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
+  let value = index;
+  for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+  return value >>> 0;
+});
+
+function crc32(buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function xmlEscape(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function excelColumn(index) {
+  let out = "";
+  let current = index + 1;
+  while (current > 0) {
+    const mod = (current - 1) % 26;
+    out = String.fromCharCode(65 + mod) + out;
+    current = Math.floor((current - mod) / 26);
+  }
+  return out;
+}
+
+function createSheetXml(rows) {
+  const body = rows.map((row, rowIndex) => {
+    const cells = row.map((value, colIndex) => {
+      const ref = `${excelColumn(colIndex)}${rowIndex + 1}`;
+      const text = xmlEscape(value);
+      return `<c r="${ref}" t="inlineStr"><is><t>${text}</t></is></c>`;
+    }).join("");
+    return `<row r="${rowIndex + 1}">${cells}</row>`;
+  }).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${body}</sheetData></worksheet>`;
+}
+
+function createZip(files) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  for (const file of files) {
+    const name = Buffer.from(file.name);
+    const data = Buffer.from(file.content);
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0, 6);
+    local.writeUInt16LE(0, 8);
+    local.writeUInt16LE(0, 10);
+    local.writeUInt16LE(0, 12);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    local.writeUInt16LE(0, 28);
+    localParts.push(local, name, data);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0, 8);
+    central.writeUInt16LE(0, 10);
+    central.writeUInt16LE(0, 12);
+    central.writeUInt16LE(0, 14);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt16LE(0, 30);
+    central.writeUInt16LE(0, 32);
+    central.writeUInt16LE(0, 34);
+    central.writeUInt16LE(0, 36);
+    central.writeUInt32LE(0, 38);
+    central.writeUInt32LE(offset, 42);
+    centralParts.push(central, name);
+    offset += local.length + name.length + data.length;
+  }
+  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4);
+  end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(offset, 16);
+  end.writeUInt16LE(0, 20);
+  return Buffer.concat([...localParts, ...centralParts, end]);
+}
+
+function createNumbersXlsx(member, summaries) {
+  const rows = [
+    ["Isim", "Numara", "Durum", "Kayit", "Toplam oyun", "Komisyon"],
+    ...summaries.map(item => [
+      item.name || "",
+      item.number,
+      item.active ? "Aktif" : "Pasif",
+      item.rowCount,
+      item.total,
+      item.calculated
+    ])
+  ];
+  const sheet = createSheetXml(rows);
+  return createZip([
+    {
+      name: "[Content_Types].xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`
+    },
+    {
+      name: "_rels/.rels",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`
+    },
+    {
+      name: "xl/workbook.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Numaralar" sheetId="1" r:id="rId1"/></sheets></workbook>`
+    },
+    {
+      name: "xl/_rels/workbook.xml.rels",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`
+    },
+    { name: "xl/worksheets/sheet1.xml", content: sheet }
+  ]);
 }
 
 function serveStatic(req, res) {
@@ -732,6 +899,7 @@ async function handleApi(req, res) {
     if (!session) return;
     const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
     const gsm = normalizeGsm(body.gsmMasked);
+    const name = normalizeNumberName(body.name);
     if (!gsm) {
       sendJson(res, 400, { error: "Numara gerekli." });
       return;
@@ -746,14 +914,57 @@ async function handleApi(req, res) {
       sendJson(res, 400, { error: "Bu numara zaten kayıtlı." });
       return;
     }
-    user.gsmList = [...(user.gsmList || []), gsm];
-    if (!user.gsmMasked) user.gsmMasked = gsm;
+    const records = [...getUserNumberRecords(user), { number: gsm, name }];
+    user.numberRecords = records;
+    user.gsmMasked = records[0]?.number || "";
+    user.gsmName = records[0]?.name || "";
+    user.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
     writeDb(db);
-    sendJson(res, 200, { ok: true, numbers: getUserGsms(user) });
+    sendJson(res, 200, { ok: true, numbers: getUserGsms(user), numberRecords: getUserNumberRecords(user) });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/my-numbers/export") {
+    const session = requireAuth(req, res, "member");
+    if (!session) return;
+    const user = db.users.find(item => item.id === session.userId);
+    const visibleUploads = db.uploads.filter(upload => upload.ownerId === user.ownerId);
+    const latestUpload = visibleUploads[visibleUploads.length - 1];
+    const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
+    const summary = memberSummary(db, user, uploadId);
+    const buffer = createNumbersXlsx(user, summary.numberSummaries);
+    const filename = encodeURIComponent(`${user.username || "tipster"}-numaralar.xlsx`);
+    res.writeHead(200, {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "no-store"
+    });
+    res.end(buffer);
     return;
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/my-numbers/")) {
+    const session = requireAuth(req, res, "member");
+    if (!session) return;
+    const gsm = normalizeGsm(decodeURIComponent(url.pathname.split("/").pop()));
+    const user = db.users.find(item => item.id === session.userId);
+    const oldRecords = getUserNumberRecords(user);
+    const records = oldRecords.filter(item => item.number !== gsm);
+    if (records.length === oldRecords.length) {
+      sendJson(res, 404, { error: "Numara bulunamadi." });
+      return;
+    }
+    user.numberRecords = records;
+    user.gsmMasked = records[0]?.number || "";
+    user.gsmName = records[0]?.name || "";
+    user.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+    writeDb(db);
+    sendJson(res, 200, { ok: true, numbers: getUserGsms(user), numberRecords: getUserNumberRecords(user) });
+    return;
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/my-numbers-legacy/")) {
     const session = requireAuth(req, res, "member");
     if (!session) return;
     const gsm = normalizeGsm(decodeURIComponent(url.pathname.split("/").pop()));
