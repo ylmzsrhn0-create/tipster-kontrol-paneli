@@ -286,6 +286,21 @@ function getUserGsms(user) {
   return getUserNumberRecords(user).map(record => record.number);
 }
 
+function findNumberOwner(db, ownerId, gsm, exceptUserId = "") {
+  return db.users.find(user =>
+    user.role === "member" &&
+    user.ownerId === ownerId &&
+    user.id !== exceptUserId &&
+    getUserGsms(user).includes(gsm)
+  );
+}
+
+function duplicateNumberMessage(owner) {
+  return owner
+    ? `Bu numara ${owner.name || owner.username} adli tipsterda kayitli.`
+    : "Bu numara baska bir tipsterda kayitli.";
+}
+
 function zipEntries(buffer) {
   const entries = new Map();
   let offset = buffer.length - 22;
@@ -804,12 +819,18 @@ async function handleApi(req, res) {
       sendJson(res, 400, { error: "Bu kullanıcı adı zaten var." });
       return;
     }
+    const initialGsm = normalizeGsm(body.gsmMasked);
+    const numberOwner = findNumberOwner(db, session.userId, initialGsm);
+    if (numberOwner) {
+      sendJson(res, 400, { error: duplicateNumberMessage(numberOwner) });
+      return;
+    }
     db.users.push({
       id: crypto.randomUUID(),
       role: "member",
       username,
       name: String(body.name).trim(),
-      gsmMasked: normalizeGsm(body.gsmMasked),
+      gsmMasked: initialGsm,
       percentage,
       ownerId: session.userId,
       passwordHash: hashPassword(password),
@@ -865,7 +886,24 @@ async function handleApi(req, res) {
       member.percentage = percentage;
     }
     if (body.name !== undefined && String(body.name).trim()) member.name = String(body.name).trim();
-    if (body.gsmMasked !== undefined && normalizeGsm(body.gsmMasked)) member.gsmMasked = normalizeGsm(body.gsmMasked);
+    if (body.gsmMasked !== undefined && normalizeGsm(body.gsmMasked)) {
+      const nextGsm = normalizeGsm(body.gsmMasked);
+      const numberOwner = findNumberOwner(db, session.userId, nextGsm, member.id);
+      if (numberOwner) {
+        sendJson(res, 400, { error: duplicateNumberMessage(numberOwner) });
+        return;
+      }
+      const records = getUserNumberRecords(member);
+      if (records.length) {
+        records[0].number = nextGsm;
+        member.numberRecords = records;
+        member.gsmMasked = nextGsm;
+        member.gsmName = records[0].name || "";
+        member.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+      } else {
+        member.gsmMasked = nextGsm;
+      }
+    }
     if (body.password) {
       const password = String(body.password);
       if (password.length < 6) {
@@ -912,6 +950,11 @@ async function handleApi(req, res) {
     const existing = getUserGsms(user);
     if (existing.includes(gsm)) {
       sendJson(res, 400, { error: "Bu numara zaten kayıtlı." });
+      return;
+    }
+    const numberOwner = findNumberOwner(db, user.ownerId, gsm, user.id);
+    if (numberOwner) {
+      sendJson(res, 400, { error: duplicateNumberMessage(numberOwner) });
       return;
     }
     const records = [...getUserNumberRecords(user), { number: gsm, name }];
