@@ -12,27 +12,27 @@
       <div class="cover">
         <div class="brand">Tipster Kontrol Paneli</div>
         <div>
-          <h1>Excel yükle, tipsterlar kendi haftalık toplamını güvenli panelden görsün.</h1>
-          <p>Admin tipsterları oluşturur, Excel dönemlerini yükler ve yüzdeleri belirler. Tipster kendi numaralarını kaydeder, istediği haftayı seçip sonucunu görür.</p>
+          <h1>Excel, tipster ve komisyon takibi tek panelde.</h1>
+          <p>Admin haftalari yukler, tipster hesaplarini yonetir ve sonuclari kontrol eder. Tipsterlar kendi numaralariyla eslesen haftalik toplam ve komisyonlarini gorur.</p>
         </div>
       </div>
 
       <form class="login-card" id="loginForm">
-        <h2>Giriş</h2>
-        <div class="login-tabs" aria-label="Giriş tipi">
-          <button class="tab active" type="button" data-login-type="admin">Admin Girişi</button>
-          <button class="tab" type="button" data-login-type="member">Tipster Girişi</button>
+        <h2>Giris</h2>
+        <div class="login-tabs" aria-label="Giris tipi">
+          <button class="tab active" type="button" data-login-type="admin">Admin Girisi</button>
+          <button class="tab" type="button" data-login-type="member">Tipster Girisi</button>
         </div>
-        <p id="loginHint">Admin başlangıç bilgisi: <strong>admin</strong> / <strong>1234</strong></p>
+        <p id="loginHint">Admin hesabi icin size verilen guvenli sifreyi kullanin.</p>
         <label>
-          Kullanıcı adı
+          Kullanici adi
           <input id="username" autocomplete="username" required>
         </label>
         <label>
-          Şifre
+          Sifre
           <input id="password" type="password" autocomplete="current-password" required>
         </label>
-        <button class="primary" type="submit">Giriş yap</button>
+        <button class="primary" type="submit">Giris yap</button>
         <div class="message" id="loginMessage"></div>
       </form>
     </section>
@@ -41,92 +41,104 @@
       <header class="topbar">
         <div>
           <strong id="panelTitle">Panel</strong>
-          <span id="panelSubtitle">Güvenli oturum açık.</span>
+          <span id="panelSubtitle">Guvenli oturum acik.</span>
         </div>
-        <button class="ghost" id="logoutBtn" type="button">Çıkış</button>
+        <button class="ghost" id="logoutBtn" type="button">Cikis</button>
       </header>
 
       <div class="admin-panel hidden" id="adminPanel">
-        <section class="stats">
+        <section class="stats stats-four">
           <div class="stat">
             <span>Tipster</span>
             <strong id="memberCount">0</strong>
           </div>
           <div class="stat">
-            <span>Seçili hafta satırı</span>
+            <span>Secili hafta satiri</span>
             <strong id="rowCount">0</strong>
           </div>
           <div class="stat">
-            <span>Seçili hafta toplamı</span>
+            <span>Secili hafta toplami</span>
             <strong id="totalAmount">0</strong>
+          </div>
+          <div class="stat">
+            <span>Toplam komisyon</span>
+            <strong id="totalCommission">0</strong>
           </div>
         </section>
 
         <section class="toolbar-panel">
           <label>
-            Görüntülenen hafta
+            Goruntulenen hafta
             <select id="adminUploadSelect"></select>
           </label>
         </section>
 
-        <section class="panel">
-          <h2>Telefon giriş linki</h2>
-          <p class="muted">Telefon aynı Wi-Fi ağına bağlıysa bu linkten giriş yapabilir.</p>
-          <div class="link-row">
-            <input id="phoneLink" readonly value="http://192.168.1.5:3000">
-            <button class="ghost" id="copyPhoneLink" type="button">Linki kopyala</button>
-          </div>
-        </section>
-
         <section class="grid">
           <form class="panel" id="memberForm">
-            <h2>Tipster oluştur</h2>
+            <h2>Tipster olustur</h2>
             <label>
               Ad soyad
-              <input id="memberName" required placeholder="Örn. Mehmet Kaya">
+              <input id="memberName" required placeholder="Orn. Mehmet Kaya">
             </label>
             <label>
-              Kullanıcı adı
-              <input id="memberUsername" required placeholder="örn. mehmet">
+              Kullanici adi
+              <input id="memberUsername" required placeholder="orn. mehmet">
             </label>
             <label>
-              Geçici şifre
+              Gecici sifre
               <input id="memberPassword" required minlength="6" placeholder="En az 6 karakter">
             </label>
             <label>
-              İlk Excel GSM
-              <input id="memberGsm" required placeholder="Örn. 0505***0794">
+              Ilk Excel GSM
+              <input id="memberGsm" required placeholder="Orn. 0505***0794">
             </label>
             <label>
-              Yüzde
-              <input id="memberPercentage" type="number" min="0" max="100" step="0.01" required placeholder="Örn. 20">
+              Yuzde
+              <input id="memberPercentage" type="number" min="0" max="100" step="0.01" required placeholder="Orn. 20">
             </label>
             <button class="primary" type="submit">Tipster kaydet</button>
             <div class="message" id="memberMessage"></div>
           </form>
 
           <form class="panel" id="uploadForm">
-            <h2>Excel yükle</h2>
-            <p class="muted">Her yükleme ayrı hafta/dönem olarak saklanır. Tipsterlar istedikleri haftayı seçebilir.</p>
+            <h2>Excel yukle</h2>
+            <p class="muted">Her yukleme ayri hafta/donem olarak saklanir. Tipsterlar istedikleri haftayi secebilir.</p>
             <label>
-              Hafta / dönem adı
-              <input id="weekLabel" placeholder="Boş kalırsa dosya adı kullanılır">
+              Hafta / donem adi
+              <input id="weekLabel" placeholder="Bos kalirsa dosya adi kullanilir">
             </label>
             <label>
-              Excel dosyaları
+              Excel dosyalari
               <input id="excelFile" name="excel" type="file" accept=".xlsx" multiple required>
             </label>
-            <p class="muted" id="fileHelp">Bir veya birden fazla `.xlsx` dosyası seçebilirsin.</p>
+            <p class="muted" id="fileHelp">Bir veya birden fazla .xlsx dosyasi secebilirsin.</p>
             <button class="primary" type="submit">Excel aktar</button>
-            <button class="danger" id="clearUploadsBtn" type="button">Tüm Excel kayıtlarını temizle</button>
+            <button class="danger" id="clearUploadsBtn" type="button">Tum Excel kayitlarini temizle</button>
             <div class="message" id="uploadMessage"></div>
             <div class="uploads" id="uploads"></div>
           </form>
         </section>
 
+        <section class="panel">
+          <h2>Admin sifresini degistir</h2>
+          <p class="muted">Guvenlik icin sifrenizi belirli araliklarla yenileyin.</p>
+          <form class="inline-form" id="adminPasswordForm">
+            <label>
+              Mevcut sifre
+              <input id="currentAdminPassword" type="password" autocomplete="current-password" required>
+            </label>
+            <label>
+              Yeni sifre
+              <input id="newAdminPassword" type="password" autocomplete="new-password" minlength="8" required>
+            </label>
+            <button class="primary" type="submit">Sifreyi guncelle</button>
+          </form>
+          <div class="message" id="passwordMessage"></div>
+        </section>
+
         <section class="panel wide">
           <div class="section-head">
-            <h2>Tipster sonuçları</h2>
+            <h2>Tipster sonuclari</h2>
             <input id="search" placeholder="Ara">
           </div>
           <div class="table-wrap">
@@ -135,11 +147,11 @@
                 <tr>
                   <th>Tipster</th>
                   <th>Numara</th>
-                  <th>Yüzde</th>
-                  <th>Kayıt</th>
+                  <th>Yuzde</th>
+                  <th>Kayit</th>
                   <th>Toplam</th>
                   <th>Hesap</th>
-                  <th></th>
+                  <th>Islem</th>
                 </tr>
               </thead>
               <tbody id="memberRows"></tbody>
@@ -151,7 +163,7 @@
       <div class="member-panel hidden" id="memberPanel">
         <section class="stats">
           <div class="stat">
-            <span>Kayıtlı numara</span>
+            <span>Kayitli numara</span>
             <strong id="myGsm">-</strong>
           </div>
           <div class="stat">
@@ -159,14 +171,14 @@
             <strong id="myTotal">0</strong>
           </div>
           <div class="stat">
-            <span>Haftalık komisyon</span>
+            <span>Haftalik komisyon</span>
             <strong id="myCalculated">0</strong>
           </div>
         </section>
 
         <section class="panel wide">
           <div class="section-head">
-            <h2>Haftalık komisyon özeti</h2>
+            <h2>Haftalik komisyon ozeti</h2>
             <strong id="myRate">%-</strong>
           </div>
           <div class="table-wrap">
@@ -174,7 +186,7 @@
               <thead>
                 <tr>
                   <th>Numara</th>
-                  <th>Kayıt</th>
+                  <th>Kayit</th>
                   <th>Toplam oyun</th>
                   <th>Komisyon</th>
                 </tr>
@@ -186,7 +198,7 @@
 
         <section class="toolbar-panel">
           <label>
-            Görüntülenen hafta
+            Goruntulenen hafta
             <select id="memberUploadSelect"></select>
           </label>
         </section>
@@ -194,37 +206,96 @@
         <section class="grid">
           <form class="panel" id="numberForm">
             <h2>Numara kaydet</h2>
-            <p class="muted">Excelde görünen maskeli GSM formatını gir. Örnek: <strong>0505***0794</strong></p>
+            <p class="muted">Excelde gorunen maskeli GSM formatini gir. Ornek: <strong>0505***0794</strong></p>
             <label>
               Maskeli GSM
               <input id="newGsm" required placeholder="0505***0794" pattern="05[0-9]{2}\*{3}[0-9]{4}">
             </label>
-            <button class="primary" type="submit">Numarayı kaydet</button>
+            <button class="primary" type="submit">Numarayi kaydet</button>
             <div class="message" id="numberMessage"></div>
           </form>
 
           <section class="panel">
-            <h2>Kayıtlı numaralarım</h2>
+            <h2>Kayitli numaralarim</h2>
             <div class="number-list" id="numberList"></div>
           </section>
         </section>
 
         <section class="panel wide">
-          <h2>Benim kayıtlarım</h2>
+          <h2>Benim kayitlarim</h2>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Numara</th>
-                  <th>İşlem tipi</th>
+                  <th>Islem tipi</th>
                   <th>Toplam tutar</th>
-                  <th>Aktarım</th>
+                  <th>Aktarim</th>
                 </tr>
               </thead>
               <tbody id="myRows"></tbody>
             </table>
           </div>
         </section>
+      </div>
+    </section>
+
+    <section class="modal hidden" id="memberDetailModal" aria-modal="true" role="dialog">
+      <div class="modal-panel">
+        <div class="section-head">
+          <div>
+            <h2 id="detailTitle">Tipster detayi</h2>
+            <p class="muted" id="detailSubtitle"></p>
+          </div>
+          <button class="ghost" id="closeDetailBtn" type="button">Kapat</button>
+        </div>
+        <div class="detail-grid">
+          <form class="panel" id="detailEditForm">
+            <h2>Bilgileri duzenle</h2>
+            <label>
+              Ad soyad
+              <input id="detailName" required>
+            </label>
+            <label>
+              Ana GSM
+              <input id="detailGsm" required>
+            </label>
+            <label>
+              Yuzde
+              <input id="detailPercentage" type="number" min="0" max="100" step="0.01" required>
+            </label>
+            <label>
+              Yeni sifre
+              <input id="detailPassword" type="password" minlength="6" placeholder="Bos birakirsan degismez">
+            </label>
+            <button class="primary" type="submit">Kaydet</button>
+            <div class="message" id="detailMessage"></div>
+          </form>
+          <section class="panel">
+            <h2>Hafta sonucu</h2>
+            <label>
+              Goruntulenen hafta
+              <select id="detailUploadSelect"></select>
+            </label>
+            <div class="mini-stats">
+              <div><span>Toplam</span><strong id="detailTotal">0</strong></div>
+              <div><span>Komisyon</span><strong id="detailCalculated">0</strong></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Numara</th>
+                    <th>Kayit</th>
+                    <th>Toplam</th>
+                    <th>Komisyon</th>
+                  </tr>
+                </thead>
+                <tbody id="detailNumberRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
       </div>
     </section>
   </main>
