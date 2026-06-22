@@ -38,9 +38,9 @@ function defaultDb() {
     users: [
       {
         id: crypto.randomUUID(),
-        role: "admin",
+        role: "owner",
         username: "admin",
-        name: "Admin",
+        name: "Ana Admin",
         gsmMasked: "",
         percentage: 0,
         passwordHash: hashPassword(ADMIN_PASSWORD),
@@ -69,15 +69,35 @@ function normalizeDb(db) {
   db.users ||= [];
   db.rows ||= [];
   db.uploads ||= [];
+  let owner = db.users.find(user => user.role === "owner");
+  if (!owner) {
+    owner = db.users.find(user => user.role === "admin" && user.username === "admin") || db.users.find(user => user.role === "admin");
+    if (owner) {
+      owner.role = "owner";
+      owner.name ||= "Ana Admin";
+    }
+  }
+  const ownerId = owner?.id || db.users.find(user => user.role === "admin")?.id || "";
   const firstUpload = db.uploads[0];
   if (firstUpload) {
     db.rows.forEach(row => {
       if (!row.uploadId) row.uploadId = firstUpload.id;
     });
   }
+  db.uploads.forEach(upload => {
+    if (!upload.ownerId) upload.ownerId = ownerId;
+  });
+  db.rows.forEach(row => {
+    if (!row.ownerId) {
+      const upload = db.uploads.find(item => item.id === row.uploadId);
+      row.ownerId = upload?.ownerId || ownerId;
+    }
+  });
   const rowUploadIds = new Set(db.rows.map(row => row.uploadId).filter(Boolean));
   db.uploads = db.uploads.filter(upload => rowUploadIds.has(upload.id));
   db.users.forEach(user => {
+    if (user.role === "member" && !user.ownerId) user.ownerId = ownerId;
+    if (user.role === "admin" && !user.createdBy) user.createdBy = ownerId;
     user.gsmList = getUserGsms(user).slice(user.gsmMasked ? 1 : 0);
   });
   return db;
@@ -181,6 +201,20 @@ function requireAuth(req, res, role) {
   return session;
 }
 
+function isStaff(user) {
+  return user && (user.role === "owner" || user.role === "admin");
+}
+
+function requireStaff(req, res) {
+  const session = requireAuth(req, res);
+  if (!session) return null;
+  if (session.role !== "owner" && session.role !== "admin") {
+    sendJson(res, 403, { error: "Bu islem icin admin yetkisi gerekli." });
+    return null;
+  }
+  return session;
+}
+
 function publicUser(user) {
   const gsmList = getUserGsms(user);
   return {
@@ -191,6 +225,17 @@ function publicUser(user) {
     gsmMasked: user.gsmMasked,
     gsmList,
     percentage: user.percentage,
+    ownerId: user.ownerId,
+    createdAt: user.createdAt
+  };
+}
+
+function publicAdmin(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: user.role,
     createdAt: user.createdAt
   };
 }
@@ -356,15 +401,17 @@ function parseMultipart(buffer, contentType) {
   return parts;
 }
 
-function selectedRows(db, uploadId) {
-  if (!uploadId || uploadId === "all") return db.rows;
-  return db.rows.filter(row => row.uploadId === uploadId);
+function selectedRows(db, uploadId, ownerId) {
+  const rows = ownerId ? db.rows.filter(row => row.ownerId === ownerId) : db.rows;
+  if (!uploadId || uploadId === "all") return rows;
+  return rows.filter(row => row.uploadId === uploadId);
 }
 
 function memberSummary(db, user, uploadId) {
+  const ownerId = user.role === "member" ? user.ownerId : user.id;
   const numbers = getUserGsms(user);
   const gsmSet = new Set(numbers);
-  const sourceRows = selectedRows(db, uploadId);
+  const sourceRows = selectedRows(db, uploadId, ownerId);
   const rows = sourceRows.filter(row => gsmSet.has(row.gsmMasked));
   const total = rows.reduce((sum, row) => sum + row.totalAmount, 0);
   const calculated = total * (Number(user.percentage) || 0) / 100;
@@ -381,9 +428,9 @@ function memberSummary(db, user, uploadId) {
   return { rows, total, calculated, numberSummaries };
 }
 
-function adminSummary(db, uploadId) {
-  const members = db.users.filter(user => user.role === "member");
-  const rows = selectedRows(db, uploadId);
+function adminSummary(db, uploadId, ownerId) {
+  const members = db.users.filter(user => user.role === "member" && user.ownerId === ownerId);
+  const rows = selectedRows(db, uploadId, ownerId);
   const totalAmount = rows.reduce((sum, row) => sum + row.totalAmount, 0);
   const totalCommission = members.reduce((sum, member) => sum + memberSummary(db, member, uploadId).calculated, 0);
   return {
@@ -454,7 +501,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/admin/password") {
-    const session = requireAuth(req, res, "admin");
+    const session = requireStaff(req, res);
     if (!session) return;
     const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
     const user = db.users.find(item => item.id === session.userId);
@@ -474,19 +521,86 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/admins") {
+    const session = requireAuth(req, res, "owner");
+    if (!session) return;
+    const admins = db.users.filter(user => user.role === "admin" && user.createdBy === session.userId).map(publicAdmin);
+    sendJson(res, 200, { admins });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admins") {
+    const session = requireAuth(req, res, "owner");
+    if (!session) return;
+    const body = JSON.parse((await readBody(req, 1024 * 50)).toString("utf8"));
+    const username = String(body.username || "").trim();
+    const password = String(body.password || "");
+    const name = String(body.name || "").trim();
+    if (!name || !username || password.length < 8) {
+      sendJson(res, 400, { error: "Ad, kullanici adi ve en az 8 haneli sifre gerekli." });
+      return;
+    }
+    if (db.users.some(user => user.username === username)) {
+      sendJson(res, 400, { error: "Bu kullanici adi zaten var." });
+      return;
+    }
+    const admin = {
+      id: crypto.randomUUID(),
+      role: "admin",
+      username,
+      name,
+      gsmMasked: "",
+      percentage: 0,
+      passwordHash: hashPassword(password),
+      createdBy: session.userId,
+      createdAt: new Date().toISOString()
+    };
+    db.users.push(admin);
+    writeDb(db);
+    sendJson(res, 200, { ok: true, admin: publicAdmin(admin) });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname.startsWith("/api/admins/") && url.pathname.endsWith("/password")) {
+    const session = requireAuth(req, res, "owner");
+    if (!session) return;
+    const id = url.pathname.split("/")[3];
+    const admin = db.users.find(user => user.id === id && user.role === "admin" && user.createdBy === session.userId);
+    if (!admin) {
+      sendJson(res, 404, { error: "Admin bulunamadi." });
+      return;
+    }
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const password = String(body.password || "");
+    if (password.length < 8) {
+      sendJson(res, 400, { error: "Yeni sifre en az 8 karakter olmali." });
+      return;
+    }
+    admin.passwordHash = hashPassword(password);
+    writeDb(db);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/dashboard") {
     const session = requireAuth(req, res);
     if (!session) return;
     const user = db.users.find(item => item.id === session.userId);
-    const latestUpload = db.uploads[db.uploads.length - 1];
+    const staffOwnerId = isStaff(user) ? user.id : user.ownerId;
+    const visibleUploads = db.uploads.filter(upload => upload.ownerId === staffOwnerId);
+    const latestUpload = visibleUploads[visibleUploads.length - 1];
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
-    const uploads = db.uploads.slice().reverse();
-    if (user.role === "admin") {
-      const members = db.users.filter(item => item.role === "member").map(member => {
+    const uploads = visibleUploads.slice().reverse();
+    if (isStaff(user)) {
+      const members = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
         const summary = memberSummary(db, member, uploadId);
         return { ...publicUser(member), total: summary.total, calculated: summary.calculated, rowCount: summary.rows.length };
       });
-      sendJson(res, 200, { role: "admin", summary: adminSummary(db, uploadId), members, uploads, selectedUploadId: uploadId });
+      const payload = { role: user.role, summary: adminSummary(db, uploadId, user.id), members, uploads, selectedUploadId: uploadId };
+      if (user.role === "owner") {
+        payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
+      }
+      sendJson(res, 200, payload);
       return;
     }
     const summary = memberSummary(db, user, uploadId);
@@ -505,7 +619,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/members") {
-    const session = requireAuth(req, res, "admin");
+    const session = requireStaff(req, res);
     if (!session) return;
     const body = JSON.parse((await readBody(req, 1024 * 50)).toString("utf8"));
     const username = String(body.username || "").trim();
@@ -530,6 +644,7 @@ async function handleApi(req, res) {
       name: String(body.name).trim(),
       gsmMasked: normalizeGsm(body.gsmMasked),
       percentage,
+      ownerId: session.userId,
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString()
     });
@@ -539,15 +654,16 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname.startsWith("/api/members/") && url.pathname.endsWith("/details")) {
-    const session = requireAuth(req, res, "admin");
+    const session = requireStaff(req, res);
     if (!session) return;
     const id = url.pathname.split("/")[3];
-    const member = db.users.find(user => user.id === id && user.role === "member");
+    const member = db.users.find(user => user.id === id && user.role === "member" && user.ownerId === session.userId);
     if (!member) {
       sendJson(res, 404, { error: "Tipster bulunamadi." });
       return;
     }
-    const latestUpload = db.uploads[db.uploads.length - 1];
+    const visibleUploads = db.uploads.filter(upload => upload.ownerId === session.userId);
+    const latestUpload = visibleUploads[visibleUploads.length - 1];
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
     const summary = memberSummary(db, member, uploadId);
     sendJson(res, 200, {
@@ -557,17 +673,17 @@ async function handleApi(req, res) {
       percentage: Number(member.percentage) || 0,
       rows: summary.rows,
       numberSummaries: summary.numberSummaries,
-      uploads: db.uploads.slice().reverse(),
+      uploads: visibleUploads.slice().reverse(),
       selectedUploadId: uploadId
     });
     return;
   }
 
   if (req.method === "PATCH" && url.pathname.startsWith("/api/members/")) {
-    const session = requireAuth(req, res, "admin");
+    const session = requireStaff(req, res);
     if (!session) return;
     const id = url.pathname.split("/").pop();
-    const member = db.users.find(user => user.id === id && user.role === "member");
+    const member = db.users.find(user => user.id === id && user.role === "member" && user.ownerId === session.userId);
     if (!member) {
       sendJson(res, 404, { error: "Tipster bulunamadi." });
       return;
@@ -597,11 +713,11 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/members/")) {
-    const session = requireAuth(req, res, "admin");
+    const session = requireStaff(req, res);
     if (!session) return;
     const id = url.pathname.split("/").pop();
     const before = db.users.length;
-    db.users = db.users.filter(user => user.id !== id || user.role === "admin");
+    db.users = db.users.filter(user => user.id !== id || user.role !== "member" || user.ownerId !== session.userId);
     if (db.users.length === before) {
       sendJson(res, 404, { error: "Üye bulunamadı." });
       return;
@@ -655,7 +771,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/upload") {
-    const session = requireAuth(req, res, "admin");
+    const session = requireStaff(req, res);
     if (!session) return;
     const parts = parseMultipart(await readBody(req), req.headers["content-type"]);
     const files = parts.filter(part => part.name === "excel" && part.filename);
@@ -667,7 +783,7 @@ async function handleApi(req, res) {
     const baseWeekLabel = String(weekPart?.data?.toString("utf8") || "").trim();
     const imported = files.map(file => {
       const uploadId = crypto.randomUUID();
-      const rows = parseExcel(file.data).map(row => ({ ...row, uploadId }));
+      const rows = parseExcel(file.data).map(row => ({ ...row, uploadId, ownerId: session.userId }));
       const fileBase = file.filename.replace(/\.xlsx$/i, "");
       const weekLabel = files.length === 1
         ? (baseWeekLabel || fileBase)
@@ -678,6 +794,7 @@ async function handleApi(req, res) {
         filename: escapeHtml(file.filename),
         weekLabel: escapeHtml(weekLabel),
         rowCount: rows.length,
+        ownerId: session.userId,
         createdAt: new Date().toISOString()
       });
       return { uploadId, rowCount: rows.length, filename: file.filename, weekLabel };
@@ -693,10 +810,10 @@ async function handleApi(req, res) {
     return;
   }
   if (req.method === "DELETE" && url.pathname === "/api/uploads") {
-    const session = requireAuth(req, res, "admin");
+    const session = requireStaff(req, res);
     if (!session) return;
-    db.rows = [];
-    db.uploads = [];
+    db.rows = db.rows.filter(row => row.ownerId !== session.userId);
+    db.uploads = db.uploads.filter(upload => upload.ownerId !== session.userId);
     writeDb(db);
     sendJson(res, 200, { ok: true });
     return;
