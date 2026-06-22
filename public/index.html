@@ -219,7 +219,9 @@
             <table>
               <thead>
                 <tr>
+                  <th>Isim</th>
                   <th>Numara</th>
+                  <th>Durum</th>
                   <th>Kayit</th>
                   <th>Toplam oyun</th>
                   <th>Komisyon</th>
@@ -242,6 +244,10 @@
             <h2>Numara kaydet</h2>
             <p class="muted">Excelde gorunen maskeli GSM formatini gir. Ornek: <strong>0505***0794</strong></p>
             <label>
+              Isim
+              <input id="newGsmName" placeholder="Orn. Ali Yilmaz">
+            </label>
+            <label>
               Maskeli GSM
               <input id="newGsm" required placeholder="0505***0794" pattern="05[0-9]{2}\*{3}[0-9]{4}">
             </label>
@@ -250,7 +256,10 @@
           </form>
 
           <section class="panel">
-            <h2>Kayitli numaralarim</h2>
+            <div class="section-inline">
+              <h2>Kayitli numaralarim</h2>
+              <button class="ghost small" id="exportNumbersBtn" type="button">Excel indir</button>
+            </div>
             <div class="number-list" id="numberList"></div>
           </section>
         </section>
@@ -319,7 +328,9 @@
               <table>
                 <thead>
                   <tr>
+                    <th>Isim</th>
                     <th>Numara</th>
+                    <th>Durum</th>
                     <th>Kayit</th>
                     <th>Toplam</th>
                     <th>Komisyon</th>
