@@ -65,6 +65,15 @@ function uploadLabel(upload) {
   return `${upload.weekLabel || upload.filename} (${upload.rowCount} satir)`;
 }
 
+function numberRecordsOf(member) {
+  if (Array.isArray(member.numberRecords)) return member.numberRecords;
+  return (member.gsmList || []).map(number => ({ number, name: "" }));
+}
+
+function numberRecordText(member) {
+  return numberRecordsOf(member).map(record => record.name ? `${record.name} (${record.number})` : record.number).join(", ");
+}
+
 function renderUploadSelect(selectId, uploads, selected) {
   const select = document.getElementById(selectId);
   select.innerHTML = uploads.length
@@ -117,13 +126,13 @@ function renderAdmins(admins) {
 function renderMembers() {
   const query = document.getElementById("search").value.trim().toLocaleLowerCase("tr");
   const rows = currentDashboard.members.filter(member => {
-    const text = `${member.name} ${member.username} ${member.gsmList?.join(" ") || ""}`.toLocaleLowerCase("tr");
+    const text = `${member.name} ${member.username} ${numberRecordText(member)}`.toLocaleLowerCase("tr");
     return text.includes(query);
   });
   document.getElementById("memberRows").innerHTML = rows.map(member => `
     <tr>
       <td><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
-      <td>${escapeHtml((member.gsmList || []).join(", ") || "-")}</td>
+      <td>${escapeHtml(numberRecordText(member) || "-")}</td>
       <td>%${money.format(member.percentage)}</td>
       <td>${member.rowCount}</td>
       <td>${money.format(member.total)}</td>
@@ -140,7 +149,7 @@ function renderMember(data) {
   selectedUploadId = data.selectedUploadId;
   adminPanel.classList.add("hidden");
   memberPanel.classList.remove("hidden");
-  const numbers = data.member.gsmList || [];
+  const numbers = numberRecordsOf(data.member);
   renderUploadSelect("memberUploadSelect", data.uploads, data.selectedUploadId);
   document.getElementById("myGsm").textContent = numbers.length;
   document.getElementById("myTotal").textContent = money.format(data.total);
@@ -161,19 +170,24 @@ function renderMember(data) {
 function renderCommissionRows(rows) {
   document.getElementById("commissionRows").innerHTML = rows.map(row => `
     <tr>
+      <td>${escapeHtml(row.name || "-")}</td>
       <td><strong>${escapeHtml(row.number)}</strong></td>
+      <td><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td>${row.rowCount}</td>
       <td>${money.format(row.total)}</td>
       <td><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="4">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="6">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
 }
 
-function renderNumbers(numbers) {
-  document.getElementById("numberList").innerHTML = numbers.map(number => `
+function renderNumbers(records) {
+  document.getElementById("numberList").innerHTML = records.map(record => `
     <div class="number-item">
-      <strong>${escapeHtml(number)}</strong>
-      <button class="danger small" type="button" data-number-delete="${encodeURIComponent(number)}">Sil</button>
+      <div>
+        <strong>${escapeHtml(record.name || "Isimsiz")}</strong>
+        <span>${escapeHtml(record.number)}</span>
+      </div>
+      <button class="danger small" type="button" data-number-delete="${encodeURIComponent(record.number)}">Sil</button>
     </div>
   `).join("") || `<p class="muted">Henuz numara kaydedilmedi.</p>`;
 }
@@ -193,7 +207,7 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
   detailUploadId = data.selectedUploadId;
   detailModal.classList.remove("hidden");
   document.getElementById("detailTitle").textContent = data.member.name;
-  document.getElementById("detailSubtitle").textContent = `${data.member.username} - ${data.member.gsmList.join(", ") || "Numara yok"}`;
+  document.getElementById("detailSubtitle").textContent = `${data.member.username} - ${numberRecordText(data.member) || "Numara yok"}`;
   document.getElementById("detailName").value = data.member.name;
   document.getElementById("detailGsm").value = data.member.gsmMasked || data.member.gsmList[0] || "";
   document.getElementById("detailPercentage").value = data.member.percentage;
@@ -203,12 +217,14 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
   renderUploadSelect("detailUploadSelect", data.uploads, data.selectedUploadId);
   document.getElementById("detailNumberRows").innerHTML = (data.numberSummaries || []).map(row => `
     <tr>
+      <td>${escapeHtml(row.name || "-")}</td>
       <td><strong>${escapeHtml(row.number)}</strong></td>
+      <td><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td>${row.rowCount}</td>
       <td>${money.format(row.total)}</td>
       <td><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="4">Bu hafta icin eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="6">Bu hafta icin eslesme bulunamadi.</td></tr>`;
 }
 
 document.querySelectorAll("[data-login-type]").forEach(button => {
@@ -389,7 +405,10 @@ document.getElementById("numberForm").addEventListener("submit", async event => 
     await api("/api/my-numbers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gsmMasked: document.getElementById("newGsm").value })
+      body: JSON.stringify({
+        name: document.getElementById("newGsmName").value,
+        gsmMasked: document.getElementById("newGsm").value
+      })
     });
     event.target.reset();
     setMessage("numberMessage", "Numara kaydedildi.", true);
@@ -405,6 +424,11 @@ document.getElementById("numberList").addEventListener("click", async event => {
   await api(`/api/my-numbers/${button.dataset.numberDelete}`, { method: "DELETE" });
   setMessage("numberMessage", "Numara silindi.", true);
   await loadDashboard();
+});
+
+document.getElementById("exportNumbersBtn").addEventListener("click", () => {
+  const query = selectedUploadId ? `?uploadId=${encodeURIComponent(selectedUploadId)}` : "";
+  window.location.href = `/api/my-numbers/export${query}`;
 });
 
 document.getElementById("adminUploadSelect").addEventListener("change", event => loadDashboard(event.target.value));
