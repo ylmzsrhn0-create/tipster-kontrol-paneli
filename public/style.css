@@ -185,11 +185,19 @@ input:focus, select:focus {
 .topbar strong { display: block; font-size: 18px; }
 .topbar span { color: var(--muted); font-size: 13px; }
 
-.admin-panel, .member-panel {
+.admin-panel, .member-panel, .owner-panel {
   width: min(1200px, calc(100% - 32px));
   margin: 24px auto 44px;
   display: grid;
   gap: 18px;
+}
+
+.owner-panel {
+  margin-bottom: 18px;
+}
+
+.owner-panel + .admin-panel {
+  margin-top: 0;
 }
 
 .stats {
@@ -226,6 +234,13 @@ input:focus, select:focus {
   display: grid;
   grid-template-columns: minmax(300px, 390px) minmax(300px, 1fr);
   gap: 18px;
+}
+
+.owner-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 390px) minmax(300px, 1fr);
+  gap: 18px;
+  padding: 18px;
 }
 
 .toolbar-panel {
@@ -314,6 +329,37 @@ td:last-child, th:last-child { text-align: right; }
 
 .number-list { display: grid; gap: 10px; }
 
+.admin-list { display: grid; gap: 10px; }
+
+.admin-item {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 360px);
+  align-items: end;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #f9fbfd;
+}
+
+.admin-item strong,
+.admin-item span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.admin-item span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.reset-admin-form {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) auto;
+  gap: 8px;
+}
+
 .number-item {
   min-height: 46px;
   display: flex;
@@ -385,7 +431,7 @@ td:last-child, th:last-child { text-align: right; }
 @media (max-width: 900px) {
   .login-view { grid-template-columns: 1fr; }
   .cover { min-height: 380px; padding: 30px; }
-  .stats, .stats-four, .grid, .detail-grid, .inline-form { grid-template-columns: 1fr; }
+  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form { grid-template-columns: 1fr; }
   .section-head { align-items: stretch; flex-direction: column; }
   .section-head input { width: 100%; }
 }
@@ -395,7 +441,7 @@ td:last-child, th:last-child { text-align: right; }
   .cover h1 { font-size: 34px; }
   .login-card { width: calc(100% - 24px); padding: 22px; }
   .topbar { align-items: stretch; flex-direction: column; padding: 16px; }
-  .admin-panel, .member-panel { width: min(100% - 20px, 1200px); }
+  .admin-panel, .member-panel, .owner-panel { width: min(100% - 20px, 1200px); }
   .panel { padding: 18px; }
   .modal { padding: 10px; }
   th, td { padding: 12px; }
