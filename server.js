@@ -776,7 +776,8 @@ async function handleApi(req, res) {
     if (isStaff(user)) {
       const members = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
         const summary = memberSummary(db, member, uploadId);
-        return { ...publicUser(member), total: summary.total, calculated: summary.calculated, rowCount: summary.rows.length };
+        const publicMember = publicUser(member);
+        return { ...publicMember, numberCount: publicMember.numberRecords.length, total: summary.total, calculated: summary.calculated, rowCount: summary.rows.length };
       });
       const payload = { role: user.role, summary: adminSummary(db, uploadId, user.id), members, uploads, selectedUploadId: uploadId };
       if (user.role === "owner") {
