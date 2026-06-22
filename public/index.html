@@ -46,6 +46,40 @@
         <button class="ghost" id="logoutBtn" type="button">Cikis</button>
       </header>
 
+      <div class="owner-panel hidden" id="ownerPanel">
+        <section class="panel wide">
+          <div class="section-head">
+            <div>
+              <h2>Admin hesaplari</h2>
+              <p class="muted">Buradan admin acilir ve gerekirse sifresi yenilenir. Adminlerin Excel ve tipster icerikleri burada gorunmez.</p>
+            </div>
+          </div>
+          <div class="owner-grid">
+            <form class="panel" id="adminCreateForm">
+              <h2>Admin olustur</h2>
+              <label>
+                Admin adi
+                <input id="adminName" required placeholder="Orn. Ahmet Yilmaz">
+              </label>
+              <label>
+                Kullanici adi
+                <input id="adminUsername" required placeholder="orn. ahmetadmin">
+              </label>
+              <label>
+                Ilk sifre
+                <input id="adminPassword" type="password" autocomplete="new-password" minlength="8" required placeholder="En az 8 karakter">
+              </label>
+              <button class="primary" type="submit">Admin kaydet</button>
+              <div class="message" id="adminCreateMessage"></div>
+            </form>
+            <section class="panel">
+              <h2>Kayitli adminler</h2>
+              <div class="admin-list" id="adminRows"></div>
+            </section>
+          </div>
+        </section>
+      </div>
+
       <div class="admin-panel hidden" id="adminPanel">
         <section class="stats stats-four">
           <div class="stat">
