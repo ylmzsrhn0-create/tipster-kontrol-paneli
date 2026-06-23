@@ -255,10 +255,95 @@ input:focus, select:focus {
 
 .toolbar-panel label { width: min(100%, 360px); }
 
+.week-panel {
+  justify-content: flex-start;
+}
+
 .panel {
   padding: 22px;
   display: grid;
   gap: 15px;
+}
+
+.collapsible {
+  padding: 0;
+  display: block;
+  overflow: hidden;
+}
+
+.collapsible summary {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 22px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.collapsible summary::-webkit-details-marker { display: none; }
+
+.collapsible summary::after {
+  content: "+";
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #edf2f7;
+  color: var(--brand-dark);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.collapsible[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.collapsible[open] summary::after {
+  content: "-";
+}
+
+.collapsible summary strong {
+  display: block;
+  font-size: 18px;
+}
+
+.collapsible summary small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.collapsible summary b {
+  margin-left: auto;
+  color: var(--brand-dark);
+  font-size: 18px;
+}
+
+.collapsible-body {
+  padding: 22px;
+  display: grid;
+  gap: 15px;
+}
+
+.compact-body {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.collapsible-tools {
+  border-bottom: 1px solid var(--line);
+}
+
+.collapsible-table {
+  border-top: 0;
 }
 
 .inline-form {
@@ -274,6 +359,7 @@ input:focus, select:focus {
 }
 
 .wide h2 { padding: 22px 22px 0; }
+.wide.collapsible h2 { padding: 0; }
 
 .section-head {
   display: flex;
