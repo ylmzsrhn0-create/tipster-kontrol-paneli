@@ -108,8 +108,14 @@
         </section>
 
         <section class="grid">
-          <form class="panel" id="memberForm">
-            <h2>Tipster olustur</h2>
+          <details class="panel collapsible">
+            <summary>
+              <span>
+                <strong>Tipster olustur</strong>
+                <small>Yeni tipster hesabi ac</small>
+              </span>
+            </summary>
+            <form class="collapsible-body" id="memberForm">
             <label>
               Ad soyad
               <input id="memberName" required placeholder="Orn. Mehmet Kaya">
@@ -132,10 +138,17 @@
             </label>
             <button class="primary" type="submit">Tipster kaydet</button>
             <div class="message" id="memberMessage"></div>
-          </form>
+            </form>
+          </details>
 
-          <form class="panel" id="uploadForm">
-            <h2>Excel yukle</h2>
+          <details class="panel collapsible">
+            <summary>
+              <span>
+                <strong>Excel yukle</strong>
+                <small>Hafta veya donem dosyasi aktar</small>
+              </span>
+            </summary>
+            <form class="collapsible-body" id="uploadForm">
             <p class="muted">Her yukleme ayri hafta/donem olarak saklanir. Tipsterlar istedikleri haftayi secebilir.</p>
             <label>
               Hafta / donem adi
@@ -150,13 +163,20 @@
             <button class="danger" id="clearUploadsBtn" type="button">Tum Excel kayitlarini temizle</button>
             <div class="message" id="uploadMessage"></div>
             <div class="uploads" id="uploads"></div>
-          </form>
+            </form>
+          </details>
         </section>
 
-        <section class="panel">
-          <h2>Admin sifresini degistir</h2>
-          <p class="muted">Guvenlik icin sifrenizi belirli araliklarla yenileyin.</p>
-          <form class="inline-form" id="adminPasswordForm">
+        <details class="panel collapsible">
+          <summary>
+            <span>
+              <strong>Admin sifresini degistir</strong>
+              <small>Hesap guvenligi</small>
+            </span>
+          </summary>
+          <div class="collapsible-body">
+            <p class="muted">Guvenlik icin sifrenizi belirli araliklarla yenileyin.</p>
+            <form class="inline-form" id="adminPasswordForm">
             <label>
               Mevcut sifre
               <input id="currentAdminPassword" type="password" autocomplete="current-password" required>
@@ -166,16 +186,22 @@
               <input id="newAdminPassword" type="password" autocomplete="new-password" minlength="8" required>
             </label>
             <button class="primary" type="submit">Sifreyi guncelle</button>
-          </form>
-          <div class="message" id="passwordMessage"></div>
-        </section>
+            </form>
+            <div class="message" id="passwordMessage"></div>
+          </div>
+        </details>
 
-        <section class="panel wide">
-          <div class="section-head">
-            <h2>Tipster sonuclari</h2>
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Tipster sonuclari</strong>
+              <small>Uye, toplam ve komisyon listesi</small>
+            </span>
+          </summary>
+          <div class="section-head collapsible-tools">
             <input id="search" placeholder="Ara">
           </div>
-          <div class="table-wrap">
+          <div class="table-wrap collapsible-table">
             <table>
               <thead>
                 <tr>
@@ -192,7 +218,7 @@
               <tbody id="memberRows"></tbody>
             </table>
           </div>
-        </section>
+        </details>
       </div>
 
       <div class="member-panel hidden" id="memberPanel">
@@ -211,12 +237,22 @@
           </div>
         </section>
 
-        <section class="panel wide">
-          <div class="section-head">
-            <h2>Haftalik komisyon ozeti</h2>
-            <strong id="myRate">%-</strong>
-          </div>
-          <div class="table-wrap">
+        <section class="toolbar-panel week-panel">
+          <label>
+            Goruntulenen hafta
+            <select id="memberUploadSelect"></select>
+          </label>
+        </section>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Haftalik komisyon ozeti</strong>
+              <small>Numara bazli aktif/pasif ve komisyon</small>
+            </span>
+            <b id="myRate">%-</b>
+          </summary>
+          <div class="table-wrap collapsible-table">
             <table>
               <thead>
                 <tr>
@@ -231,14 +267,7 @@
               <tbody id="commissionRows"></tbody>
             </table>
           </div>
-        </section>
-
-        <section class="toolbar-panel">
-          <label>
-            Goruntulenen hafta
-            <select id="memberUploadSelect"></select>
-          </label>
-        </section>
+        </details>
 
         <section class="grid">
           <form class="panel" id="numberForm">
@@ -256,18 +285,28 @@
             <div class="message" id="numberMessage"></div>
           </form>
 
-          <section class="panel">
-            <div class="section-inline">
-              <h2>Kayitli numaralarim</h2>
+          <details class="panel collapsible">
+            <summary>
+              <span>
+                <strong>Kayitli numaralarim</strong>
+                <small>Kaydettigin isim ve numaralar</small>
+              </span>
+            </summary>
+            <div class="section-inline collapsible-body compact-body">
               <button class="ghost small" id="exportNumbersBtn" type="button">Excel indir</button>
             </div>
-            <div class="number-list" id="numberList"></div>
-          </section>
+            <div class="number-list collapsible-body compact-body" id="numberList"></div>
+          </details>
         </section>
 
-        <section class="panel wide">
-          <h2>Benim kayitlarim</h2>
-          <div class="table-wrap">
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Benim kayitlarim</strong>
+              <small>Secili haftada Excel eslesmeleri</small>
+            </span>
+          </summary>
+          <div class="table-wrap collapsible-table">
             <table>
               <thead>
                 <tr>
@@ -280,7 +319,7 @@
               <tbody id="myRows"></tbody>
             </table>
           </div>
-        </section>
+        </details>
       </div>
     </section>
 
