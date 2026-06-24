@@ -327,6 +327,13 @@ input:focus, select:focus {
   font-size: 18px;
 }
 
+.summary-action {
+  margin-left: auto;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
 .collapsible-body {
   padding: 22px;
   display: grid;
@@ -567,6 +574,8 @@ td:last-child, th:last-child { text-align: right; }
   .topbar { align-items: stretch; flex-direction: column; padding: 16px; }
   .admin-panel, .member-panel, .owner-panel { width: min(100% - 20px, 1200px); }
   .section-inline { align-items: stretch; flex-direction: column; }
+  .collapsible summary { align-items: stretch; flex-wrap: wrap; }
+  .summary-action { width: 100%; margin-left: 0; }
   .panel { padding: 18px; }
   .modal { padding: 10px; }
   th, td { padding: 12px; }
