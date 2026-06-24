@@ -428,7 +428,9 @@ document.getElementById("numberList").addEventListener("click", async event => {
   await loadDashboard();
 });
 
-document.getElementById("exportNumbersBtn").addEventListener("click", () => {
+document.getElementById("exportNumbersBtn").addEventListener("click", event => {
+  event.preventDefault();
+  event.stopPropagation();
   const query = selectedUploadId ? `?uploadId=${encodeURIComponent(selectedUploadId)}` : "";
   window.location.href = `/api/my-numbers/export${query}`;
 });
