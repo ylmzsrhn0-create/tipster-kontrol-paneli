@@ -3,6 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const zlib = require("zlib");
+const net = require("net");
+const tls = require("tls");
 
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
@@ -12,6 +14,14 @@ const PORT = Number(process.env.PORT || 3000);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
 const TRUST_PROXY = process.env.TRUST_PROXY === "1";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
+const OTP_TTL_MS = 1000 * 60 * 5;
+const OTP_ENABLED = process.env.EMAIL_OTP_ENABLED === "1";
+const OTP_EMAIL = String(process.env.ADMIN_OTP_EMAIL || "").trim();
+const SMTP_HOST = String(process.env.SMTP_HOST || "").trim();
+const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+const SMTP_USER = String(process.env.SMTP_USER || "").trim();
+const SMTP_PASS = String(process.env.SMTP_PASS || "");
+const SMTP_FROM = String(process.env.SMTP_FROM || SMTP_USER || "").trim();
 
 fs.mkdirSync(DATA, { recursive: true });
 
@@ -107,6 +117,7 @@ function normalizeDb(db) {
 }
 
 const sessions = new Map();
+const pendingOtps = new Map();
 
 function parseCookies(req) {
   const out = {};
@@ -143,6 +154,123 @@ function setSession(res, user) {
   const secure = TRUST_PROXY ? "; Secure" : "";
   res.setHeader("Set-Cookie", `sid=${sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${secure}`);
   return csrf;
+}
+
+function emailOtpConfigured() {
+  return OTP_ENABLED && OTP_EMAIL && SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && SMTP_FROM;
+}
+
+function maskEmail(email) {
+  const [name, domain] = String(email || "").split("@");
+  if (!name || !domain) return "kayitli e-posta";
+  const visible = name.length <= 2 ? name[0] : `${name.slice(0, 2)}***`;
+  return `${visible}@${domain}`;
+}
+
+function createOtpLogin(user) {
+  const loginToken = crypto.randomBytes(32).toString("hex");
+  const code = String(crypto.randomInt(100000, 1000000));
+  pendingOtps.set(loginToken, {
+    userId: user.id,
+    codeHash: hashPassword(code),
+    expiresAt: Date.now() + OTP_TTL_MS,
+    attempts: 0
+  });
+  return { loginToken, code };
+}
+
+function cleanupOtps() {
+  const now = Date.now();
+  for (const [token, otp] of pendingOtps.entries()) {
+    if (otp.expiresAt < now) pendingOtps.delete(token);
+  }
+}
+
+function smtpRead(socket) {
+  return new Promise((resolve, reject) => {
+    let buffer = "";
+    const onData = chunk => {
+      buffer += chunk.toString("utf8");
+      const lines = buffer.split(/\r?\n/).filter(Boolean);
+      const last = lines[lines.length - 1] || "";
+      if (/^\d{3} /.test(last)) {
+        socket.off("data", onData);
+        socket.off("error", onError);
+        resolve(buffer);
+      }
+    };
+    const onError = error => {
+      socket.off("data", onData);
+      reject(error);
+    };
+    socket.on("data", onData);
+    socket.on("error", onError);
+  });
+}
+
+async function smtpCommand(socket, command, expected = /^[23]/) {
+  socket.write(`${command}\r\n`);
+  const response = await smtpRead(socket);
+  if (!expected.test(response)) throw new Error(response.trim());
+  return response;
+}
+
+function smtpConnect() {
+  return new Promise((resolve, reject) => {
+    const options = { host: SMTP_HOST, port: SMTP_PORT, servername: SMTP_HOST };
+    const socket = SMTP_PORT === 465 ? tls.connect(options) : net.connect(options);
+    socket.setTimeout(15000);
+    socket.once("error", reject);
+    socket.once("timeout", () => reject(new Error("SMTP zaman asimi.")));
+    if (SMTP_PORT === 465) socket.once("secureConnect", () => resolve(socket));
+    else socket.once("connect", () => resolve(socket));
+  });
+}
+
+function smtpStartTls(socket) {
+  return new Promise((resolve, reject) => {
+    const secureSocket = tls.connect({ socket, servername: SMTP_HOST });
+    secureSocket.once("secureConnect", () => resolve(secureSocket));
+    secureSocket.once("error", reject);
+  });
+}
+
+function emailMessage(to, subject, text) {
+  return [
+    `From: ${SMTP_FROM}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=utf-8",
+    "",
+    text
+  ].join("\r\n");
+}
+
+async function sendOtpEmail(code) {
+  let socket = await smtpConnect();
+  try {
+    await smtpRead(socket);
+    await smtpCommand(socket, `EHLO ${SMTP_HOST}`);
+    if (SMTP_PORT !== 465) {
+      await smtpCommand(socket, "STARTTLS");
+      socket = await smtpStartTls(socket);
+      await smtpCommand(socket, `EHLO ${SMTP_HOST}`);
+    }
+    await smtpCommand(socket, "AUTH LOGIN", /^3/);
+    await smtpCommand(socket, Buffer.from(SMTP_USER).toString("base64"), /^3/);
+    await smtpCommand(socket, Buffer.from(SMTP_PASS).toString("base64"));
+    await smtpCommand(socket, `MAIL FROM:<${SMTP_FROM}>`);
+    await smtpCommand(socket, `RCPT TO:<${OTP_EMAIL}>`);
+    await smtpCommand(socket, "DATA", /^3/);
+    const text = `Tipster Kontrol Paneli admin giris kodunuz: ${code}\n\nBu kod 5 dakika gecerlidir. Bu istegi siz yapmadiysaniz sifrenizi degistirin.`;
+    socket.write(`${emailMessage(OTP_EMAIL, "Tipster Kontrol Paneli giris kodu", text)}\r\n.\r\n`);
+    const dataResponse = await smtpRead(socket);
+    if (!/^[23]/.test(dataResponse)) throw new Error(dataResponse.trim());
+    await smtpCommand(socket, "QUIT").catch(() => {});
+  } finally {
+    socket.end();
+  }
 }
 
 function clearSession(req, res) {
@@ -660,6 +788,33 @@ async function handleApi(req, res) {
       sendJson(res, 401, { error: "Kullanıcı adı veya şifre hatalı." });
       return;
     }
+    const loginType = String(body.loginType || "");
+    if (loginType === "admin" && !isStaff(user)) {
+      sendJson(res, 401, { error: "Bu hesap admin hesabi degil." });
+      return;
+    }
+    if (loginType === "member" && user.role !== "member") {
+      sendJson(res, 401, { error: "Bu hesap tipster hesabi degil." });
+      return;
+    }
+    if (isStaff(user) && emailOtpConfigured()) {
+      cleanupOtps();
+      const { loginToken, code } = createOtpLogin(user);
+      try {
+        await sendOtpEmail(code);
+      } catch (error) {
+        pendingOtps.delete(loginToken);
+        sendJson(res, 500, { error: "E-posta kodu gonderilemedi. Mail ayarlarini kontrol edin." });
+        return;
+      }
+      sendJson(res, 200, {
+        requiresOtp: true,
+        loginToken,
+        email: maskEmail(OTP_EMAIL),
+        message: "Giris kodu e-posta adresine gonderildi."
+      });
+      return;
+    }
     const csrf = setSession(res, user);
     sendJson(res, 200, { csrf, user: publicUser(user) });
     return;
@@ -668,6 +823,38 @@ async function handleApi(req, res) {
   if (req.method === "POST" && url.pathname === "/api/logout") {
     clearSession(req, res);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/login/verify") {
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    cleanupOtps();
+    const token = String(body.loginToken || "");
+    const code = String(body.code || "").trim();
+    const pending = pendingOtps.get(token);
+    if (!pending || !/^\d{6}$/.test(code)) {
+      sendJson(res, 400, { error: "Kod hatali veya suresi dolmus." });
+      return;
+    }
+    pending.attempts += 1;
+    if (pending.attempts > 5) {
+      pendingOtps.delete(token);
+      sendJson(res, 400, { error: "Cok fazla hatali deneme yapildi. Tekrar giris yapin." });
+      return;
+    }
+    if (!verifyPassword(code, pending.codeHash)) {
+      sendJson(res, 400, { error: "Onay kodu hatali." });
+      return;
+    }
+    const user = db.users.find(item => item.id === pending.userId && isStaff(item));
+    if (!user) {
+      pendingOtps.delete(token);
+      sendJson(res, 400, { error: "Giris gecersiz." });
+      return;
+    }
+    pendingOtps.delete(token);
+    const csrf = setSession(res, user);
+    sendJson(res, 200, { csrf, user: publicUser(user) });
     return;
   }
 
