@@ -16,7 +16,7 @@ const TRUST_PROXY = process.env.TRUST_PROXY === "1";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 const OTP_TTL_MS = 1000 * 60 * 5;
 const OTP_ENABLED = process.env.EMAIL_OTP_ENABLED === "1";
-const OTP_EMAIL = String(process.env.ADMIN_OTP_EMAIL || "").trim();
+const FALLBACK_OTP_EMAIL = String(process.env.ADMIN_OTP_EMAIL || "").trim();
 const SMTP_HOST = String(process.env.SMTP_HOST || "").trim();
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_USER = String(process.env.SMTP_USER || "").trim();
@@ -51,6 +51,7 @@ function defaultDb() {
         role: "owner",
         username: "admin",
         name: "Ana Admin",
+        email: "",
         gsmMasked: "",
         percentage: 0,
         passwordHash: hashPassword(ADMIN_PASSWORD),
@@ -106,6 +107,7 @@ function normalizeDb(db) {
   const rowUploadIds = new Set(db.rows.map(row => row.uploadId).filter(Boolean));
   db.uploads = db.uploads.filter(upload => rowUploadIds.has(upload.id));
   db.users.forEach(user => {
+    if (isStaff(user)) user.email = normalizeEmail(user.email);
     if (user.role === "member" && !user.ownerId) user.ownerId = ownerId;
     if (user.role === "admin" && !user.createdBy) user.createdBy = ownerId;
     const records = getUserNumberRecords(user);
@@ -156,8 +158,20 @@ function setSession(res, user) {
   return csrf;
 }
 
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function validEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ""));
+}
+
+function otpRecipientFor(user) {
+  return normalizeEmail(user?.email) || FALLBACK_OTP_EMAIL;
+}
+
 function emailOtpConfigured() {
-  return OTP_ENABLED && OTP_EMAIL && SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && SMTP_FROM;
+  return OTP_ENABLED && SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && SMTP_FROM;
 }
 
 function maskEmail(email) {
@@ -247,7 +261,7 @@ function emailMessage(to, subject, text) {
   ].join("\r\n");
 }
 
-async function sendOtpEmail(code) {
+async function sendOtpEmail(to, code) {
   let socket = await smtpConnect();
   try {
     await smtpRead(socket);
@@ -261,10 +275,10 @@ async function sendOtpEmail(code) {
     await smtpCommand(socket, Buffer.from(SMTP_USER).toString("base64"), /^3/);
     await smtpCommand(socket, Buffer.from(SMTP_PASS).toString("base64"));
     await smtpCommand(socket, `MAIL FROM:<${SMTP_FROM}>`);
-    await smtpCommand(socket, `RCPT TO:<${OTP_EMAIL}>`);
+    await smtpCommand(socket, `RCPT TO:<${to}>`);
     await smtpCommand(socket, "DATA", /^3/);
     const text = `Tipster Kontrol Paneli admin giris kodunuz: ${code}\n\nBu kod 5 dakika gecerlidir. Bu istegi siz yapmadiysaniz sifrenizi degistirin.`;
-    socket.write(`${emailMessage(OTP_EMAIL, "Tipster Kontrol Paneli giris kodu", text)}\r\n.\r\n`);
+    socket.write(`${emailMessage(to, "Tipster Kontrol Paneli giris kodu", text)}\r\n.\r\n`);
     const dataResponse = await smtpRead(socket);
     if (!/^[23]/.test(dataResponse)) throw new Error(dataResponse.trim());
     await smtpCommand(socket, "QUIT").catch(() => {});
@@ -354,6 +368,7 @@ function publicUser(user) {
     role: user.role,
     username: user.username,
     name: user.name,
+    email: isStaff(user) ? normalizeEmail(user.email) : "",
     gsmMasked: user.gsmMasked,
     gsmList,
     numberRecords,
@@ -368,6 +383,7 @@ function publicAdmin(user) {
     id: user.id,
     username: user.username,
     name: user.name,
+    email: normalizeEmail(user.email),
     role: user.role,
     createdAt: user.createdAt
   };
@@ -798,10 +814,15 @@ async function handleApi(req, res) {
       return;
     }
     if (isStaff(user) && emailOtpConfigured()) {
+      const otpEmail = otpRecipientFor(user);
+      if (!validEmail(otpEmail)) {
+        sendJson(res, 400, { error: "Admin e-posta adresi tanimli degil." });
+        return;
+      }
       cleanupOtps();
       const { loginToken, code } = createOtpLogin(user);
       try {
-        await sendOtpEmail(code);
+        await sendOtpEmail(otpEmail, code);
       } catch (error) {
         pendingOtps.delete(loginToken);
         sendJson(res, 500, { error: "E-posta kodu gonderilemedi. Mail ayarlarini kontrol edin." });
@@ -810,7 +831,7 @@ async function handleApi(req, res) {
       sendJson(res, 200, {
         requiresOtp: true,
         loginToken,
-        email: maskEmail(OTP_EMAIL),
+        email: maskEmail(otpEmail),
         message: "Giris kodu e-posta adresine gonderildi."
       });
       return;
@@ -890,6 +911,22 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/admin/email") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const user = db.users.find(item => item.id === session.userId);
+    const email = normalizeEmail(body.email);
+    if (!validEmail(email)) {
+      sendJson(res, 400, { error: "Gecerli bir e-posta adresi girin." });
+      return;
+    }
+    user.email = email;
+    writeDb(db);
+    sendJson(res, 200, { ok: true, user: publicUser(user) });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/admins") {
     const session = requireAuth(req, res, "owner");
     if (!session) return;
@@ -966,7 +1003,7 @@ async function handleApi(req, res) {
         const publicMember = publicUser(member);
         return { ...publicMember, numberCount: publicMember.numberRecords.length, total: summary.total, calculated: summary.calculated, rowCount: summary.rows.length };
       });
-      const payload = { role: user.role, summary: adminSummary(db, uploadId, user.id), members, uploads, selectedUploadId: uploadId };
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, selectedUploadId: uploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
       }
