@@ -4,6 +4,8 @@ let selectedLoginType = "admin";
 let selectedUploadId = "";
 let detailMemberId = "";
 let detailUploadId = "";
+let pendingLoginToken = "";
+let pendingLoginType = "";
 
 const loginView = document.getElementById("loginView");
 const appView = document.getElementById("appView");
@@ -58,6 +60,17 @@ function showLogin() {
   adminPanel.classList.add("hidden");
   memberPanel.classList.add("hidden");
   detailModal.classList.add("hidden");
+}
+
+function resetOtpLogin() {
+  pendingLoginToken = "";
+  pendingLoginType = "";
+  document.getElementById("otpPanel").classList.add("hidden");
+  document.getElementById("otpCode").required = false;
+  document.getElementById("otpCode").value = "";
+  document.getElementById("username").disabled = false;
+  document.getElementById("password").disabled = false;
+  document.querySelectorAll("[data-login-type]").forEach(item => item.disabled = false);
 }
 
 function uploadLabel(upload) {
@@ -235,6 +248,7 @@ document.querySelectorAll("[data-login-type]").forEach(button => {
     document.querySelectorAll("[data-login-type]").forEach(item => item.classList.remove("active"));
     button.classList.add("active");
     setMessage("loginMessage", "");
+    resetOtpLogin();
     loginHint.textContent = selectedLoginType === "admin"
       ? "Admin hesabi icin size verilen guvenli sifreyi kullanin."
       : "Tipster girisi icin adminin olusturdugu kullanici adi ve sifre kullanilir.";
@@ -247,14 +261,52 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
   event.preventDefault();
   setMessage("loginMessage", "");
   try {
+    if (pendingLoginToken) {
+      const data = await api("/api/login/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loginToken: pendingLoginToken,
+          code: document.getElementById("otpCode").value.trim()
+        })
+      });
+
+      const loginMatches = pendingLoginType === "admin"
+        ? (data.user.role === "admin" || data.user.role === "owner")
+        : data.user.role === "member";
+      if (!loginMatches) throw new Error("Giris tipi hatali.");
+
+      csrfToken = data.csrf;
+      selectedUploadId = "";
+      resetOtpLogin();
+      showApp(data.user);
+      await loadDashboard("");
+      return;
+    }
+
     const data = await api("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         username: document.getElementById("username").value.trim(),
-        password: document.getElementById("password").value
+        password: document.getElementById("password").value,
+        loginType: selectedLoginType
       })
     });
+
+    if (data.requiresOtp) {
+      pendingLoginToken = data.loginToken;
+      pendingLoginType = selectedLoginType;
+      document.getElementById("otpPanel").classList.remove("hidden");
+      document.getElementById("otpCode").required = true;
+      document.getElementById("username").disabled = true;
+      document.getElementById("password").disabled = true;
+      document.querySelectorAll("[data-login-type]").forEach(item => item.disabled = true);
+      document.getElementById("otpHint").textContent = `${data.email || "kayitli e-posta"} adresine gelen 6 haneli kodu gir.`;
+      document.getElementById("otpCode").focus();
+      setMessage("loginMessage", data.message || "Giris kodu e-posta adresine gonderildi.", true);
+      return;
+    }
 
     const loginMatches = selectedLoginType === "admin"
       ? (data.user.role === "admin" || data.user.role === "owner")
@@ -271,6 +323,11 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
   } catch (error) {
     setMessage("loginMessage", error.message);
   }
+});
+
+document.getElementById("restartLoginBtn").addEventListener("click", () => {
+  resetOtpLogin();
+  setMessage("loginMessage", "");
 });
 
 document.getElementById("adminCreateForm").addEventListener("submit", async event => {
