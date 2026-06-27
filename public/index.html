@@ -32,6 +32,14 @@
           Sifre
           <input id="password" type="password" autocomplete="current-password" required>
         </label>
+        <div class="otp-panel hidden" id="otpPanel">
+          <p id="otpHint">E-posta adresine gelen 6 haneli kodu gir.</p>
+          <label>
+            E-posta onay kodu
+            <input id="otpCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6 haneli kod">
+          </label>
+          <button class="ghost" id="restartLoginBtn" type="button">Bilgileri yeniden gir</button>
+        </div>
         <button class="primary" type="submit">Giris yap</button>
         <div class="message" id="loginMessage"></div>
       </form>
