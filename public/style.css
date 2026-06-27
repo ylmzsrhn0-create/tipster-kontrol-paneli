@@ -166,6 +166,15 @@ input:focus, select:focus {
   font-weight: 800;
 }
 
+.otp-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
 .app-view { min-height: 100vh; }
 
 .topbar {
