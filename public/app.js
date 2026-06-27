@@ -102,6 +102,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   adminPanel.classList.remove("hidden");
   memberPanel.classList.add("hidden");
   renderUploadSelect("adminUploadSelect", data.uploads, data.selectedUploadId);
+  document.getElementById("adminEmail").value = data.currentAdmin?.email || "";
   document.getElementById("memberCount").textContent = data.summary.memberCount;
   document.getElementById("rowCount").textContent = data.summary.rowCount;
   document.getElementById("totalAmount").textContent = money.format(data.summary.totalAmount);
@@ -454,6 +455,24 @@ document.getElementById("adminPasswordForm").addEventListener("submit", async ev
     setMessage("passwordMessage", "Admin sifresi guncellendi.", true);
   } catch (error) {
     setMessage("passwordMessage", error.message);
+  }
+});
+
+document.getElementById("adminEmailForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  setMessage("emailMessage", "");
+  try {
+    await api("/api/admin/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: document.getElementById("adminEmail").value
+      })
+    });
+    setMessage("emailMessage", "Admin e-posta adresi kaydedildi.", true);
+    await loadDashboard(selectedUploadId);
+  } catch (error) {
+    setMessage("emailMessage", error.message);
   }
 });
 
