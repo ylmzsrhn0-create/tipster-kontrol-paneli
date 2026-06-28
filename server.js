@@ -166,6 +166,31 @@ function validEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ""));
 }
 
+function dateOnly(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10);
+  return date.toISOString().slice(0, 10);
+}
+
+function addYearsDateOnly(value, years) {
+  const date = new Date(`${dateOnly(value)}T00:00:00Z`);
+  date.setUTCFullYear(date.getUTCFullYear() + years);
+  return date.toISOString().slice(0, 10);
+}
+
+function validDateOnly(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return false;
+  return !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime());
+}
+
+function defaultAccessStartsAt(user) {
+  return user.accessStartsAt || dateOnly(user.createdAt);
+}
+
+function defaultAccessEndsAt(user) {
+  return user.accessEndsAt || addYearsDateOnly(defaultAccessStartsAt(user), 1);
+}
+
 function otpRecipientFor(user) {
   return normalizeEmail(user?.email) || FALLBACK_OTP_EMAIL;
 }
@@ -374,7 +399,9 @@ function publicUser(user) {
     numberRecords,
     percentage: user.percentage,
     ownerId: user.ownerId,
-    createdAt: user.createdAt
+    createdAt: user.createdAt,
+    accessStartsAt: isStaff(user) ? defaultAccessStartsAt(user) : "",
+    accessEndsAt: isStaff(user) ? defaultAccessEndsAt(user) : ""
   };
 }
 
@@ -385,7 +412,9 @@ function publicAdmin(user) {
     name: user.name,
     email: normalizeEmail(user.email),
     role: user.role,
-    createdAt: user.createdAt
+    createdAt: user.createdAt,
+    accessStartsAt: defaultAccessStartsAt(user),
+    accessEndsAt: defaultAccessEndsAt(user)
   };
 }
 
@@ -986,6 +1015,8 @@ async function handleApi(req, res) {
     const password = String(body.password || "");
     const name = String(body.name || "").trim();
     const email = normalizeEmail(body.email);
+    const accessStartsAt = String(body.accessStartsAt || "").trim();
+    const accessEndsAt = String(body.accessEndsAt || "").trim();
     if (!name || !username || password.length < 8) {
       sendJson(res, 400, { error: "Ad, kullanici adi ve en az 8 haneli sifre gerekli." });
       return;
@@ -998,12 +1029,22 @@ async function handleApi(req, res) {
       sendJson(res, 400, { error: "Bu kullanici adi zaten var." });
       return;
     }
+    if (!validDateOnly(accessStartsAt) || !validDateOnly(accessEndsAt)) {
+      sendJson(res, 400, { error: "Kullanim baslangic ve bitis tarihlerini secin." });
+      return;
+    }
+    if (new Date(`${accessEndsAt}T00:00:00Z`) < new Date(`${accessStartsAt}T00:00:00Z`)) {
+      sendJson(res, 400, { error: "Kullanim bitisi baslangictan once olamaz." });
+      return;
+    }
     const admin = {
       id: crypto.randomUUID(),
       role: "admin",
       username,
       name,
       email,
+      accessStartsAt,
+      accessEndsAt,
       gsmMasked: "",
       percentage: 0,
       passwordHash: hashPassword(password),
