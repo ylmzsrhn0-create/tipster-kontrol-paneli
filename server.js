@@ -396,6 +396,25 @@ function numberFrom(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function normalizeSearchText(value) {
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("tr")
+    .replaceAll("ı", "i")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function isBonusDisiKuponOynama(value) {
+  return normalizeSearchText(value) === "bonus disi kupon oynama";
+}
+
 function normalizeGsm(value) {
   return String(value ?? "").trim().replace(/\s+/g, "");
 }
@@ -549,14 +568,16 @@ function parseExcel(buffer) {
   const { sheetName, target } = parseWorkbook(entries);
   const rows = parseSheetRows(entries.get(target), sharedStrings);
   const headers = rows.shift() || [];
-  const gsmIndex = headers.findIndex(h => String(h).trim().toLocaleUpperCase("tr") === "OYUNCU GSM");
-  const totalIndex = headers.findIndex(h => String(h).trim().toLocaleUpperCase("tr") === "TOPLAM TUTAR");
-  const typeIndex = headers.findIndex(h => String(h).trim().toLocaleUpperCase("tr") === "İŞLEM TİPİ");
-  if (gsmIndex === -1 || totalIndex === -1) {
-    throw new Error("Excel içinde OYUNCU GSM ve TOPLAM TUTAR başlıkları bulunmalı.");
+  const normalizedHeaders = headers.map(normalizeSearchText);
+  const gsmIndex = normalizedHeaders.findIndex(h => h === "oyuncu gsm");
+  const totalIndex = normalizedHeaders.findIndex(h => h === "toplam tutar");
+  const typeIndex = normalizedHeaders.findIndex(h => h === "islem tipi");
+  if (gsmIndex === -1 || totalIndex === -1 || typeIndex === -1) {
+    throw new Error("Excel icinde OYUNCU GSM, TOPLAM TUTAR ve ISLEM TIPI basliklari bulunmali.");
   }
   return rows
     .filter(row => normalizeGsm(row[gsmIndex]))
+    .filter(row => isBonusDisiKuponOynama(row[typeIndex]))
     .map(row => ({
       id: crypto.randomUUID(),
       gsmMasked: normalizeGsm(row[gsmIndex]),
@@ -592,7 +613,8 @@ function parseMultipart(buffer, contentType) {
 }
 
 function selectedRows(db, uploadId, ownerId) {
-  const rows = ownerId ? db.rows.filter(row => row.ownerId === ownerId) : db.rows;
+  const rows = (ownerId ? db.rows.filter(row => row.ownerId === ownerId) : db.rows)
+    .filter(row => isBonusDisiKuponOynama(row.processType));
   if (!uploadId || uploadId === "all") return rows;
   return rows.filter(row => row.uploadId === uploadId);
 }
