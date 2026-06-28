@@ -175,6 +175,8 @@ function renderAdmin(data, keepOwnerPanel = false) {
   document.getElementById("totalAmount").textContent = money.format(data.summary.totalAmount);
   document.getElementById("totalCommission").textContent = money.format(data.summary.totalCommission || 0);
   renderMembers();
+  renderMessageRecipients(data.members || []);
+  renderAdminMessages(data.messages || []);
   document.getElementById("uploads").innerHTML = data.uploads.map(upload => `
     <div class="upload-item">
       <strong>${escapeHtml(upload.weekLabel || upload.filename)}</strong><br>
@@ -230,6 +232,46 @@ function renderMembers() {
   `).join("") || `<tr><td colspan="8">Tipster bulunamadi.</td></tr>`;
 }
 
+function renderMessageRecipients(members) {
+  const list = document.getElementById("messageRecipients");
+  const allChecked = document.getElementById("messageAllMembers").checked;
+  list.classList.toggle("disabled", allChecked);
+  list.innerHTML = members.map(member => `
+    <label class="recipient-item">
+      <input type="checkbox" value="${member.id}" ${allChecked ? "disabled" : ""}>
+      <span>
+        <strong>${escapeHtml(member.name)}</strong>
+        <small>${escapeHtml(member.username)}</small>
+      </span>
+    </label>
+  `).join("") || `<p class="muted">Once tipster olusturun.</p>`;
+}
+
+function renderAdminMessages(messages) {
+  document.getElementById("adminMessageRows").innerHTML = messages.map(message => `
+    <article class="message-card">
+      <div class="message-card-head">
+        <div>
+          <strong>${escapeHtml(message.title)}</strong>
+          <span>${new Date(message.createdAt).toLocaleString("tr-TR")} - ${message.targetType === "all" ? "Tum tipsterlar" : "Secili tipsterlar"}</span>
+        </div>
+        <div class="message-counts">
+          <b>${message.readCount} okundu</b>
+          <b class="${message.unreadCount ? "unread" : ""}">${message.unreadCount} okunmadi</b>
+        </div>
+      </div>
+      <p>${escapeHtml(message.body)}</p>
+      <div class="read-grid">
+        ${message.recipients.map(recipient => `
+          <span class="read-pill ${recipient.readAt ? "read" : "unread"}">
+            ${escapeHtml(recipient.name)} - ${recipient.readAt ? "Okundu" : "Okunmadi"}
+          </span>
+        `).join("")}
+      </div>
+    </article>
+  `).join("") || `<p class="muted">Henuz mesaj gonderilmedi.</p>`;
+}
+
 function renderMember(data) {
   currentDashboard = data;
   selectedUploadId = data.selectedUploadId;
@@ -244,6 +286,29 @@ function renderMember(data) {
   renderCommissionRows(data.numberSummaries || []);
   renderNumbers(numbers);
   renderMyRows(data.rows || []);
+  renderMemberMessages(data.messages || []);
+}
+
+function renderMemberMessages(messages) {
+  const panel = document.getElementById("memberMessagesPanel");
+  const unreadCount = messages.filter(message => message.unread).length;
+  document.getElementById("memberMessageSummary").textContent = messages.length
+    ? `${unreadCount} okunmamis, ${messages.length} toplam mesaj`
+    : "Mesaj bulunmuyor";
+  if (unreadCount) panel.open = true;
+  document.getElementById("memberMessageRows").innerHTML = messages.map(message => `
+    <article class="message-card ${message.unread ? "is-unread" : ""}">
+      <div class="message-card-head">
+        <div>
+          <strong>${escapeHtml(message.title)}</strong>
+          <span>${escapeHtml(message.senderName)} - ${new Date(message.createdAt).toLocaleString("tr-TR")}</span>
+        </div>
+        <span class="status-pill ${message.unread ? "passive" : "active"}">${message.unread ? "Okunmadi" : "Okundu"}</span>
+      </div>
+      <p>${escapeHtml(message.body)}</p>
+      ${message.unread ? `<button class="primary small" data-message-read="${message.id}" type="button">Okudum</button>` : `<span class="muted">Okuma zamani: ${new Date(message.readAt).toLocaleString("tr-TR")}</span>`}
+    </article>
+  `).join("") || `<p class="muted">Henuz mesaj yok.</p>`;
 }
 
 function renderMyRows(rows) {
@@ -575,6 +640,35 @@ document.getElementById("adminEmailForm").addEventListener("submit", async event
   }
 });
 
+document.getElementById("messageAllMembers").addEventListener("change", () => {
+  renderMessageRecipients(currentDashboard?.members || []);
+});
+
+document.getElementById("messageForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  setMessage("messageSendMessage", "");
+  const allMembers = document.getElementById("messageAllMembers").checked;
+  const recipientIds = Array.from(document.querySelectorAll("#messageRecipients input:checked")).map(input => input.value);
+  try {
+    await api("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: document.getElementById("messageTitle").value,
+        body: document.getElementById("messageBody").value,
+        targetType: allMembers ? "all" : "selected",
+        recipientIds
+      })
+    });
+    event.target.reset();
+    document.getElementById("messageAllMembers").checked = true;
+    setMessage("messageSendMessage", "Mesaj gonderildi.", true);
+    await loadDashboard(selectedUploadId);
+  } catch (error) {
+    setMessage("messageSendMessage", error.message);
+  }
+});
+
 document.getElementById("memberPasswordForm").addEventListener("submit", async event => {
   event.preventDefault();
   setMessage("memberPasswordMessage", "");
@@ -627,6 +721,17 @@ document.getElementById("exportNumbersBtn").addEventListener("click", event => {
   event.stopPropagation();
   const query = selectedUploadId ? `?uploadId=${encodeURIComponent(selectedUploadId)}` : "";
   window.location.href = `/api/my-numbers/export${query}`;
+});
+
+document.getElementById("memberMessageRows").addEventListener("click", async event => {
+  const button = event.target.closest("button[data-message-read]");
+  if (!button) return;
+  try {
+    await api(`/api/messages/${encodeURIComponent(button.dataset.messageRead)}/read`, { method: "POST" });
+    await loadDashboard(selectedUploadId);
+  } catch (error) {
+    setMessage("memberPasswordMessage", error.message);
+  }
 });
 
 document.getElementById("adminUploadSelect").addEventListener("change", event => loadDashboard(event.target.value));
