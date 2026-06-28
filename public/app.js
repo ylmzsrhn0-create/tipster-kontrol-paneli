@@ -415,7 +415,7 @@ document.getElementById("uploadForm").addEventListener("submit", async event => 
     const data = await api("/api/upload", { method: "POST", body: form });
     event.target.reset();
     selectedUploadId = data.uploadId;
-    setMessage("uploadMessage", `${data.uploads.length} Excel aktarildi, toplam ${data.rowCount} satir islendi.`, true);
+    setMessage("uploadMessage", `${data.uploads.length} Excel aktarildi, Bonus Disi Kupon Oynama icin ${data.rowCount} satir islendi.`, true);
     await loadDashboard(data.uploadId);
   } catch (error) {
     setMessage("uploadMessage", error.message);
