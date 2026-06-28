@@ -14,6 +14,7 @@ const ownerPanel = document.getElementById("ownerPanel");
 const memberPanel = document.getElementById("memberPanel");
 const loginHint = document.getElementById("loginHint");
 const detailModal = document.getElementById("memberDetailModal");
+const notificationBadge = document.getElementById("notificationBadge");
 
 const money = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
 
@@ -60,6 +61,8 @@ function showLogin() {
   adminPanel.classList.add("hidden");
   memberPanel.classList.add("hidden");
   detailModal.classList.add("hidden");
+  notificationBadge.classList.add("hidden");
+  document.title = "Tipster Kontrol Paneli";
 }
 
 function resetOtpLogin() {
@@ -167,6 +170,8 @@ function renderAdmin(data, keepOwnerPanel = false) {
   if (!keepOwnerPanel) ownerPanel.classList.add("hidden");
   adminPanel.classList.remove("hidden");
   memberPanel.classList.add("hidden");
+  notificationBadge.classList.add("hidden");
+  document.title = "Tipster Kontrol Paneli";
   renderAdminPeriod(data.currentAdmin);
   renderUploadSelect("adminUploadSelect", data.uploads, data.selectedUploadId);
   document.getElementById("adminEmail").value = data.currentAdmin?.email || "";
@@ -292,6 +297,9 @@ function renderMember(data) {
 function renderMemberMessages(messages) {
   const panel = document.getElementById("memberMessagesPanel");
   const unreadCount = messages.filter(message => message.unread).length;
+  notificationBadge.classList.toggle("hidden", unreadCount === 0);
+  notificationBadge.textContent = unreadCount ? `${unreadCount} yeni mesaj` : "Yeni mesaj";
+  document.title = unreadCount ? `(${unreadCount}) Tipster Kontrol Paneli` : "Tipster Kontrol Paneli";
   document.getElementById("memberMessageSummary").textContent = messages.length
     ? `${unreadCount} okunmamis, ${messages.length} toplam mesaj`
     : "Mesaj bulunmuyor";
@@ -800,3 +808,8 @@ api("/api/me").then(async data => {
   showApp(data.user);
   await loadDashboard("");
 }).catch(() => {});
+
+setInterval(() => {
+  if (currentDashboard?.role !== "member" || document.hidden) return;
+  loadDashboard(selectedUploadId).catch(() => {});
+}, 60000);
