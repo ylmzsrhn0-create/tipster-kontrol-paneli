@@ -162,6 +162,7 @@ function renderMembers() {
 }
 
 function renderMember(data) {
+  currentDashboard = data;
   selectedUploadId = data.selectedUploadId;
   adminPanel.classList.add("hidden");
   memberPanel.classList.remove("hidden");
