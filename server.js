@@ -59,7 +59,8 @@ function defaultDb() {
       }
     ],
     rows: [],
-    uploads: []
+    uploads: [],
+    messages: []
   };
 }
 
@@ -80,6 +81,7 @@ function normalizeDb(db) {
   db.users ||= [];
   db.rows ||= [];
   db.uploads ||= [];
+  db.messages ||= [];
   let owner = db.users.find(user => user.role === "owner");
   if (!owner) {
     owner = db.users.find(user => user.role === "admin" && user.username === "admin") || db.users.find(user => user.role === "admin");
@@ -114,6 +116,10 @@ function normalizeDb(db) {
     user.numberRecords = records;
     user.gsmMasked = records[0]?.number || user.gsmMasked || "";
     user.gsmList = records.slice(user.gsmMasked ? 1 : 0).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+  });
+  db.messages.forEach(message => {
+    message.recipientIds ||= [];
+    message.readBy ||= {};
   });
   return db;
 }
@@ -415,6 +421,42 @@ function publicAdmin(user) {
     createdAt: user.createdAt,
     accessStartsAt: defaultAccessStartsAt(user),
     accessEndsAt: defaultAccessEndsAt(user)
+  };
+}
+
+function publicMessageForAdmin(db, message) {
+  const recipients = message.recipientIds
+    .map(id => db.users.find(user => user.id === id && user.role === "member"))
+    .filter(Boolean)
+    .map(user => ({
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      readAt: message.readBy?.[user.id] || ""
+    }));
+  return {
+    id: message.id,
+    title: message.title,
+    body: message.body,
+    targetType: message.targetType,
+    createdAt: message.createdAt,
+    recipientCount: recipients.length,
+    readCount: recipients.filter(item => item.readAt).length,
+    unreadCount: recipients.filter(item => !item.readAt).length,
+    recipients
+  };
+}
+
+function publicMessageForMember(message, memberId) {
+  const readAt = message.readBy?.[memberId] || "";
+  return {
+    id: message.id,
+    title: message.title,
+    body: message.body,
+    senderName: message.senderName || "Admin",
+    createdAt: message.createdAt,
+    readAt,
+    unread: !readAt
   };
 }
 
@@ -1093,7 +1135,13 @@ async function handleApi(req, res) {
         const publicMember = publicUser(member);
         return { ...publicMember, numberCount: publicMember.numberRecords.length, total: summary.total, calculated: summary.calculated, rowCount: summary.rows.length };
       });
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, selectedUploadId: uploadId };
+      const messages = db.messages
+        .filter(message => message.ownerId === user.id)
+        .slice()
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .slice(0, 30)
+        .map(message => publicMessageForAdmin(db, message));
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, messages, selectedUploadId: uploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
       }
@@ -1109,6 +1157,12 @@ async function handleApi(req, res) {
       percentage: Number(user.percentage) || 0,
       rows: summary.rows,
       numberSummaries: summary.numberSummaries,
+      messages: db.messages
+        .filter(message => message.ownerId === user.ownerId && message.recipientIds.includes(user.id))
+        .slice()
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .slice(0, 30)
+        .map(message => publicMessageForMember(message, user.id)),
       uploads,
       selectedUploadId: uploadId
     });
@@ -1153,6 +1207,62 @@ async function handleApi(req, res) {
     });
     writeDb(db);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/messages") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const body = JSON.parse((await readBody(req, 1024 * 80)).toString("utf8"));
+    const user = db.users.find(item => item.id === session.userId && isStaff(item));
+    const title = String(body.title || "").trim().slice(0, 90);
+    const messageBody = String(body.body || "").trim().slice(0, 1200);
+    const targetType = body.targetType === "all" ? "all" : "selected";
+    const ownMembers = db.users.filter(item => item.role === "member" && item.ownerId === session.userId);
+    const requestedIds = Array.isArray(body.recipientIds) ? body.recipientIds.map(String) : [];
+    const recipientIds = targetType === "all"
+      ? ownMembers.map(member => member.id)
+      : ownMembers.filter(member => requestedIds.includes(member.id)).map(member => member.id);
+    if (!title || !messageBody) {
+      sendJson(res, 400, { error: "Baslik ve mesaj gerekli." });
+      return;
+    }
+    if (!recipientIds.length) {
+      sendJson(res, 400, { error: "En az bir tipster secin." });
+      return;
+    }
+    const message = {
+      id: crypto.randomUUID(),
+      ownerId: session.userId,
+      senderId: session.userId,
+      senderName: user?.name || user?.username || "Admin",
+      targetType,
+      recipientIds,
+      title,
+      body: messageBody,
+      readBy: {},
+      createdAt: new Date().toISOString()
+    };
+    db.messages.push(message);
+    writeDb(db);
+    sendJson(res, 200, { ok: true, message: publicMessageForAdmin(db, message) });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname.startsWith("/api/messages/") && url.pathname.endsWith("/read")) {
+    const session = requireAuth(req, res, "member");
+    if (!session) return;
+    const id = url.pathname.split("/")[3];
+    const user = db.users.find(item => item.id === session.userId && item.role === "member");
+    const message = db.messages.find(item => item.id === id && item.ownerId === user?.ownerId && item.recipientIds.includes(session.userId));
+    if (!message) {
+      sendJson(res, 404, { error: "Mesaj bulunamadi." });
+      return;
+    }
+    message.readBy ||= {};
+    if (!message.readBy[session.userId]) message.readBy[session.userId] = new Date().toISOString();
+    writeDb(db);
+    sendJson(res, 200, { ok: true, message: publicMessageForMember(message, session.userId) });
     return;
   }
 
