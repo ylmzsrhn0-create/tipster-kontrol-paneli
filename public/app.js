@@ -87,6 +87,72 @@ function numberRecordText(member) {
   return numberRecordsOf(member).map(record => record.name ? `${record.name} (${record.number})` : record.number).join(", ");
 }
 
+function dateInputValue(date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function addYears(date, years) {
+  const next = new Date(date);
+  next.setFullYear(next.getFullYear() + years);
+  return next;
+}
+
+function parseDateOnly(value) {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateOnly(value) {
+  const date = parseDateOnly(value);
+  return date ? date.toLocaleDateString("tr-TR") : "-";
+}
+
+function accessPeriodInfo(user) {
+  const startsAt = user?.accessStartsAt || "";
+  const endsAt = user?.accessEndsAt || "";
+  const endDate = parseDateOnly(endsAt);
+  if (!endDate) {
+    return { startsAt, endsAt, label: "Suresiz", className: "" };
+  }
+  const today = parseDateOnly(dateInputValue(new Date()));
+  const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / 86400000);
+  if (daysLeft < 0) return { startsAt, endsAt, label: "Sure doldu", className: "expired" };
+  return {
+    startsAt,
+    endsAt,
+    label: `${daysLeft} gun kaldi`,
+    className: daysLeft <= 30 ? "warning" : ""
+  };
+}
+
+function setDefaultAdminPeriod() {
+  const startInput = document.getElementById("adminAccessStartsAt");
+  const endInput = document.getElementById("adminAccessEndsAt");
+  if (!startInput || !endInput) return;
+  const today = new Date();
+  startInput.value = dateInputValue(today);
+  endInput.value = dateInputValue(addYears(today, 1));
+}
+
+function renderAdminPeriod(admin) {
+  const banner = document.getElementById("adminPeriodBanner");
+  const info = accessPeriodInfo(admin);
+  if (!banner || !admin || admin.role !== "admin") {
+    banner?.classList.add("hidden");
+    return;
+  }
+  banner.className = `period-banner ${info.className || ""}`.trim();
+  banner.innerHTML = `
+    <div>
+      <span>Kullanim suresi</span>
+      <strong>${formatDateOnly(info.startsAt)} - ${formatDateOnly(info.endsAt)}</strong>
+    </div>
+    <b>${escapeHtml(info.label)}</b>
+  `;
+}
+
 function renderUploadSelect(selectId, uploads, selected) {
   const select = document.getElementById(selectId);
   select.innerHTML = uploads.length
@@ -101,6 +167,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   if (!keepOwnerPanel) ownerPanel.classList.add("hidden");
   adminPanel.classList.remove("hidden");
   memberPanel.classList.add("hidden");
+  renderAdminPeriod(data.currentAdmin);
   renderUploadSelect("adminUploadSelect", data.uploads, data.selectedUploadId);
   document.getElementById("adminEmail").value = data.currentAdmin?.email || "";
   document.getElementById("memberCount").textContent = data.summary.memberCount;
@@ -129,6 +196,8 @@ function renderAdmins(admins) {
         <strong>${escapeHtml(admin.name)}</strong>
         <span>${escapeHtml(admin.username)}</span>
         <span>${escapeHtml(admin.email || "E-posta yok")}</span>
+        <span>Kullanim: ${formatDateOnly(admin.accessStartsAt)} - ${formatDateOnly(admin.accessEndsAt)}</span>
+        <span class="period-status ${accessPeriodInfo(admin).className}">${escapeHtml(accessPeriodInfo(admin).label)}</span>
       </div>
       <form class="reset-admin-form" data-admin-reset="${admin.id}">
         <input type="password" minlength="8" placeholder="Yeni sifre" required>
@@ -368,10 +437,13 @@ document.getElementById("adminCreateForm").addEventListener("submit", async even
         name: document.getElementById("adminName").value,
         username: document.getElementById("adminUsername").value,
         email: document.getElementById("adminCreateEmail").value,
-        password: document.getElementById("adminPassword").value
+        password: document.getElementById("adminPassword").value,
+        accessStartsAt: document.getElementById("adminAccessStartsAt").value,
+        accessEndsAt: document.getElementById("adminAccessEndsAt").value
       })
     });
     event.target.reset();
+    setDefaultAdminPeriod();
     setMessage("adminCreateMessage", "Admin olusturuldu.", true);
     await loadDashboard(selectedUploadId);
   } catch (error) {
@@ -610,7 +682,10 @@ detailModal.addEventListener("click", event => {
   if (event.target === detailModal) detailModal.classList.add("hidden");
 });
 
+setDefaultAdminPeriod();
+
 api("/api/me").then(async data => {
+  setDefaultAdminPeriod();
   if (!data.user) {
     document.getElementById("username").value = "admin";
     document.getElementById("password").value = "";
