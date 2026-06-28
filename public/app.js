@@ -182,6 +182,17 @@ function renderMyRows(rows) {
   const visibleRows = [...rows];
   if (sort === "desc") visibleRows.sort((a, b) => Number(b.totalAmount || 0) - Number(a.totalAmount || 0));
   if (sort === "asc") visibleRows.sort((a, b) => Number(a.totalAmount || 0) - Number(b.totalAmount || 0));
+  const total = rows.reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
+  document.getElementById("myRowsSummary").innerHTML = `
+    <div>
+      <span>Kayit sayisi</span>
+      <strong>${rows.length}</strong>
+    </div>
+    <div>
+      <span>Toplam oyun</span>
+      <strong>${money.format(total)}</strong>
+    </div>
+  `;
   document.getElementById("myRows").innerHTML = visibleRows.map(row => `
     <tr>
       <td>${escapeHtml(row.gsmMasked || "-")}</td>
