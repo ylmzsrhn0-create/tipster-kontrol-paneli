@@ -173,7 +173,15 @@ function renderMember(data) {
   document.getElementById("myRate").textContent = `%${money.format(data.percentage || data.member.percentage || 0)}`;
   renderCommissionRows(data.numberSummaries || []);
   renderNumbers(numbers);
-  document.getElementById("myRows").innerHTML = data.rows.map(row => `
+  renderMyRows(data.rows || []);
+}
+
+function renderMyRows(rows) {
+  const sort = document.getElementById("myRowsSort").value;
+  const visibleRows = [...rows];
+  if (sort === "desc") visibleRows.sort((a, b) => Number(b.totalAmount || 0) - Number(a.totalAmount || 0));
+  if (sort === "asc") visibleRows.sort((a, b) => Number(a.totalAmount || 0) - Number(b.totalAmount || 0));
+  document.getElementById("myRows").innerHTML = visibleRows.map(row => `
     <tr>
       <td>${escapeHtml(row.gsmMasked || "-")}</td>
       <td>${escapeHtml(row.processType || "-")}</td>
@@ -536,6 +544,9 @@ document.getElementById("adminUploadSelect").addEventListener("change", event =>
 document.getElementById("memberUploadSelect").addEventListener("change", event => loadDashboard(event.target.value));
 document.getElementById("detailUploadSelect").addEventListener("change", event => loadMemberDetail(detailMemberId, event.target.value));
 document.getElementById("search").addEventListener("input", renderMembers);
+document.getElementById("myRowsSort").addEventListener("change", () => {
+  if (currentDashboard?.role === "member") renderMyRows(currentDashboard.rows || []);
+});
 
 document.getElementById("memberRows").addEventListener("click", async event => {
   const detailButton = event.target.closest("button[data-detail]");
