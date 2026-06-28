@@ -81,6 +81,16 @@
                 Ilk sifre
                 <input id="adminPassword" type="password" autocomplete="new-password" minlength="8" required placeholder="En az 8 karakter">
               </label>
+              <div class="date-grid">
+                <label>
+                  Kullanim baslangici
+                  <input id="adminAccessStartsAt" type="date" required>
+                </label>
+                <label>
+                  Kullanim bitisi
+                  <input id="adminAccessEndsAt" type="date" required>
+                </label>
+              </div>
               <button class="primary" type="submit">Admin kaydet</button>
               <div class="message" id="adminCreateMessage"></div>
             </form>
@@ -93,6 +103,8 @@
       </div>
 
       <div class="admin-panel hidden" id="adminPanel">
+        <section class="period-banner hidden" id="adminPeriodBanner"></section>
+
         <section class="stats stats-four">
           <div class="stat">
             <span>Tipster</span>
