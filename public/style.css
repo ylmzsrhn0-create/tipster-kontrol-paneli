@@ -218,6 +218,25 @@ input:focus, select:focus, textarea:focus {
 .topbar strong { display: block; font-size: 18px; }
 .topbar span { color: var(--muted); font-size: 13px; }
 
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.notification-badge {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #fff4df;
+  color: #8a4b00 !important;
+  font-size: 12px !important;
+  font-weight: 900;
+}
+
 .admin-panel, .member-panel, .owner-panel {
   width: min(1200px, calc(100% - 32px));
   margin: 24px auto 44px;
@@ -838,6 +857,8 @@ td:last-child, th:last-child { text-align: right; }
   .cover h1 { font-size: 34px; }
   .login-card { width: calc(100% - 24px); padding: 22px; }
   .topbar { align-items: stretch; flex-direction: column; padding: 16px; }
+  .top-actions { align-items: stretch; flex-direction: column; }
+  .notification-badge { width: 100%; }
   .admin-panel, .member-panel, .owner-panel { width: min(100% - 20px, 1200px); }
   .section-inline { align-items: stretch; flex-direction: column; }
   .period-banner { align-items: flex-start; flex-direction: column; }
