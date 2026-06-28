@@ -927,6 +927,27 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/member/password") {
+    const session = requireAuth(req, res, "member");
+    if (!session) return;
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const user = db.users.find(item => item.id === session.userId && item.role === "member");
+    const currentPassword = String(body.currentPassword || "");
+    const newPassword = String(body.newPassword || "");
+    if (!user || !verifyPassword(currentPassword, user.passwordHash)) {
+      sendJson(res, 400, { error: "Mevcut sifre hatali." });
+      return;
+    }
+    if (newPassword.length < 6) {
+      sendJson(res, 400, { error: "Yeni sifre en az 6 karakter olmali." });
+      return;
+    }
+    user.passwordHash = hashPassword(newPassword);
+    writeDb(db);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/admins") {
     const session = requireAuth(req, res, "owner");
     if (!session) return;
@@ -942,8 +963,13 @@ async function handleApi(req, res) {
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
     const name = String(body.name || "").trim();
+    const email = normalizeEmail(body.email);
     if (!name || !username || password.length < 8) {
       sendJson(res, 400, { error: "Ad, kullanici adi ve en az 8 haneli sifre gerekli." });
+      return;
+    }
+    if (!validEmail(email)) {
+      sendJson(res, 400, { error: "Gecerli bir e-posta adresi gerekli." });
       return;
     }
     if (db.users.some(user => user.username === username)) {
@@ -955,6 +981,7 @@ async function handleApi(req, res) {
       role: "admin",
       username,
       name,
+      email,
       gsmMasked: "",
       percentage: 0,
       passwordHash: hashPassword(password),
