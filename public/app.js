@@ -183,6 +183,7 @@ function renderMyRows(rows) {
   if (sort === "desc") visibleRows.sort((a, b) => Number(b.totalAmount || 0) - Number(a.totalAmount || 0));
   if (sort === "asc") visibleRows.sort((a, b) => Number(a.totalAmount || 0) - Number(b.totalAmount || 0));
   const total = rows.reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
+  const commission = Number(currentDashboard?.calculated || 0);
   document.getElementById("myRowsSummary").innerHTML = `
     <div>
       <span>Kayit sayisi</span>
@@ -191,6 +192,10 @@ function renderMyRows(rows) {
     <div>
       <span>Toplam oyun</span>
       <strong>${money.format(total)}</strong>
+    </div>
+    <div>
+      <span>Komisyon</span>
+      <strong>${money.format(commission)}</strong>
     </div>
   `;
   document.getElementById("myRows").innerHTML = visibleRows.map(row => `
