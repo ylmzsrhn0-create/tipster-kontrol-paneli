@@ -209,6 +209,17 @@ input:focus, select:focus {
   margin-top: 0;
 }
 
+.info-banner {
+  padding: 14px 16px;
+  border: 1px solid #b9d7f0;
+  border-radius: 8px;
+  background: #edf6ff;
+  color: #17456f;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
