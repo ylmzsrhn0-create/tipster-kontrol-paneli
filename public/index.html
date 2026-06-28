@@ -74,6 +74,10 @@
                 <input id="adminUsername" required placeholder="orn. ahmetadmin">
               </label>
               <label>
+                E-posta
+                <input id="adminCreateEmail" type="email" autocomplete="email" required placeholder="ornek@mail.com">
+              </label>
+              <label>
                 Ilk sifre
                 <input id="adminPassword" type="password" autocomplete="new-password" minlength="8" required placeholder="En az 8 karakter">
               </label>
@@ -322,6 +326,27 @@
             </summary>
             <div class="number-list collapsible-body compact-body" id="numberList"></div>
           </details>
+
+          <details class="panel collapsible">
+            <summary>
+              <span>
+                <strong>Sifremi degistir</strong>
+                <small>Kendi giris sifreni guncelle</small>
+              </span>
+            </summary>
+            <form class="compact-body" id="memberPasswordForm">
+              <label>
+                Mevcut sifre
+                <input id="currentMemberPassword" type="password" autocomplete="current-password" required>
+              </label>
+              <label>
+                Yeni sifre
+                <input id="newMemberPassword" type="password" autocomplete="new-password" minlength="6" required>
+              </label>
+              <button class="primary" type="submit">Sifreyi guncelle</button>
+              <div class="message" id="memberPasswordMessage"></div>
+            </form>
+          </details>
         </section>
 
         <details class="panel wide collapsible">
@@ -376,6 +401,7 @@
               Yeni sifre
               <input id="detailPassword" type="password" minlength="6" placeholder="Bos birakirsan degismez">
             </label>
+            <p class="muted">Guvenlik icin mevcut sifre goruntulenmez. Buradan tipstere yeni sifre verebilirsin.</p>
             <button class="primary" type="submit">Kaydet</button>
             <div class="message" id="detailMessage"></div>
           </form>
