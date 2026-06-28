@@ -126,6 +126,12 @@ label {
   font-weight: 800;
 }
 
+.date-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 input, select {
   width: 100%;
   min-height: 44px;
@@ -218,6 +224,52 @@ input:focus, select:focus {
   font-size: 14px;
   font-weight: 800;
   line-height: 1.45;
+}
+
+.period-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid #b9d7f0;
+  border-radius: 8px;
+  background: #edf6ff;
+  color: #17456f;
+}
+
+.period-banner span {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #426983;
+}
+
+.period-banner strong {
+  display: block;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.period-banner b {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+}
+
+.period-banner.warning {
+  border-color: #f3c76f;
+  background: #fff8e7;
+  color: #7a4b00;
+}
+
+.period-banner.expired {
+  border-color: #f2b8b5;
+  background: #fff1f0;
+  color: var(--danger);
 }
 
 .stats {
@@ -505,6 +557,26 @@ td:last-child, th:last-child { text-align: right; }
   font-size: 13px;
 }
 
+.period-status {
+  width: fit-content;
+  margin-top: 8px !important;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #e9f7ef;
+  color: var(--ok) !important;
+  font-weight: 900;
+}
+
+.period-status.warning {
+  background: #fff4df;
+  color: #8a4b00 !important;
+}
+
+.period-status.expired {
+  background: #fff1f0;
+  color: var(--danger) !important;
+}
+
 .reset-admin-form {
   display: grid;
   grid-template-columns: minmax(130px, 1fr) auto;
@@ -613,7 +685,7 @@ td:last-child, th:last-child { text-align: right; }
 @media (max-width: 900px) {
   .login-view { grid-template-columns: 1fr; }
   .cover { min-height: 380px; padding: 30px; }
-  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form { grid-template-columns: 1fr; }
+  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid { grid-template-columns: 1fr; }
   .section-head { align-items: stretch; flex-direction: column; }
   .section-head input { width: 100%; }
 }
@@ -625,6 +697,7 @@ td:last-child, th:last-child { text-align: right; }
   .topbar { align-items: stretch; flex-direction: column; padding: 16px; }
   .admin-panel, .member-panel, .owner-panel { width: min(100% - 20px, 1200px); }
   .section-inline { align-items: stretch; flex-direction: column; }
+  .period-banner { align-items: flex-start; flex-direction: column; }
   .collapsible summary { align-items: stretch; flex-wrap: wrap; }
   .summary-action { width: 100%; margin-left: 0; }
   .panel { padding: 18px; }
