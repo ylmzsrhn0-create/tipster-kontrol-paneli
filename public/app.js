@@ -128,6 +128,7 @@ function renderAdmins(admins) {
       <div>
         <strong>${escapeHtml(admin.name)}</strong>
         <span>${escapeHtml(admin.username)}</span>
+        <span>${escapeHtml(admin.email || "E-posta yok")}</span>
       </div>
       <form class="reset-admin-form" data-admin-reset="${admin.id}">
         <input type="password" minlength="8" placeholder="Yeni sifre" required>
@@ -341,6 +342,7 @@ document.getElementById("adminCreateForm").addEventListener("submit", async even
       body: JSON.stringify({
         name: document.getElementById("adminName").value,
         username: document.getElementById("adminUsername").value,
+        email: document.getElementById("adminCreateEmail").value,
         password: document.getElementById("adminPassword").value
       })
     });
@@ -473,6 +475,25 @@ document.getElementById("adminEmailForm").addEventListener("submit", async event
     await loadDashboard(selectedUploadId);
   } catch (error) {
     setMessage("emailMessage", error.message);
+  }
+});
+
+document.getElementById("memberPasswordForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  setMessage("memberPasswordMessage", "");
+  try {
+    await api("/api/member/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        currentPassword: document.getElementById("currentMemberPassword").value,
+        newPassword: document.getElementById("newMemberPassword").value
+      })
+    });
+    event.target.reset();
+    setMessage("memberPasswordMessage", "Sifre guncellendi.", true);
+  } catch (error) {
+    setMessage("memberPasswordMessage", error.message);
   }
 });
 
