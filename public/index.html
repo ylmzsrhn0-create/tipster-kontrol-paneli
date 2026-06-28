@@ -237,6 +237,42 @@
         <details class="panel wide collapsible">
           <summary>
             <span>
+              <strong>Tipsterlara mesaj gonder</strong>
+              <small>Toplu veya secili tipsterlara panel ici mesaj</small>
+            </span>
+          </summary>
+          <form class="collapsible-body" id="messageForm">
+            <label>
+              Baslik
+              <input id="messageTitle" required maxlength="90" placeholder="Orn. Bu hafta odeme bilgilendirmesi">
+            </label>
+            <label>
+              Mesaj
+              <textarea id="messageBody" required maxlength="1200" placeholder="Tipsterlara gonderilecek mesaj"></textarea>
+            </label>
+            <label class="check-row">
+              <input id="messageAllMembers" type="checkbox" checked>
+              Tum tipsterlara gonder
+            </label>
+            <div class="message-recipient-list" id="messageRecipients"></div>
+            <button class="primary" type="submit">Mesaji gonder</button>
+            <div class="message" id="messageSendMessage"></div>
+          </form>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Gonderilen mesajlar</strong>
+              <small>Okundu / okunmadi takibi</small>
+            </span>
+          </summary>
+          <div class="message-list collapsible-body" id="adminMessageRows"></div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
               <strong>Tipster sonuclari</strong>
               <small>Uye, toplam ve komisyon listesi</small>
             </span>
@@ -268,6 +304,16 @@
         <section class="info-banner">
           Sali gunu komisyonlariniz ogleden sonra belirttiginiz IBAN'lara aktarilir.
         </section>
+
+        <details class="panel wide collapsible" id="memberMessagesPanel">
+          <summary>
+            <span>
+              <strong>Admin mesajlari</strong>
+              <small id="memberMessageSummary">Mesaj bulunmuyor</small>
+            </span>
+          </summary>
+          <div class="message-list collapsible-body" id="memberMessageRows"></div>
+        </details>
 
         <section class="stats">
           <div class="stat">
