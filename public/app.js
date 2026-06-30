@@ -14,6 +14,7 @@ const ownerPanel = document.getElementById("ownerPanel");
 const memberPanel = document.getElementById("memberPanel");
 const loginHint = document.getElementById("loginHint");
 const detailModal = document.getElementById("memberDetailModal");
+const kvkkModal = document.getElementById("kvkkModal");
 const notificationBadge = document.getElementById("notificationBadge");
 
 const money = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
@@ -61,6 +62,7 @@ function showLogin() {
   adminPanel.classList.add("hidden");
   memberPanel.classList.add("hidden");
   detailModal.classList.add("hidden");
+  kvkkModal.classList.add("hidden");
   notificationBadge.classList.add("hidden");
   document.title = "Tipster Kontrol Paneli";
 }
@@ -499,6 +501,18 @@ document.getElementById("restartLoginBtn").addEventListener("click", () => {
   setMessage("loginMessage", "");
 });
 
+function openKvkk() {
+  kvkkModal.classList.remove("hidden");
+}
+
+function closeKvkk() {
+  kvkkModal.classList.add("hidden");
+}
+
+document.getElementById("openKvkkLoginBtn").addEventListener("click", openKvkk);
+document.getElementById("openKvkkPanelBtn").addEventListener("click", openKvkk);
+document.getElementById("closeKvkkBtn").addEventListener("click", closeKvkk);
+
 document.getElementById("adminCreateForm").addEventListener("submit", async event => {
   event.preventDefault();
   setMessage("adminCreateMessage", "");
@@ -793,6 +807,10 @@ document.getElementById("closeDetailBtn").addEventListener("click", () => {
 
 detailModal.addEventListener("click", event => {
   if (event.target === detailModal) detailModal.classList.add("hidden");
+});
+
+kvkkModal.addEventListener("click", event => {
+  if (event.target === kvkkModal) closeKvkk();
 });
 
 setDefaultAdminPeriod();
