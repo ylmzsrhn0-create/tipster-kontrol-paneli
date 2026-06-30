@@ -350,6 +350,55 @@ input:focus, select:focus, textarea:focus {
   overflow-wrap: anywhere;
 }
 
+.calculator-panel summary b {
+  margin-left: auto;
+  color: var(--brand-dark);
+  font-size: 18px;
+}
+
+.calculator-body {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr)) repeat(2, minmax(150px, .8fr)) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 22px;
+}
+
+.calculator-result {
+  min-height: 58px;
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid #b9d7f0;
+  border-radius: 7px;
+  background: #edf6ff;
+}
+
+.calculator-result span {
+  color: #426983;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.calculator-result strong {
+  color: #17456f;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.muted-result {
+  border-color: var(--line);
+  background: #f8fafc;
+}
+
+.muted-result span {
+  color: var(--muted);
+}
+
+.muted-result strong {
+  color: var(--ink);
+}
+
 .grid {
   display: grid;
   grid-template-columns: minmax(300px, 390px) minmax(300px, 1fr);
@@ -886,7 +935,7 @@ td:last-child, th:last-child { text-align: right; }
 @media (max-width: 900px) {
   .login-view { grid-template-columns: 1fr; }
   .cover { min-height: 380px; padding: 30px; }
-  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list { grid-template-columns: 1fr; }
+  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body { grid-template-columns: 1fr; }
   .section-head { align-items: stretch; flex-direction: column; }
   .section-head input { width: 100%; }
 }
