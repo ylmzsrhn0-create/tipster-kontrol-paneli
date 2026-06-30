@@ -136,6 +136,43 @@
           </label>
         </section>
 
+        <details class="panel collapsible calculator-panel">
+          <summary>
+            <span>
+              <strong>Hesap makinesi</strong>
+              <small>Toplam tutar ve yuzde ile komisyon hesapla</small>
+            </span>
+            <b id="calculatorSummary">0</b>
+          </summary>
+          <div class="calculator-body">
+            <label>
+              Toplam tutar
+              <input id="calculatorAmount" inputmode="decimal" placeholder="Orn. 12500">
+            </label>
+            <label>
+              Yuzde
+              <input id="calculatorPercent" inputmode="decimal" placeholder="Orn. 20">
+            </label>
+            <label>
+              Komisyon tutari
+              <input id="calculatorCommissionInput" inputmode="decimal" placeholder="Orn. 2500">
+            </label>
+            <div class="calculator-result">
+              <span>Komisyon</span>
+              <strong id="calculatorResult">0</strong>
+            </div>
+            <div class="calculator-result muted-result">
+              <span>Hesaplanan yuzde</span>
+              <strong id="calculatorAutoPercent">%0</strong>
+            </div>
+            <div class="calculator-result muted-result">
+              <span>Kalan tutar</span>
+              <strong id="calculatorRemainder">0</strong>
+            </div>
+            <button class="ghost" id="calculatorClearBtn" type="button">Temizle</button>
+          </div>
+        </details>
+
         <section class="grid">
           <details class="panel collapsible">
             <summary>
