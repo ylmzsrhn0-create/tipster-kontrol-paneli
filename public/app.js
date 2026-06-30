@@ -6,6 +6,7 @@ let detailMemberId = "";
 let detailUploadId = "";
 let pendingLoginToken = "";
 let pendingLoginType = "";
+let calculatorMode = "percent";
 
 const loginView = document.getElementById("loginView");
 const appView = document.getElementById("appView");
@@ -32,6 +33,12 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function parseMoneyInput(value) {
+  const clean = String(value || "").replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+  const number = Number(clean);
+  return Number.isFinite(number) ? number : 0;
 }
 
 function api(path, options = {}) {
@@ -190,6 +197,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
       ${escapeHtml(upload.filename)} - ${upload.rowCount} satir - ${new Date(upload.createdAt).toLocaleString("tr-TR")}
     </div>
   `).join("") || `<p class="muted">Henuz Excel yuklenmedi.</p>`;
+  calculateAdminTool();
 }
 
 function renderOwner(data) {
@@ -377,6 +385,26 @@ function renderNumbers(records) {
   `).join("") || `<p class="muted">Henuz numara kaydedilmedi.</p>`;
 }
 
+function calculateAdminTool() {
+  const amount = parseMoneyInput(document.getElementById("calculatorAmount").value);
+  const percentInput = document.getElementById("calculatorPercent");
+  const commissionInput = document.getElementById("calculatorCommissionInput");
+  let percent = parseMoneyInput(percentInput.value);
+  let commission = parseMoneyInput(commissionInput.value);
+  if (calculatorMode === "commission") {
+    percent = amount ? commission / amount * 100 : 0;
+    percentInput.value = amount || commission ? money.format(percent) : "";
+  } else {
+    commission = amount * percent / 100;
+    commissionInput.value = amount || percent ? money.format(commission) : "";
+  }
+  const remainder = amount - commission;
+  document.getElementById("calculatorResult").textContent = money.format(commission);
+  document.getElementById("calculatorAutoPercent").textContent = `%${money.format(percent)}`;
+  document.getElementById("calculatorRemainder").textContent = money.format(remainder);
+  document.getElementById("calculatorSummary").textContent = money.format(commission);
+}
+
 async function loadDashboard(uploadId = selectedUploadId) {
   const query = uploadId ? `?uploadId=${encodeURIComponent(uploadId)}` : "";
   const data = await api(`/api/dashboard${query}`);
@@ -512,6 +540,23 @@ function closeKvkk() {
 document.getElementById("openKvkkLoginBtn").addEventListener("click", openKvkk);
 document.getElementById("openKvkkPanelBtn").addEventListener("click", openKvkk);
 document.getElementById("closeKvkkBtn").addEventListener("click", closeKvkk);
+
+document.getElementById("calculatorAmount").addEventListener("input", calculateAdminTool);
+document.getElementById("calculatorPercent").addEventListener("input", () => {
+  calculatorMode = "percent";
+  calculateAdminTool();
+});
+document.getElementById("calculatorCommissionInput").addEventListener("input", () => {
+  calculatorMode = "commission";
+  calculateAdminTool();
+});
+document.getElementById("calculatorClearBtn").addEventListener("click", () => {
+  calculatorMode = "percent";
+  document.getElementById("calculatorAmount").value = "";
+  document.getElementById("calculatorPercent").value = "";
+  document.getElementById("calculatorCommissionInput").value = "";
+  calculateAdminTool();
+});
 
 document.getElementById("adminCreateForm").addEventListener("submit", async event => {
   event.preventDefault();
