@@ -60,7 +60,8 @@ function defaultDb() {
     ],
     rows: [],
     uploads: [],
-    messages: []
+    messages: [],
+    feedbacks: []
   };
 }
 
@@ -82,6 +83,7 @@ function normalizeDb(db) {
   db.rows ||= [];
   db.uploads ||= [];
   db.messages ||= [];
+  db.feedbacks ||= [];
   let owner = db.users.find(user => user.role === "owner");
   if (!owner) {
     owner = db.users.find(user => user.role === "admin" && user.username === "admin") || db.users.find(user => user.role === "admin");
@@ -120,6 +122,10 @@ function normalizeDb(db) {
   db.messages.forEach(message => {
     message.recipientIds ||= [];
     message.readBy ||= {};
+  });
+  db.feedbacks.forEach(feedback => {
+    feedback.type ||= "suggestion";
+    feedback.status ||= "new";
   });
   return db;
 }
@@ -457,6 +463,19 @@ function publicMessageForMember(message, memberId) {
     createdAt: message.createdAt,
     readAt,
     unread: !readAt
+  };
+}
+
+function publicFeedback(feedback) {
+  return {
+    id: feedback.id,
+    type: feedback.type,
+    title: feedback.title,
+    body: feedback.body,
+    senderName: feedback.senderName,
+    senderUsername: feedback.senderUsername,
+    senderRole: feedback.senderRole,
+    createdAt: feedback.createdAt
   };
 }
 
@@ -1144,6 +1163,11 @@ async function handleApi(req, res) {
       const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, messages, selectedUploadId: uploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
+        payload.feedbacks = db.feedbacks
+          .slice()
+          .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+          .slice(0, 80)
+          .map(publicFeedback);
       }
       sendJson(res, 200, payload);
       return;
@@ -1246,6 +1270,40 @@ async function handleApi(req, res) {
     db.messages.push(message);
     writeDb(db);
     sendJson(res, 200, { ok: true, message: publicMessageForAdmin(db, message) });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/feedbacks") {
+    const session = requireAuth(req, res);
+    if (!session) return;
+    const body = JSON.parse((await readBody(req, 1024 * 40)).toString("utf8"));
+    const user = db.users.find(item => item.id === session.userId);
+    const type = body.type === "complaint" ? "complaint" : "suggestion";
+    const title = String(body.title || "").trim().slice(0, 90);
+    const feedbackBody = String(body.body || "").trim().slice(0, 1200);
+    if (!user) {
+      sendJson(res, 401, { error: "Oturum bulunamadi." });
+      return;
+    }
+    if (!title || !feedbackBody) {
+      sendJson(res, 400, { error: "Baslik ve mesaj gerekli." });
+      return;
+    }
+    db.feedbacks.push({
+      id: crypto.randomUUID(),
+      ownerId: db.users.find(item => item.role === "owner")?.id || "",
+      senderId: user.id,
+      senderName: user.name || user.username,
+      senderUsername: user.username,
+      senderRole: user.role,
+      type,
+      title,
+      body: feedbackBody,
+      status: "new",
+      createdAt: new Date().toISOString()
+    });
+    writeDb(db);
+    sendJson(res, 200, { ok: true });
     return;
   }
 
