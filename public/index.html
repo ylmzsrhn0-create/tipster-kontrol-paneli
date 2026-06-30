@@ -41,6 +41,7 @@
           <button class="ghost" id="restartLoginBtn" type="button">Bilgileri yeniden gir</button>
         </div>
         <button class="primary" type="submit">Giris yap</button>
+        <button class="text-link" id="openKvkkLoginBtn" type="button">KVKK Aydinlatma Metni</button>
         <div class="message" id="loginMessage"></div>
       </form>
     </section>
@@ -53,6 +54,7 @@
         </div>
         <div class="top-actions">
           <span class="notification-badge hidden" id="notificationBadge">Yeni mesaj</span>
+          <button class="ghost" id="openKvkkPanelBtn" type="button">KVKK</button>
           <button class="ghost" id="logoutBtn" type="button">Cikis</button>
         </div>
       </header>
@@ -446,6 +448,45 @@
           </div>
           <div class="table-summary" id="myRowsSummary"></div>
         </details>
+      </div>
+    </section>
+
+    <section class="modal hidden" id="kvkkModal" aria-modal="true" role="dialog">
+      <div class="modal-panel legal-modal">
+        <div class="section-head">
+          <div>
+            <h2>KVKK Aydinlatma Metni</h2>
+            <p class="muted">Tipster Kontrol Paneli veri isleme bilgilendirmesi</p>
+          </div>
+          <button class="ghost" id="closeKvkkBtn" type="button">Kapat</button>
+        </div>
+        <div class="legal-content">
+          <p class="legal-note">Bu metin bilgilendirme amacli taslak metindir. Resmi kullanim oncesi hukuki danisman tarafindan kontrol edilmesi onerilir.</p>
+
+          <h3>1. Veri sorumlusu</h3>
+          <p>Tipster Kontrol Paneli uzerinden islenen veriler, ilgili admin hesabi tarafindan kendi tipster ve Excel sureclerini yonetmek amaciyla kullanilir.</p>
+
+          <h3>2. Islenen kisisel veriler</h3>
+          <p>Sistemde kullanici adi, ad soyad, e-posta adresi, maskeli GSM bilgisi, tipster kayitlari, Excel dosyalarindan aktarilan islem verileri, komisyon hesaplari, panel ici mesajlar, okundu/okunmadi bilgileri ve oturum guvenligi kayitlari islenebilir.</p>
+
+          <h3>3. Isleme amaclari</h3>
+          <p>Veriler; admin ve tipster hesaplarini yonetmek, Excel yuklemelerini haftalara gore takip etmek, tipster kayitlari ile Excel verilerini eslestirmek, komisyon hesaplarini gostermek, panel ici mesajlasmayi saglamak ve hesap guvenligini korumak amaciyla islenir.</p>
+
+          <h3>4. Veri paylasimi</h3>
+          <p>Veriler panel disinda ucuncu kisilere satis veya reklam amaciyla aktarilmaz. Site altyapisinin calismasi icin barindirma, alan adi ve teknik servis saglayicilari uzerinden teknik olarak islenebilir.</p>
+
+          <h3>5. Saklama ve silme</h3>
+          <p>Veriler, panelin kullanim amaci devam ettigi surece saklanir. Admin tarafindan tipster, Excel kaydi veya mesaj silme/temizleme islemleri yapildiginda ilgili kayitlar sistemden kaldirilabilir.</p>
+
+          <h3>6. Guvenlik</h3>
+          <p>Yetkisiz erisimi azaltmak icin sifreli giris, admin e-posta onay kodu, oturum kontrolu ve yetki ayrimi kullanilir. Sifreler sistemde acik metin olarak saklanmaz.</p>
+
+          <h3>7. Ilgili kisi haklari</h3>
+          <p>Ilgili kisiler, KVKK kapsaminda verilerinin islenip islenmedigini ogrenme, duzeltme, silme, isleme amacini ogrenme ve mevzuatta belirtilen diger haklarini kullanma taleplerini iletebilir.</p>
+
+          <h3>8. Iletisim</h3>
+          <p>Veri ve hesap talepleri icin panel yoneticisiyle veya kayitli iletisim e-postasi ile irtibat kurulabilir.</p>
+        </div>
       </div>
     </section>
 
