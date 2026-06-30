@@ -169,6 +169,17 @@ input:focus, select:focus, textarea:focus {
 .primary:hover { background: var(--brand-dark); }
 .ghost { background: #edf2f7; color: #253149; }
 .danger { background: #fff1f0; color: var(--danger); }
+.text-link {
+  width: fit-content;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: left;
+  text-decoration: underline;
+}
 .small { min-height: 34px; padding: 7px 10px; font-size: 12px; }
 
 .message {
@@ -809,6 +820,34 @@ td:last-child, th:last-child { text-align: right; }
   border: 1px solid rgba(255,255,255,.28);
   border-radius: 8px;
   box-shadow: var(--shadow);
+}
+
+.legal-modal {
+  width: min(900px, 100%);
+}
+
+.legal-content {
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+}
+
+.legal-content h3 {
+  margin: 8px 0 0;
+  font-size: 16px;
+}
+
+.legal-content p {
+  color: #334155;
+}
+
+.legal-note {
+  padding: 12px 14px;
+  border: 1px solid #f3c76f;
+  border-radius: 8px;
+  background: #fff8e7;
+  color: #7a4b00 !important;
+  font-weight: 800;
 }
 
 .detail-grid {
