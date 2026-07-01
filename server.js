@@ -778,6 +778,14 @@ function unmatchedNumberSummary(db, uploadId, ownerId) {
     .sort((a, b) => b.total - a.total || a.number.localeCompare(b.number));
 }
 
+function findYilmazSaruhanMember(db, ownerId) {
+  return db.users.find(user =>
+    user.role === "member" &&
+    user.ownerId === ownerId &&
+    normalizeSearchText(`${user.name} ${user.username}`).includes("yilmaz saruhan")
+  );
+}
+
 const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
   let value = index;
   for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
@@ -1302,6 +1310,36 @@ async function handleApi(req, res) {
     db.messages.push(message);
     writeDb(db);
     sendJson(res, 200, { ok: true, message: publicMessageForAdmin(db, message) });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/unmatched-numbers/assign-yilmaz") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const uploadId = String(body.uploadId || "all");
+    const member = findYilmazSaruhanMember(db, session.userId);
+    if (!member) {
+      sendJson(res, 404, { error: "Yilmaz Saruhan adli tipster bulunamadi." });
+      return;
+    }
+    const existing = new Set(getUserGsms(member));
+    const unmatched = unmatchedNumberSummary(db, uploadId, session.userId);
+    const records = getUserNumberRecords(member);
+    let addedCount = 0;
+    unmatched.forEach(item => {
+      const number = normalizeGsm(item.number);
+      if (!number || existing.has(number)) return;
+      records.push({ number, name: "" });
+      existing.add(number);
+      addedCount += 1;
+    });
+    member.numberRecords = records;
+    member.gsmMasked = records[0]?.number || member.gsmMasked || "";
+    member.gsmName = records[0]?.name || member.gsmName || "";
+    member.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+    writeDb(db);
+    sendJson(res, 200, { ok: true, addedCount, member: publicUser(member) });
     return;
   }
 
