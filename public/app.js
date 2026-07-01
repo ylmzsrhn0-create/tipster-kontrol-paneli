@@ -193,6 +193,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   document.getElementById("totalAmount").textContent = money.format(data.summary.totalAmount);
   document.getElementById("totalCommission").textContent = money.format(data.summary.totalCommission || 0);
   renderMembers();
+  renderUnmatchedNumbers(data.unmatchedNumbers || []);
   renderMessageRecipients(data.members || []);
   renderAdminMessages(data.messages || []);
   document.getElementById("adminFeedbackPanel").classList.toggle("hidden", data.role === "owner");
@@ -251,6 +252,18 @@ function renderMembers() {
       </td>
     </tr>
   `).join("") || `<tr><td colspan="8">Tipster bulunamadi.</td></tr>`;
+}
+
+function renderUnmatchedNumbers(numbers) {
+  document.getElementById("unmatchedNumberCount").textContent = numbers.length;
+  document.getElementById("unmatchedNumberRows").innerHTML = numbers.map(item => `
+    <tr>
+      <td><strong>${escapeHtml(item.number)}</strong></td>
+      <td>${item.rowCount}</td>
+      <td>${money.format(item.total)}</td>
+      <td>${escapeHtml((item.uploads || []).join(", ") || "-")}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="4">Secili haftada tipstersiz numara yok.</td></tr>`;
 }
 
 function renderMessageRecipients(members) {
