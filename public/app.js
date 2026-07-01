@@ -872,6 +872,21 @@ document.getElementById("messageForm").addEventListener("submit", async event =>
   }
 });
 
+document.getElementById("assignUnmatchedYilmazBtn").addEventListener("click", async () => {
+  setMessage("unmatchedNumberMessage", "");
+  try {
+    const data = await api("/api/unmatched-numbers/assign-yilmaz", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uploadId: selectedUploadId || "all" })
+    });
+    setMessage("unmatchedNumberMessage", `${data.addedCount} numara Yilmaz Saruhan'a eklendi.`, true);
+    await loadDashboard(selectedUploadId);
+  } catch (error) {
+    setMessage("unmatchedNumberMessage", error.message);
+  }
+});
+
 document.getElementById("adminFeedbackForm").addEventListener("submit", event => submitFeedbackForm(event, "admin"));
 document.getElementById("memberFeedbackForm").addEventListener("submit", event => submitFeedbackForm(event, "member"));
 
