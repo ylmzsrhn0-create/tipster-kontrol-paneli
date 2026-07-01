@@ -747,6 +747,37 @@ function adminSummary(db, uploadId, ownerId) {
   };
 }
 
+function unmatchedNumberSummary(db, uploadId, ownerId) {
+  const registeredNumbers = new Set(
+    db.users
+      .filter(user => user.role === "member" && user.ownerId === ownerId)
+      .flatMap(user => getUserNumberRecords(user).map(record => record.number))
+  );
+  const grouped = new Map();
+  selectedRows(db, uploadId, ownerId)
+    .filter(row => row.gsmMasked && !registeredNumbers.has(row.gsmMasked))
+    .forEach(row => {
+      const current = grouped.get(row.gsmMasked) || {
+        number: row.gsmMasked,
+        rowCount: 0,
+        total: 0,
+        uploads: new Set(),
+        lastSeenAt: ""
+      };
+      const upload = db.uploads.find(item => item.id === row.uploadId);
+      current.rowCount += 1;
+      current.total += Number(row.totalAmount) || 0;
+      if (upload) current.uploads.add(upload.weekLabel || upload.filename);
+      if (!current.lastSeenAt || String(row.importedAt || "").localeCompare(current.lastSeenAt) > 0) {
+        current.lastSeenAt = row.importedAt || "";
+      }
+      grouped.set(row.gsmMasked, current);
+    });
+  return Array.from(grouped.values())
+    .map(item => ({ ...item, uploads: Array.from(item.uploads) }))
+    .sort((a, b) => b.total - a.total || a.number.localeCompare(b.number));
+}
+
 const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
   let value = index;
   for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
@@ -1160,7 +1191,8 @@ async function handleApi(req, res) {
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 30)
         .map(message => publicMessageForAdmin(db, message));
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, messages, selectedUploadId: uploadId };
+      const unmatchedNumbers = unmatchedNumberSummary(db, uploadId, user.id);
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, messages, unmatchedNumbers, selectedUploadId: uploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
