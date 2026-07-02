@@ -778,6 +778,44 @@ function unmatchedNumberSummary(db, uploadId, ownerId) {
     .sort((a, b) => b.total - a.total || a.number.localeCompare(b.number));
 }
 
+function uploadDisplayLabel(upload) {
+  return upload ? (upload.weekLabel || upload.filename || "Excel") : "";
+}
+
+function passiveNumberSummary(db, uploadId, ownerId) {
+  const selected = selectedRows(db, uploadId, ownerId);
+  const selectedNumbers = new Set(selected.map(row => row.gsmMasked).filter(Boolean));
+  const allRows = selectedRows(db, "all", ownerId);
+  const uploadMap = new Map(db.uploads.map(upload => [upload.id, upload]));
+  const selectedUpload = uploadId && uploadId !== "all" ? uploadMap.get(uploadId) : null;
+  const passiveSince = selectedUpload ? uploadDisplayLabel(selectedUpload) : "Tum haftalar";
+
+  return db.users
+    .filter(user => user.role === "member" && user.ownerId === ownerId)
+    .flatMap(user => getUserNumberRecords(user).map(record => {
+      if (!record.number || selectedNumbers.has(record.number)) return null;
+      const numberRows = allRows
+        .filter(row => row.gsmMasked === record.number)
+        .sort((a, b) => String(b.importedAt || "").localeCompare(String(a.importedAt || "")));
+      if (uploadId === "all" && numberRows.length) return null;
+      const lastRow = numberRows[0];
+      const lastUpload = lastRow ? uploadMap.get(lastRow.uploadId) : null;
+      return {
+        memberId: user.id,
+        memberName: user.name || user.username,
+        memberUsername: user.username,
+        number: record.number,
+        name: record.name,
+        passiveSince,
+        lastActive: lastUpload ? uploadDisplayLabel(lastUpload) : "",
+        lastActiveAt: lastRow?.importedAt || "",
+        statusText: lastUpload ? `${uploadDisplayLabel(lastUpload)} sonrasi pasif` : "Hic aktif olmadi"
+      };
+    }))
+    .filter(Boolean)
+    .sort((a, b) => a.memberName.localeCompare(b.memberName, "tr") || a.number.localeCompare(b.number));
+}
+
 function findYilmazSaruhanMember(db, ownerId) {
   return db.users.find(user =>
     user.role === "member" &&
@@ -1200,7 +1238,8 @@ async function handleApi(req, res) {
         .slice(0, 30)
         .map(message => publicMessageForAdmin(db, message));
       const unmatchedNumbers = unmatchedNumberSummary(db, uploadId, user.id);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, messages, unmatchedNumbers, selectedUploadId: uploadId };
+      const passiveNumbers = passiveNumberSummary(db, uploadId, user.id);
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, messages, unmatchedNumbers, passiveNumbers, selectedUploadId: uploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -1221,6 +1260,7 @@ async function handleApi(req, res) {
       percentage: Number(user.percentage) || 0,
       rows: summary.rows,
       numberSummaries: summary.numberSummaries,
+      passiveNumbers: passiveNumberSummary(db, uploadId, user.ownerId).filter(item => item.memberId === user.id),
       messages: db.messages
         .filter(message => message.ownerId === user.ownerId && message.recipientIds.includes(user.id))
         .slice()
