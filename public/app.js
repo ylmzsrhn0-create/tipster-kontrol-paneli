@@ -194,6 +194,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   document.getElementById("totalCommission").textContent = money.format(data.summary.totalCommission || 0);
   renderMembers();
   renderUnmatchedNumbers(data.unmatchedNumbers || []);
+  renderPassiveNumbers(data.passiveNumbers || []);
   renderMessageRecipients(data.members || []);
   renderAdminMessages(data.messages || []);
   document.getElementById("adminFeedbackPanel").classList.toggle("hidden", data.role === "owner");
@@ -266,6 +267,31 @@ function renderUnmatchedNumbers(numbers) {
   `).join("") || `<tr><td colspan="4">Secili haftada tipstersiz numara yok.</td></tr>`;
 }
 
+function renderPassiveNumbers(numbers) {
+  document.getElementById("passiveNumberCount").textContent = numbers.length;
+  document.getElementById("passiveNumberRows").innerHTML = numbers.map(item => `
+    <tr>
+      <td><strong>${escapeHtml(item.memberName || "-")}</strong><br><span class="muted">${escapeHtml(item.memberUsername || "-")}</span></td>
+      <td>${escapeHtml(item.name || "-")}</td>
+      <td><strong>${escapeHtml(item.number)}</strong></td>
+      <td>${escapeHtml(item.passiveSince || "-")}</td>
+      <td>${escapeHtml(item.statusText || "-")}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="5">Secili haftada pasif numara yok.</td></tr>`;
+}
+
+function renderMemberPassiveNumbers(numbers) {
+  document.getElementById("memberPassiveNumberCount").textContent = numbers.length;
+  document.getElementById("memberPassiveNumberRows").innerHTML = numbers.map(item => `
+    <tr>
+      <td>${escapeHtml(item.name || "-")}</td>
+      <td><strong>${escapeHtml(item.number)}</strong></td>
+      <td>${escapeHtml(item.passiveSince || "-")}</td>
+      <td>${escapeHtml(item.statusText || "-")}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="4">Secili haftada pasif numaran yok.</td></tr>`;
+}
+
 function renderMessageRecipients(members) {
   const list = document.getElementById("messageRecipients");
   const allChecked = document.getElementById("messageAllMembers").checked;
@@ -336,6 +362,7 @@ function renderMember(data) {
   document.getElementById("myCalculated").textContent = money.format(data.calculated);
   document.getElementById("myRate").textContent = `%${money.format(data.percentage || data.member.percentage || 0)}`;
   renderCommissionRows(data.numberSummaries || []);
+  renderMemberPassiveNumbers(data.passiveNumbers || []);
   renderNumbers(numbers);
   renderMyRows(data.rows || []);
   renderMemberMessages(data.messages || []);
