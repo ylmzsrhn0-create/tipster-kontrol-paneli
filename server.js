@@ -61,7 +61,9 @@ function defaultDb() {
     rows: [],
     uploads: [],
     messages: [],
-    feedbacks: []
+    feedbacks: [],
+    auditLogs: [],
+    uploadReports: []
   };
 }
 
@@ -84,6 +86,8 @@ function normalizeDb(db) {
   db.uploads ||= [];
   db.messages ||= [];
   db.feedbacks ||= [];
+  db.auditLogs ||= [];
+  db.uploadReports ||= [];
   let owner = db.users.find(user => user.role === "owner");
   if (!owner) {
     owner = db.users.find(user => user.role === "admin" && user.username === "admin") || db.users.find(user => user.role === "admin");
@@ -126,6 +130,17 @@ function normalizeDb(db) {
   db.feedbacks.forEach(feedback => {
     feedback.type ||= "suggestion";
     feedback.status ||= "new";
+  });
+  db.auditLogs.forEach(log => {
+    log.details ||= "";
+    log.actorRole ||= "";
+  });
+  db.uploadReports.forEach(report => {
+    report.totalAmount ||= 0;
+    report.totalCommission ||= 0;
+    report.activeNumberCount ||= 0;
+    report.passiveCount ||= 0;
+    report.unmatchedCount ||= 0;
   });
   return db;
 }
@@ -479,6 +494,50 @@ function publicFeedback(feedback) {
   };
 }
 
+function publicAuditLog(log) {
+  return {
+    id: log.id,
+    action: log.action,
+    details: log.details,
+    actorName: log.actorName,
+    actorUsername: log.actorUsername,
+    actorRole: log.actorRole,
+    createdAt: log.createdAt
+  };
+}
+
+function publicUploadReport(report) {
+  return {
+    id: report.id,
+    uploadId: report.uploadId,
+    filename: report.filename,
+    weekLabel: report.weekLabel,
+    rowCount: report.rowCount,
+    totalAmount: report.totalAmount,
+    totalCommission: report.totalCommission,
+    activeNumberCount: report.activeNumberCount,
+    passiveCount: report.passiveCount,
+    unmatchedCount: report.unmatchedCount,
+    createdAt: report.createdAt
+  };
+}
+
+function addAuditLog(db, ownerId, actor, action, details = "") {
+  db.auditLogs ||= [];
+  db.auditLogs.push({
+    id: crypto.randomUUID(),
+    ownerId,
+    actorId: actor?.id || "",
+    actorName: actor?.name || actor?.username || "Sistem",
+    actorUsername: actor?.username || "",
+    actorRole: actor?.role || "",
+    action,
+    details: String(details || "").slice(0, 500),
+    createdAt: new Date().toISOString()
+  });
+  db.auditLogs = db.auditLogs.slice(-500);
+}
+
 function numberFrom(value) {
   if (typeof value === "number") return value;
   const clean = String(value ?? "").replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
@@ -816,6 +875,25 @@ function passiveNumberSummary(db, uploadId, ownerId) {
     .sort((a, b) => a.memberName.localeCompare(b.memberName, "tr") || a.number.localeCompare(b.number));
 }
 
+function createUploadReport(db, upload, ownerId) {
+  const rows = selectedRows(db, upload.id, ownerId);
+  const activeNumbers = new Set(rows.map(row => row.gsmMasked).filter(Boolean));
+  return {
+    id: crypto.randomUUID(),
+    uploadId: upload.id,
+    ownerId,
+    filename: upload.filename,
+    weekLabel: upload.weekLabel,
+    rowCount: rows.length,
+    totalAmount: rows.reduce((sum, row) => sum + Number(row.totalAmount || 0), 0),
+    totalCommission: adminSummary(db, upload.id, ownerId).totalCommission,
+    activeNumberCount: activeNumbers.size,
+    passiveCount: passiveNumberSummary(db, upload.id, ownerId).length,
+    unmatchedCount: unmatchedNumberSummary(db, upload.id, ownerId).length,
+    createdAt: new Date().toISOString()
+  };
+}
+
 function findYilmazSaruhanMember(db, ownerId) {
   return db.users.find(user =>
     user.role === "member" &&
@@ -1026,11 +1104,19 @@ async function handleApi(req, res) {
       return;
     }
     const csrf = setSession(res, user);
+    addAuditLog(db, user.role === "member" ? user.ownerId : user.id, user, "Giris yapildi", user.role === "member" ? "Tipster girisi" : "Admin girisi");
+    writeDb(db);
     sendJson(res, 200, { csrf, user: publicUser(user) });
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/logout") {
+    const session = currentSession(req);
+    const user = session ? db.users.find(item => item.id === session.userId) : null;
+    if (user) {
+      addAuditLog(db, user.role === "member" ? user.ownerId : user.id, user, "Cikis yapildi", user.role === "member" ? "Tipster cikisi" : "Admin cikisi");
+      writeDb(db);
+    }
     clearSession(req, res);
     sendJson(res, 200, { ok: true });
     return;
@@ -1064,6 +1150,8 @@ async function handleApi(req, res) {
     }
     pendingOtps.delete(token);
     const csrf = setSession(res, user);
+    addAuditLog(db, user.id, user, "Giris yapildi", "E-posta onay kodu ile admin girisi");
+    writeDb(db);
     sendJson(res, 200, { csrf, user: publicUser(user) });
     return;
   }
@@ -1095,6 +1183,7 @@ async function handleApi(req, res) {
       return;
     }
     user.passwordHash = hashPassword(newPassword);
+    addAuditLog(db, user.id, user, "Admin sifresi degisti", "Admin kendi sifresini guncelledi");
     writeDb(db);
     sendJson(res, 200, { ok: true });
     return;
@@ -1111,6 +1200,7 @@ async function handleApi(req, res) {
       return;
     }
     user.email = email;
+    addAuditLog(db, user.id, user, "Admin e-postasi guncellendi", "Giris onay kodu e-postasi degisti");
     writeDb(db);
     sendJson(res, 200, { ok: true, user: publicUser(user) });
     return;
@@ -1132,6 +1222,7 @@ async function handleApi(req, res) {
       return;
     }
     user.passwordHash = hashPassword(newPassword);
+    addAuditLog(db, user.ownerId, user, "Tipster sifresi degisti", `${user.name || user.username} kendi sifresini guncelledi`);
     writeDb(db);
     sendJson(res, 200, { ok: true });
     return;
@@ -1190,6 +1281,7 @@ async function handleApi(req, res) {
       createdAt: new Date().toISOString()
     };
     db.users.push(admin);
+    addAuditLog(db, session.userId, db.users.find(user => user.id === session.userId), "Admin olusturuldu", `${name} (${username}) admin hesabi acildi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, admin: publicAdmin(admin) });
     return;
@@ -1211,6 +1303,7 @@ async function handleApi(req, res) {
       return;
     }
     admin.passwordHash = hashPassword(password);
+    addAuditLog(db, session.userId, db.users.find(user => user.id === session.userId), "Admin sifresi yenilendi", `${admin.name || admin.username} admin sifresi yenilendi`);
     writeDb(db);
     sendJson(res, 200, { ok: true });
     return;
@@ -1239,7 +1332,19 @@ async function handleApi(req, res) {
         .map(message => publicMessageForAdmin(db, message));
       const unmatchedNumbers = unmatchedNumberSummary(db, uploadId, user.id);
       const passiveNumbers = passiveNumberSummary(db, uploadId, user.id);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, messages, unmatchedNumbers, passiveNumbers, selectedUploadId: uploadId };
+      const uploadReports = (db.uploadReports || [])
+        .filter(report => report.ownerId === user.id)
+        .slice()
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .slice(0, 20)
+        .map(publicUploadReport);
+      const auditLogs = (db.auditLogs || [])
+        .filter(log => log.ownerId === user.id)
+        .slice()
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .slice(0, 60)
+        .map(publicAuditLog);
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, messages, unmatchedNumbers, passiveNumbers, uploadReports, auditLogs, selectedUploadId: uploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -1298,6 +1403,7 @@ async function handleApi(req, res) {
       sendJson(res, 400, { error: duplicateNumberMessage(numberOwner) });
       return;
     }
+    const actor = db.users.find(item => item.id === session.userId);
     db.users.push({
       id: crypto.randomUUID(),
       role: "member",
@@ -1309,6 +1415,7 @@ async function handleApi(req, res) {
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString()
     });
+    addAuditLog(db, session.userId, actor, "Tipster olusturuldu", `${String(body.name).trim()} (${username}) tipster hesabi acildi`);
     writeDb(db);
     sendJson(res, 200, { ok: true });
     return;
@@ -1348,6 +1455,7 @@ async function handleApi(req, res) {
       createdAt: new Date().toISOString()
     };
     db.messages.push(message);
+    addAuditLog(db, session.userId, user, "Tipsterlara mesaj gonderildi", `${recipientIds.length} tipstera mesaj gonderildi: ${title}`);
     writeDb(db);
     sendJson(res, 200, { ok: true, message: publicMessageForAdmin(db, message) });
     return;
@@ -1378,6 +1486,7 @@ async function handleApi(req, res) {
     member.gsmMasked = records[0]?.number || member.gsmMasked || "";
     member.gsmName = records[0]?.name || member.gsmName || "";
     member.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Tipstersiz numaralar aktarildi", `${addedCount} numara Yilmaz Saruhan tipsterina eklendi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, addedCount, member: publicUser(member) });
     return;
@@ -1505,6 +1614,7 @@ async function handleApi(req, res) {
       }
       member.passwordHash = hashPassword(password);
     }
+    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Tipster bilgisi guncellendi", `${member.name || member.username} tipster kaydi guncellendi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, member: publicUser(member) });
     return;
@@ -1514,12 +1624,14 @@ async function handleApi(req, res) {
     const session = requireStaff(req, res);
     if (!session) return;
     const id = url.pathname.split("/").pop();
+    const deletedMember = db.users.find(user => user.id === id && user.role === "member" && user.ownerId === session.userId);
     const before = db.users.length;
     db.users = db.users.filter(user => user.id !== id || user.role !== "member" || user.ownerId !== session.userId);
     if (db.users.length === before) {
       sendJson(res, 404, { error: "Üye bulunamadı." });
       return;
     }
+    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Tipster silindi", `${deletedMember?.name || deletedMember?.username || "Tipster"} silindi`);
     writeDb(db);
     sendJson(res, 200, { ok: true });
     return;
@@ -1555,6 +1667,7 @@ async function handleApi(req, res) {
     user.gsmMasked = records[0]?.number || "";
     user.gsmName = records[0]?.name || "";
     user.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+    addAuditLog(db, user.ownerId, user, "Numara eklendi", `${name || "Isimsiz"} ${gsm} numarasi eklendi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, numbers: getUserGsms(user), numberRecords: getUserNumberRecords(user) });
     return;
@@ -1595,6 +1708,7 @@ async function handleApi(req, res) {
     user.gsmMasked = records[0]?.number || "";
     user.gsmName = records[0]?.name || "";
     user.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+    addAuditLog(db, user.ownerId, user, "Numara silindi", `${gsm} numarasi silindi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, numbers: getUserGsms(user), numberRecords: getUserNumberRecords(user) });
     return;
@@ -1612,6 +1726,7 @@ async function handleApi(req, res) {
     }
     user.gsmMasked = numbers[0] || "";
     user.gsmList = numbers.slice(1);
+    addAuditLog(db, user.ownerId, user, "Numara silindi", `${gsm} numarasi silindi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, numbers });
     return;
@@ -1636,16 +1751,20 @@ async function handleApi(req, res) {
         ? (baseWeekLabel || fileBase)
         : (baseWeekLabel ? baseWeekLabel + " - " + fileBase : fileBase);
       db.rows.push(...rows);
-      db.uploads.push({
+      const upload = {
         id: uploadId,
         filename: escapeHtml(file.filename),
         weekLabel: escapeHtml(weekLabel),
         rowCount: rows.length,
         ownerId: session.userId,
         createdAt: new Date().toISOString()
-      });
+      };
+      db.uploads.push(upload);
+      db.uploadReports ||= [];
+      db.uploadReports.push(createUploadReport(db, upload, session.userId));
       return { uploadId, rowCount: rows.length, filename: file.filename, weekLabel };
     });
+    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Excel yuklendi", `${imported.length} Excel aktarildi, ${imported.reduce((sum, item) => sum + item.rowCount, 0)} satir islendi`);
     writeDb(db);
     const last = imported[imported.length - 1];
     sendJson(res, 200, {
@@ -1661,6 +1780,8 @@ async function handleApi(req, res) {
     if (!session) return;
     db.rows = db.rows.filter(row => row.ownerId !== session.userId);
     db.uploads = db.uploads.filter(upload => upload.ownerId !== session.userId);
+    db.uploadReports = (db.uploadReports || []).filter(report => report.ownerId !== session.userId);
+    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Excel kayitlari temizlendi", "Tum Excel kayitlari temizlendi");
     writeDb(db);
     sendJson(res, 200, { ok: true });
     return;
