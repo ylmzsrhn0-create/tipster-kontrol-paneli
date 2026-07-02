@@ -712,6 +712,11 @@ td:last-child, th:last-child { text-align: right; }
   gap: 12px;
 }
 
+.report-list {
+  display: grid;
+  gap: 12px;
+}
+
 .message-card {
   display: grid;
   gap: 12px;
@@ -728,6 +733,39 @@ td:last-child, th:last-child { text-align: right; }
 
 .feedback-card {
   border-left: 4px solid var(--accent);
+}
+
+.report-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fbfd;
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.report-grid div {
+  padding: 10px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.report-grid span,
+.report-grid strong {
+  display: block;
+}
+
+.report-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .message-card-head {
@@ -986,7 +1024,7 @@ td:last-child, th:last-child { text-align: right; }
 @media (max-width: 900px) {
   .login-view { grid-template-columns: 1fr; }
   .cover { min-height: 380px; padding: 30px; }
-  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body { grid-template-columns: 1fr; }
+  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid { grid-template-columns: 1fr; }
   .section-head { align-items: stretch; flex-direction: column; }
   .section-head input { width: 100%; }
 }
