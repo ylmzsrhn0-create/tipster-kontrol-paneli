@@ -59,63 +59,6 @@
         </div>
       </header>
 
-      <div class="owner-panel hidden" id="ownerPanel">
-        <section class="panel wide">
-          <div class="section-head">
-            <div>
-              <h2>Admin hesaplari</h2>
-              <p class="muted">Buradan admin acilir ve gerekirse sifresi yenilenir. Adminlerin Excel ve tipster icerikleri burada gorunmez.</p>
-            </div>
-          </div>
-          <div class="owner-grid">
-            <form class="panel" id="adminCreateForm">
-              <h2>Admin olustur</h2>
-              <label>
-                Admin adi
-                <input id="adminName" required placeholder="Orn. Ahmet Yilmaz">
-              </label>
-              <label>
-                Kullanici adi
-                <input id="adminUsername" required placeholder="orn. ahmetadmin">
-              </label>
-              <label>
-                E-posta
-                <input id="adminCreateEmail" type="email" autocomplete="email" required placeholder="ornek@mail.com">
-              </label>
-              <label>
-                Ilk sifre
-                <input id="adminPassword" type="password" autocomplete="new-password" minlength="8" required placeholder="En az 8 karakter">
-              </label>
-              <div class="date-grid">
-                <label>
-                  Kullanim baslangici
-                  <input id="adminAccessStartsAt" type="date" required>
-                </label>
-                <label>
-                  Kullanim bitisi
-                  <input id="adminAccessEndsAt" type="date" required>
-                </label>
-              </div>
-              <button class="primary" type="submit">Admin kaydet</button>
-              <div class="message" id="adminCreateMessage"></div>
-            </form>
-            <section class="panel">
-              <h2>Kayitli adminler</h2>
-              <div class="admin-list" id="adminRows"></div>
-            </section>
-          </div>
-        </section>
-        <details class="panel wide collapsible">
-          <summary>
-            <span>
-              <strong>Gelen oneri ve sikayetler</strong>
-              <small>Admin ve tipsterlardan ana admine gelen mesajlar</small>
-            </span>
-          </summary>
-          <div class="message-list collapsible-body" id="ownerFeedbackRows"></div>
-        </details>
-      </div>
-
       <div class="admin-panel hidden" id="adminPanel">
         <section class="period-banner hidden" id="adminPeriodBanner"></section>
 
@@ -481,6 +424,67 @@
               <tbody id="memberRows"></tbody>
             </table>
           </div>
+        </details>
+      </div>
+
+      <div class="owner-panel hidden" id="ownerPanel">
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Admin hesaplari</strong>
+              <small>Admin olusturma ve kayitli adminler</small>
+            </span>
+          </summary>
+          <div class="collapsible-body">
+            <p class="muted">Buradan admin acilir ve gerekirse sifresi yenilenir. Adminlerin Excel ve tipster icerikleri burada gorunmez.</p>
+            <div class="owner-grid">
+              <form class="panel" id="adminCreateForm">
+                <h2>Admin olustur</h2>
+                <label>
+                  Admin adi
+                  <input id="adminName" required placeholder="Orn. Ahmet Yilmaz">
+                </label>
+                <label>
+                  Kullanici adi
+                  <input id="adminUsername" required placeholder="orn. ahmetadmin">
+                </label>
+                <label>
+                  E-posta
+                  <input id="adminCreateEmail" type="email" autocomplete="email" required placeholder="ornek@mail.com">
+                </label>
+                <label>
+                  Ilk sifre
+                  <input id="adminPassword" type="password" autocomplete="new-password" minlength="8" required placeholder="En az 8 karakter">
+                </label>
+                <div class="date-grid">
+                  <label>
+                    Kullanim baslangici
+                    <input id="adminAccessStartsAt" type="date" required>
+                  </label>
+                  <label>
+                    Kullanim bitisi
+                    <input id="adminAccessEndsAt" type="date" required>
+                  </label>
+                </div>
+                <button class="primary" type="submit">Admin kaydet</button>
+                <div class="message" id="adminCreateMessage"></div>
+              </form>
+              <section class="panel">
+                <h2>Kayitli adminler</h2>
+                <div class="admin-list" id="adminRows"></div>
+              </section>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Gelen oneri ve sikayetler</strong>
+              <small>Admin ve tipsterlardan ana admine gelen mesajlar</small>
+            </span>
+          </summary>
+          <div class="message-list collapsible-body" id="ownerFeedbackRows"></div>
         </details>
       </div>
 
