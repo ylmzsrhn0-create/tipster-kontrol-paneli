@@ -259,8 +259,8 @@ input:focus, select:focus, textarea:focus {
   margin-bottom: 18px;
 }
 
-.owner-panel + .admin-panel {
-  margin-top: 0;
+.admin-panel + .owner-panel {
+  margin-top: -20px;
 }
 
 .info-banner {
