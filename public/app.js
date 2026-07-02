@@ -195,6 +195,8 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderMembers();
   renderUnmatchedNumbers(data.unmatchedNumbers || []);
   renderPassiveNumbers(data.passiveNumbers || []);
+  renderUploadReports(data.uploadReports || []);
+  renderAuditLogs(data.auditLogs || []);
   renderMessageRecipients(data.members || []);
   renderAdminMessages(data.messages || []);
   document.getElementById("adminFeedbackPanel").classList.toggle("hidden", data.role === "owner");
@@ -278,6 +280,41 @@ function renderPassiveNumbers(numbers) {
       <td>${escapeHtml(item.statusText || "-")}</td>
     </tr>
   `).join("") || `<tr><td colspan="5">Secili haftada pasif numara yok.</td></tr>`;
+}
+
+function renderUploadReports(reports) {
+  document.getElementById("uploadReportRows").innerHTML = reports.map(report => `
+    <article class="report-card">
+      <div class="message-card-head">
+        <div>
+          <strong>${escapeHtml(report.weekLabel || report.filename || "Excel")}</strong>
+          <span>${escapeHtml(report.filename || "-")} - ${new Date(report.createdAt).toLocaleString("tr-TR")}</span>
+        </div>
+      </div>
+      <div class="report-grid">
+        <div><span>Satir</span><strong>${report.rowCount}</strong></div>
+        <div><span>Aktif numara</span><strong>${report.activeNumberCount}</strong></div>
+        <div><span>Pasif</span><strong>${report.passiveCount}</strong></div>
+        <div><span>Tipstersiz</span><strong>${report.unmatchedCount}</strong></div>
+        <div><span>Toplam oyun</span><strong>${money.format(report.totalAmount || 0)}</strong></div>
+        <div><span>Komisyon</span><strong>${money.format(report.totalCommission || 0)}</strong></div>
+      </div>
+    </article>
+  `).join("") || `<p class="muted">Henuz Excel raporu yok.</p>`;
+}
+
+function renderAuditLogs(logs) {
+  document.getElementById("auditLogRows").innerHTML = logs.map(log => `
+    <article class="message-card">
+      <div class="message-card-head">
+        <div>
+          <strong>${escapeHtml(log.action)}</strong>
+          <span>${escapeHtml(log.actorName || "-")} (${escapeHtml(log.actorUsername || "-")}) - ${new Date(log.createdAt).toLocaleString("tr-TR")}</span>
+        </div>
+      </div>
+      <p>${escapeHtml(log.details || "-")}</p>
+    </article>
+  `).join("") || `<p class="muted">Henuz islem gecmisi yok.</p>`;
 }
 
 function renderMemberPassiveNumbers(numbers) {
