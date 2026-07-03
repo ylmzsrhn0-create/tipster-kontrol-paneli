@@ -712,6 +712,81 @@ td:last-child, th:last-child { text-align: right; }
   gap: 12px;
 }
 
+.audit-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fbfd;
+  overflow: hidden;
+}
+
+.audit-group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.audit-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.audit-group summary::after {
+  content: "+";
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #edf6ff;
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.audit-group[open] summary::after {
+  content: "-";
+}
+
+.audit-group summary span {
+  min-width: 0;
+}
+
+.audit-group summary strong,
+.audit-group summary small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.audit-group summary small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.audit-group summary b {
+  margin-left: auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #253149;
+  font-size: 12px;
+}
+
+.audit-group-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.audit-card {
+  background: #fff;
+}
+
 .report-list {
   display: grid;
   gap: 12px;
