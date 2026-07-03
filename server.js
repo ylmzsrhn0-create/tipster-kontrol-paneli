@@ -815,7 +815,7 @@ function adminSummary(db, uploadId, ownerId) {
 function unmatchedNumberSummary(db, uploadId, ownerId) {
   const registeredNumbers = new Set(
     db.users
-      .filter(user => user.role === "member" && user.ownerId === ownerId)
+      .filter(user => (user.role === "member" && user.ownerId === ownerId) || user.id === ownerId)
       .flatMap(user => getUserNumberRecords(user).map(record => record.number))
   );
   const grouped = new Map();
@@ -898,14 +898,6 @@ function createUploadReport(db, upload, ownerId) {
     unmatchedCount: unmatchedNumberSummary(db, upload.id, ownerId).length,
     createdAt: new Date().toISOString()
   };
-}
-
-function findYilmazSaruhanMember(db, ownerId) {
-  return db.users.find(user =>
-    user.role === "member" &&
-    user.ownerId === ownerId &&
-    normalizeSearchText(`${user.name} ${user.username}`).includes("yilmaz saruhan")
-  );
 }
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
@@ -1472,19 +1464,19 @@ async function handleApi(req, res) {
     return;
   }
 
-  if (req.method === "POST" && url.pathname === "/api/unmatched-numbers/assign-yilmaz") {
+  if (req.method === "POST" && (url.pathname === "/api/unmatched-numbers/assign-admin" || url.pathname === "/api/unmatched-numbers/assign-yilmaz")) {
     const session = requireStaff(req, res);
     if (!session) return;
     const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
     const uploadId = String(body.uploadId || "all");
-    const member = findYilmazSaruhanMember(db, session.userId);
-    if (!member) {
-      sendJson(res, 404, { error: "Yilmaz Saruhan adli tipster bulunamadi." });
+    const admin = db.users.find(user => user.id === session.userId && isStaff(user));
+    if (!admin) {
+      sendJson(res, 404, { error: "Admin bulunamadi." });
       return;
     }
-    const existing = new Set(getUserGsms(member));
+    const existing = new Set(getUserGsms(admin));
     const unmatched = unmatchedNumberSummary(db, uploadId, session.userId);
-    const records = getUserNumberRecords(member);
+    const records = getUserNumberRecords(admin);
     let addedCount = 0;
     unmatched.forEach(item => {
       const number = normalizeGsm(item.number);
@@ -1493,13 +1485,13 @@ async function handleApi(req, res) {
       existing.add(number);
       addedCount += 1;
     });
-    member.numberRecords = records;
-    member.gsmMasked = records[0]?.number || member.gsmMasked || "";
-    member.gsmName = records[0]?.name || member.gsmName || "";
-    member.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
-    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Tipstersiz numaralar aktarildi", `${addedCount} numara Yilmaz Saruhan tipsterina eklendi`);
+    admin.numberRecords = records;
+    admin.gsmMasked = records[0]?.number || admin.gsmMasked || "";
+    admin.gsmName = records[0]?.name || admin.gsmName || "";
+    admin.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+    addAuditLog(db, session.userId, admin, "Tipstersiz numaralar admin kaydina aktarildi", `${addedCount} tipstersiz numara admin kaydina eklendi`);
     writeDb(db);
-    sendJson(res, 200, { ok: true, addedCount, member: publicUser(member) });
+    sendJson(res, 200, { ok: true, addedCount, admin: publicUser(admin) });
     return;
   }
 
