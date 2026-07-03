@@ -1057,15 +1057,15 @@ document.getElementById("messageForm").addEventListener("submit", async event =>
   }
 });
 
-document.getElementById("assignUnmatchedYilmazBtn").addEventListener("click", async () => {
+document.getElementById("assignUnmatchedAdminBtn").addEventListener("click", async () => {
   setMessage("unmatchedNumberMessage", "");
   try {
-    const data = await api("/api/unmatched-numbers/assign-yilmaz", {
+    const data = await api("/api/unmatched-numbers/assign-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ uploadId: selectedUploadId || "all" })
     });
-    setMessage("unmatchedNumberMessage", `${data.addedCount} numara Yilmaz Saruhan'a eklendi.`, true);
+    setMessage("unmatchedNumberMessage", `${data.addedCount} numara admin kaydina eklendi.`, true);
     await loadDashboard(selectedUploadId);
   } catch (error) {
     setMessage("unmatchedNumberMessage", error.message);
