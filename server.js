@@ -502,6 +502,9 @@ function publicAuditLog(log) {
     actorName: log.actorName,
     actorUsername: log.actorUsername,
     actorRole: log.actorRole,
+    memberId: log.memberId || "",
+    memberName: log.memberName || "",
+    memberUsername: log.memberUsername || "",
     createdAt: log.createdAt
   };
 }
@@ -522,7 +525,7 @@ function publicUploadReport(report) {
   };
 }
 
-function addAuditLog(db, ownerId, actor, action, details = "") {
+function addAuditLog(db, ownerId, actor, action, details = "", meta = {}) {
   db.auditLogs ||= [];
   db.auditLogs.push({
     id: crypto.randomUUID(),
@@ -533,6 +536,9 @@ function addAuditLog(db, ownerId, actor, action, details = "") {
     actorRole: actor?.role || "",
     action,
     details: String(details || "").slice(0, 500),
+    memberId: meta.memberId || (actor?.role === "member" ? actor.id : ""),
+    memberName: meta.memberName || (actor?.role === "member" ? actor.name || actor.username || "" : ""),
+    memberUsername: meta.memberUsername || (actor?.role === "member" ? actor.username || "" : ""),
     createdAt: new Date().toISOString()
   });
   db.auditLogs = db.auditLogs.slice(-500);
@@ -1404,7 +1410,7 @@ async function handleApi(req, res) {
       return;
     }
     const actor = db.users.find(item => item.id === session.userId);
-    db.users.push({
+    const member = {
       id: crypto.randomUUID(),
       role: "member",
       username,
@@ -1414,8 +1420,13 @@ async function handleApi(req, res) {
       ownerId: session.userId,
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString()
+    };
+    db.users.push(member);
+    addAuditLog(db, session.userId, actor, "Tipster olusturuldu", `${member.name} (${username}) tipster hesabi acildi`, {
+      memberId: member.id,
+      memberName: member.name,
+      memberUsername: member.username
     });
-    addAuditLog(db, session.userId, actor, "Tipster olusturuldu", `${String(body.name).trim()} (${username}) tipster hesabi acildi`);
     writeDb(db);
     sendJson(res, 200, { ok: true });
     return;
@@ -1614,7 +1625,11 @@ async function handleApi(req, res) {
       }
       member.passwordHash = hashPassword(password);
     }
-    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Tipster bilgisi guncellendi", `${member.name || member.username} tipster kaydi guncellendi`);
+    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Tipster bilgisi guncellendi", `${member.name || member.username} tipster kaydi guncellendi`, {
+      memberId: member.id,
+      memberName: member.name || member.username,
+      memberUsername: member.username
+    });
     writeDb(db);
     sendJson(res, 200, { ok: true, member: publicUser(member) });
     return;
@@ -1631,7 +1646,11 @@ async function handleApi(req, res) {
       sendJson(res, 404, { error: "Üye bulunamadı." });
       return;
     }
-    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Tipster silindi", `${deletedMember?.name || deletedMember?.username || "Tipster"} silindi`);
+    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Tipster silindi", `${deletedMember?.name || deletedMember?.username || "Tipster"} silindi`, {
+      memberId: deletedMember?.id || "",
+      memberName: deletedMember?.name || deletedMember?.username || "Tipster",
+      memberUsername: deletedMember?.username || ""
+    });
     writeDb(db);
     sendJson(res, 200, { ok: true });
     return;
