@@ -270,16 +270,62 @@ function renderUnmatchedNumbers(numbers) {
 }
 
 function renderPassiveNumbers(numbers) {
+  const list = document.getElementById("passiveNumberRows");
   document.getElementById("passiveNumberCount").textContent = numbers.length;
-  document.getElementById("passiveNumberRows").innerHTML = numbers.map(item => `
-    <tr>
-      <td><strong>${escapeHtml(item.memberName || "-")}</strong><br><span class="muted">${escapeHtml(item.memberUsername || "-")}</span></td>
-      <td>${escapeHtml(item.name || "-")}</td>
-      <td><strong>${escapeHtml(item.number)}</strong></td>
-      <td>${escapeHtml(item.passiveSince || "-")}</td>
-      <td>${escapeHtml(item.statusText || "-")}</td>
-    </tr>
-  `).join("") || `<tr><td colspan="5">Secili haftada pasif numara yok.</td></tr>`;
+  if (!numbers.length) {
+    list.innerHTML = `<p class="muted">Secili haftada pasif numara yok.</p>`;
+    return;
+  }
+  const groups = [];
+  const byMember = new Map();
+  numbers.forEach(item => {
+    const key = item.memberId || `${item.memberName || ""}:${item.memberUsername || ""}`;
+    if (!byMember.has(key)) {
+      byMember.set(key, {
+        memberName: item.memberName || "Tipster",
+        memberUsername: item.memberUsername || "",
+        numbers: []
+      });
+      groups.push(byMember.get(key));
+    }
+    byMember.get(key).numbers.push(item);
+  });
+  groups.sort((a, b) => a.memberName.localeCompare(b.memberName, "tr"));
+  list.innerHTML = groups.map(group => `
+    <details class="passive-group">
+      <summary>
+        <span>
+          <strong>${escapeHtml(group.memberName)}</strong>
+          <small>${escapeHtml(group.memberUsername || "Tipster")}</small>
+        </span>
+        <b>${group.numbers.length}</b>
+      </summary>
+      <div class="passive-group-body">
+        <div class="table-wrap compact-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Isim</th>
+                <th>Numara</th>
+                <th>Ne zamandir pasif</th>
+                <th>Son aktif</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${group.numbers.map(item => `
+                <tr>
+                  <td>${escapeHtml(item.name || "-")}</td>
+                  <td><strong>${escapeHtml(item.number)}</strong></td>
+                  <td>${escapeHtml(item.passiveSince || "-")}</td>
+                  <td>${escapeHtml(item.statusText || "-")}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+  `).join("");
 }
 
 function renderUploadReports(reports) {
