@@ -303,18 +303,93 @@ function renderUploadReports(reports) {
   `).join("") || `<p class="muted">Henuz Excel raporu yok.</p>`;
 }
 
+function auditMemberForLog(log, members) {
+  if (log.memberId) {
+    const member = members.find(item => item.id === log.memberId);
+    return {
+      key: `member:${log.memberId}`,
+      name: member?.name || log.memberName || log.memberUsername || "Silinmis tipster",
+      username: member?.username || log.memberUsername || "",
+      isMember: true
+    };
+  }
+  if (log.actorRole === "member") {
+    const member = members.find(item => item.username === log.actorUsername || item.name === log.actorName);
+    return {
+      key: `member:${member?.id || log.actorUsername || log.actorName}`,
+      name: member?.name || log.actorName || "Tipster",
+      username: member?.username || log.actorUsername || "",
+      isMember: true
+    };
+  }
+  const haystack = `${log.details || ""} ${log.actorName || ""} ${log.actorUsername || ""}`.toLocaleLowerCase("tr");
+  const member = members.find(item => {
+    const name = String(item.name || "").toLocaleLowerCase("tr");
+    const username = String(item.username || "").toLocaleLowerCase("tr");
+    return (name && haystack.includes(name)) || (username && haystack.includes(username));
+  });
+  if (member) {
+    return {
+      key: `member:${member.id}`,
+      name: member.name,
+      username: member.username,
+      isMember: true
+    };
+  }
+  return {
+    key: "general",
+    name: "Genel islemler",
+    username: "Giris, Excel ve panel islemleri",
+    isMember: false
+  };
+}
+
 function renderAuditLogs(logs) {
-  document.getElementById("auditLogRows").innerHTML = logs.map(log => `
-    <article class="message-card">
-      <div class="message-card-head">
-        <div>
-          <strong>${escapeHtml(log.action)}</strong>
-          <span>${escapeHtml(log.actorName || "-")} (${escapeHtml(log.actorUsername || "-")}) - ${new Date(log.createdAt).toLocaleString("tr-TR")}</span>
-        </div>
+  const list = document.getElementById("auditLogRows");
+  if (!logs.length) {
+    list.innerHTML = `<p class="muted">Henuz islem gecmisi yok.</p>`;
+    return;
+  }
+  const members = currentDashboard?.members || [];
+  const groups = [];
+  const byKey = new Map();
+  logs.forEach(log => {
+    const groupInfo = auditMemberForLog(log, members);
+    if (!byKey.has(groupInfo.key)) {
+      byKey.set(groupInfo.key, { ...groupInfo, logs: [] });
+      groups.push(byKey.get(groupInfo.key));
+    }
+    byKey.get(groupInfo.key).logs.push(log);
+  });
+  groups.sort((a, b) => {
+    if (a.key === "general") return 1;
+    if (b.key === "general") return -1;
+    return a.name.localeCompare(b.name, "tr");
+  });
+  list.innerHTML = groups.map(group => `
+    <details class="audit-group">
+      <summary>
+        <span>
+          <strong>${escapeHtml(group.name)}</strong>
+          <small>${escapeHtml(group.username || (group.isMember ? "Tipster islemleri" : "Genel islemler"))}</small>
+        </span>
+        <b>${group.logs.length}</b>
+      </summary>
+      <div class="audit-group-body">
+        ${group.logs.map(log => `
+          <article class="message-card audit-card">
+            <div class="message-card-head">
+              <div>
+                <strong>${escapeHtml(log.action)}</strong>
+                <span>${escapeHtml(log.actorName || "-")} (${escapeHtml(log.actorUsername || "-")}) - ${new Date(log.createdAt).toLocaleString("tr-TR")}</span>
+              </div>
+            </div>
+            <p>${escapeHtml(log.details || "-")}</p>
+          </article>
+        `).join("")}
       </div>
-      <p>${escapeHtml(log.details || "-")}</p>
-    </article>
-  `).join("") || `<p class="muted">Henuz islem gecmisi yok.</p>`;
+    </details>
+  `).join("");
 }
 
 function renderMemberPassiveNumbers(numbers) {
