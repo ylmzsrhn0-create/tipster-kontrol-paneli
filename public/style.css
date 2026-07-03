@@ -712,14 +712,21 @@ td:last-child, th:last-child { text-align: right; }
   gap: 12px;
 }
 
-.audit-group {
+.grouped-list {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
+}
+
+.audit-group,
+.passive-group {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f9fbfd;
   overflow: hidden;
 }
 
-.audit-group summary {
+.audit-group summary,
+.passive-group summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -729,11 +736,13 @@ td:last-child, th:last-child { text-align: right; }
   list-style: none;
 }
 
-.audit-group summary::-webkit-details-marker {
+.audit-group summary::-webkit-details-marker,
+.passive-group summary::-webkit-details-marker {
   display: none;
 }
 
-.audit-group summary::after {
+.audit-group summary::after,
+.passive-group summary::after {
   content: "+";
   width: 28px;
   height: 28px;
@@ -747,28 +756,34 @@ td:last-child, th:last-child { text-align: right; }
   font-weight: 900;
 }
 
-.audit-group[open] summary::after {
+.audit-group[open] summary::after,
+.passive-group[open] summary::after {
   content: "-";
 }
 
-.audit-group summary span {
+.audit-group summary span,
+.passive-group summary span {
   min-width: 0;
 }
 
 .audit-group summary strong,
-.audit-group summary small {
+.audit-group summary small,
+.passive-group summary strong,
+.passive-group summary small {
   display: block;
   overflow-wrap: anywhere;
 }
 
-.audit-group summary small {
+.audit-group summary small,
+.passive-group summary small {
   margin-top: 3px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
 }
 
-.audit-group summary b {
+.audit-group summary b,
+.passive-group summary b {
   margin-left: auto;
   padding: 5px 9px;
   border-radius: 999px;
@@ -777,7 +792,8 @@ td:last-child, th:last-child { text-align: right; }
   font-size: 12px;
 }
 
-.audit-group-body {
+.audit-group-body,
+.passive-group-body {
   display: grid;
   gap: 10px;
   padding: 0 14px 14px;
@@ -785,6 +801,10 @@ td:last-child, th:last-child { text-align: right; }
 
 .audit-card {
   background: #fff;
+}
+
+.compact-table {
+  margin: 0;
 }
 
 .report-list {
