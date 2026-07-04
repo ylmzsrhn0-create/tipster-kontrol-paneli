@@ -1323,6 +1323,32 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/admins/")) {
+    const session = requireAuth(req, res, "owner");
+    if (!session) return;
+    const id = url.pathname.split("/")[3];
+    const admin = db.users.find(user => user.id === id && user.role === "admin" && user.createdBy === session.userId);
+    if (!admin) {
+      sendJson(res, 404, { error: "Admin bulunamadi." });
+      return;
+    }
+    const memberIds = new Set(db.users.filter(user => user.role === "member" && user.ownerId === admin.id).map(user => user.id));
+    db.users = db.users.filter(user => user.id !== admin.id && user.ownerId !== admin.id);
+    db.rows = db.rows.filter(row => row.ownerId !== admin.id);
+    db.uploads = db.uploads.filter(upload => upload.ownerId !== admin.id);
+    db.uploadReports = (db.uploadReports || []).filter(report => report.ownerId !== admin.id);
+    db.messages = (db.messages || []).filter(message => message.ownerId !== admin.id);
+    db.auditLogs = (db.auditLogs || []).filter(log => log.ownerId !== admin.id && log.actorId !== admin.id && !memberIds.has(log.actorId));
+    db.feedbacks = (db.feedbacks || []).filter(feedback => feedback.senderId !== admin.id && !memberIds.has(feedback.senderId));
+    for (const [sid, activeSession] of sessions.entries()) {
+      if (activeSession.userId === admin.id || memberIds.has(activeSession.userId)) sessions.delete(sid);
+    }
+    addAuditLog(db, session.userId, db.users.find(user => user.id === session.userId), "Admin silindi", `${admin.name || admin.username} admin hesabi ve bagli kayitlari silindi`);
+    writeDb(db);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/dashboard") {
     const session = requireAuth(req, res);
     if (!session) return;
