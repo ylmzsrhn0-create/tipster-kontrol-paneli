@@ -1093,9 +1093,19 @@ function serveStatic(req, res) {
       return;
     }
     const ext = path.extname(filePath);
-    const type = ext === ".css" ? "text/css" : ext === ".js" ? "text/javascript" : "text/html";
+    const types = {
+      ".css": "text/css",
+      ".js": "text/javascript",
+      ".json": "application/json",
+      ".webmanifest": "application/manifest+json",
+      ".png": "image/png",
+      ".svg": "image/svg+xml",
+      ".html": "text/html"
+    };
+    const type = types[ext] || "application/octet-stream";
+    const charset = type.startsWith("text/") || type.includes("json") || type.includes("svg") ? "; charset=utf-8" : "";
     res.writeHead(200, {
-      "Content-Type": `${type}; charset=utf-8`,
+      "Content-Type": `${type}${charset}`,
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "no-store"
     });
