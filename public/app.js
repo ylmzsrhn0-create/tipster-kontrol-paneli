@@ -223,6 +223,7 @@ function renderAdmins(admins) {
         <strong>${escapeHtml(admin.name)}</strong>
         <span>${escapeHtml(admin.username)}</span>
         <span>${escapeHtml(admin.email || "E-posta yok")}</span>
+        <span>${escapeHtml(admin.phone || "Telefon yok")}</span>
         <span>Kullanim: ${formatDateOnly(admin.accessStartsAt)} - ${formatDateOnly(admin.accessEndsAt)}</span>
         <span class="period-status ${accessPeriodInfo(admin).className}">${escapeHtml(accessPeriodInfo(admin).label)}</span>
       </div>
@@ -890,6 +891,7 @@ document.getElementById("adminCreateForm").addEventListener("submit", async even
         name: document.getElementById("adminName").value,
         username: document.getElementById("adminUsername").value,
         email: document.getElementById("adminCreateEmail").value,
+        phone: document.getElementById("adminCreatePhone").value,
         password: document.getElementById("adminPassword").value,
         accessStartsAt: document.getElementById("adminAccessStartsAt").value,
         accessEndsAt: document.getElementById("adminAccessEndsAt").value
