@@ -989,6 +989,21 @@ td:last-child, th:last-child { text-align: right; }
   gap: 8px;
 }
 
+.admin-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #253149;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.admin-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
 .number-item {
   min-height: 46px;
   display: flex;
