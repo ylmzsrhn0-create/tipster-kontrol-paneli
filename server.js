@@ -437,7 +437,8 @@ function publicUser(user) {
     ownerId: user.ownerId,
     createdAt: user.createdAt,
     accessStartsAt: isStaff(user) ? defaultAccessStartsAt(user) : "",
-    accessEndsAt: isStaff(user) ? defaultAccessEndsAt(user) : ""
+    accessEndsAt: isStaff(user) ? defaultAccessEndsAt(user) : "",
+    sharedNumbersEnabled: isStaff(user) ? Boolean(user.sharedNumbersEnabled) : false
   };
 }
 
@@ -449,6 +450,7 @@ function publicAdmin(user) {
     email: normalizeEmail(user.email),
     phone: user.phone || "",
     role: user.role,
+    sharedNumbersEnabled: Boolean(user.sharedNumbersEnabled),
     createdAt: user.createdAt,
     accessStartsAt: defaultAccessStartsAt(user),
     accessEndsAt: defaultAccessEndsAt(user)
@@ -784,7 +786,13 @@ function selectedRows(db, uploadId, ownerId) {
   return rows.filter(row => row.uploadId === uploadId);
 }
 
+function sharedNumbersEnabledForOwner(db, ownerId) {
+  const owner = db.users.find(user => user.id === ownerId && isStaff(user));
+  return Boolean(owner?.sharedNumbersEnabled);
+}
+
 function numberShareCounts(db, ownerId) {
+  if (!sharedNumbersEnabledForOwner(db, ownerId)) return new Map();
   const counts = new Map();
   db.users
     .filter(user => user.role === "member" && user.ownerId === ownerId)
@@ -1313,6 +1321,7 @@ async function handleApi(req, res) {
       name,
       email,
       phone,
+      sharedNumbersEnabled: false,
       accessStartsAt,
       accessEndsAt,
       gsmMasked: "",
@@ -1347,6 +1356,29 @@ async function handleApi(req, res) {
     addAuditLog(db, session.userId, db.users.find(user => user.id === session.userId), "Admin sifresi yenilendi", `${admin.name || admin.username} admin sifresi yenilendi`);
     writeDb(db);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname.startsWith("/api/admins/") && url.pathname.endsWith("/shared-numbers")) {
+    const session = requireAuth(req, res, "owner");
+    if (!session) return;
+    const id = url.pathname.split("/")[3];
+    const admin = db.users.find(user => user.id === id && user.role === "admin" && user.createdBy === session.userId);
+    if (!admin) {
+      sendJson(res, 404, { error: "Admin bulunamadi." });
+      return;
+    }
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    admin.sharedNumbersEnabled = Boolean(body.enabled);
+    addAuditLog(
+      db,
+      session.userId,
+      db.users.find(user => user.id === session.userId),
+      "Admin ortak numara ayari guncellendi",
+      `${admin.name || admin.username} icin ortak numara paylasimi ${admin.sharedNumbersEnabled ? "acildi" : "kapatildi"}`
+    );
+    writeDb(db);
+    sendJson(res, 200, { ok: true, admin: publicAdmin(admin) });
     return;
   }
 
@@ -1465,6 +1497,13 @@ async function handleApi(req, res) {
       return;
     }
     const initialGsm = normalizeGsm(body.gsmMasked);
+    if (!sharedNumbersEnabledForOwner(db, session.userId)) {
+      const numberOwner = findNumberOwner(db, session.userId, initialGsm);
+      if (numberOwner) {
+        sendJson(res, 400, { error: duplicateNumberMessage(numberOwner) });
+        return;
+      }
+    }
     const actor = db.users.find(item => item.id === session.userId);
     const member = {
       id: crypto.randomUUID(),
@@ -1657,6 +1696,13 @@ async function handleApi(req, res) {
     if (body.name !== undefined && String(body.name).trim()) member.name = String(body.name).trim();
     if (body.gsmMasked !== undefined && normalizeGsm(body.gsmMasked)) {
       const nextGsm = normalizeGsm(body.gsmMasked);
+      if (!sharedNumbersEnabledForOwner(db, session.userId)) {
+        const numberOwner = findNumberOwner(db, session.userId, nextGsm, member.id);
+        if (numberOwner) {
+          sendJson(res, 400, { error: duplicateNumberMessage(numberOwner) });
+          return;
+        }
+      }
       const records = getUserNumberRecords(member);
       if (records.length) {
         records[0].number = nextGsm;
@@ -1726,6 +1772,13 @@ async function handleApi(req, res) {
     if (existing.includes(gsm)) {
       sendJson(res, 400, { error: "Bu numara zaten kayıtlı." });
       return;
+    }
+    if (!sharedNumbersEnabledForOwner(db, user.ownerId)) {
+      const numberOwner = findNumberOwner(db, user.ownerId, gsm, user.id);
+      if (numberOwner) {
+        sendJson(res, 400, { error: duplicateNumberMessage(numberOwner) });
+        return;
+      }
     }
     const records = [...getUserNumberRecords(user), { number: gsm, name }];
     user.numberRecords = records;
