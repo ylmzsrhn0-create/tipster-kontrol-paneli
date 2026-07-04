@@ -784,23 +784,50 @@ function selectedRows(db, uploadId, ownerId) {
   return rows.filter(row => row.uploadId === uploadId);
 }
 
+function numberShareCounts(db, ownerId) {
+  const counts = new Map();
+  db.users
+    .filter(user => user.role === "member" && user.ownerId === ownerId)
+    .forEach(member => {
+      new Set(getUserGsms(member)).forEach(number => {
+        if (!number) return;
+        counts.set(number, (counts.get(number) || 0) + 1);
+      });
+    });
+  return counts;
+}
+
+function sharedRow(row, shareCounts) {
+  const shareCount = Math.max(1, shareCounts.get(row.gsmMasked) || 1);
+  const originalTotalAmount = Number(row.totalAmount) || 0;
+  return {
+    ...row,
+    originalTotalAmount,
+    shareCount,
+    totalAmount: originalTotalAmount / shareCount
+  };
+}
+
 function memberSummary(db, user, uploadId) {
   const ownerId = user.role === "member" ? user.ownerId : user.id;
   const numberRecords = getUserNumberRecords(user);
   const numbers = numberRecords.map(record => record.number);
   const gsmSet = new Set(numbers);
   const sourceRows = selectedRows(db, uploadId, ownerId);
-  const rows = sourceRows.filter(row => gsmSet.has(row.gsmMasked));
+  const shareCounts = numberShareCounts(db, ownerId);
+  const rows = sourceRows.filter(row => gsmSet.has(row.gsmMasked)).map(row => sharedRow(row, shareCounts));
   const total = rows.reduce((sum, row) => sum + row.totalAmount, 0);
   const calculated = total * (Number(user.percentage) || 0) / 100;
   const numberSummaries = numberRecords.map(record => {
-    const numberRows = sourceRows.filter(row => row.gsmMasked === record.number);
+    const numberRows = sourceRows.filter(row => row.gsmMasked === record.number).map(row => sharedRow(row, shareCounts));
     const numberTotal = numberRows.reduce((sum, row) => sum + row.totalAmount, 0);
+    const shareCount = Math.max(1, shareCounts.get(record.number) || 1);
     return {
       number: record.number,
       name: record.name,
       active: numberRows.length > 0,
       rowCount: numberRows.length,
+      shareCount,
       total: numberTotal,
       calculated: numberTotal * (Number(user.percentage) || 0) / 100
     };
@@ -1438,11 +1465,6 @@ async function handleApi(req, res) {
       return;
     }
     const initialGsm = normalizeGsm(body.gsmMasked);
-    const numberOwner = findNumberOwner(db, session.userId, initialGsm);
-    if (numberOwner) {
-      sendJson(res, 400, { error: duplicateNumberMessage(numberOwner) });
-      return;
-    }
     const actor = db.users.find(item => item.id === session.userId);
     const member = {
       id: crypto.randomUUID(),
@@ -1635,11 +1657,6 @@ async function handleApi(req, res) {
     if (body.name !== undefined && String(body.name).trim()) member.name = String(body.name).trim();
     if (body.gsmMasked !== undefined && normalizeGsm(body.gsmMasked)) {
       const nextGsm = normalizeGsm(body.gsmMasked);
-      const numberOwner = findNumberOwner(db, session.userId, nextGsm, member.id);
-      if (numberOwner) {
-        sendJson(res, 400, { error: duplicateNumberMessage(numberOwner) });
-        return;
-      }
       const records = getUserNumberRecords(member);
       if (records.length) {
         records[0].number = nextGsm;
@@ -1708,11 +1725,6 @@ async function handleApi(req, res) {
     const existing = getUserGsms(user);
     if (existing.includes(gsm)) {
       sendJson(res, 400, { error: "Bu numara zaten kayıtlı." });
-      return;
-    }
-    const numberOwner = findNumberOwner(db, user.ownerId, gsm, user.id);
-    if (numberOwner) {
-      sendJson(res, 400, { error: duplicateNumberMessage(numberOwner) });
       return;
     }
     const records = [...getUserNumberRecords(user), { number: gsm, name }];
