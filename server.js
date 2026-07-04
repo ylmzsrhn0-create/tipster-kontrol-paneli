@@ -193,6 +193,15 @@ function validEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ""));
 }
 
+function normalizePhone(value) {
+  return String(value || "").trim().replace(/[^\d+]/g, "");
+}
+
+function validPhone(value) {
+  const digits = normalizePhone(value).replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 15;
+}
+
 function dateOnly(value) {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10);
@@ -438,6 +447,7 @@ function publicAdmin(user) {
     username: user.username,
     name: user.name,
     email: normalizeEmail(user.email),
+    phone: user.phone || "",
     role: user.role,
     createdAt: user.createdAt,
     accessStartsAt: defaultAccessStartsAt(user),
@@ -1242,6 +1252,7 @@ async function handleApi(req, res) {
     const password = String(body.password || "");
     const name = String(body.name || "").trim();
     const email = normalizeEmail(body.email);
+    const phone = normalizePhone(body.phone);
     const accessStartsAt = String(body.accessStartsAt || "").trim();
     const accessEndsAt = String(body.accessEndsAt || "").trim();
     if (!name || !username || password.length < 8) {
@@ -1250,6 +1261,10 @@ async function handleApi(req, res) {
     }
     if (!validEmail(email)) {
       sendJson(res, 400, { error: "Gecerli bir e-posta adresi gerekli." });
+      return;
+    }
+    if (!validPhone(phone)) {
+      sendJson(res, 400, { error: "Gecerli bir telefon numarasi gerekli." });
       return;
     }
     if (db.users.some(user => user.username === username)) {
@@ -1270,6 +1285,7 @@ async function handleApi(req, res) {
       username,
       name,
       email,
+      phone,
       accessStartsAt,
       accessEndsAt,
       gsmMasked: "",
