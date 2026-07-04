@@ -12,6 +12,12 @@ let normalCalcStored = null;
 let normalCalcOperator = "";
 let normalCalcFresh = true;
 
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
 const loginView = document.getElementById("loginView");
 const appView = document.getElementById("appView");
 const adminPanel = document.getElementById("adminPanel");
