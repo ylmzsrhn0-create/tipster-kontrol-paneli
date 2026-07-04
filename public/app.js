@@ -591,10 +591,11 @@ function renderCommissionRows(rows) {
       <td><strong>${escapeHtml(row.number)}</strong></td>
       <td><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td>${row.rowCount}</td>
+      <td>${Number(row.shareCount || 1) > 1 ? `${row.shareCount} tipster` : "Tek"}</td>
       <td>${money.format(row.total)}</td>
       <td><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="6">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="7">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
 }
 
 function renderNumbers(records) {
@@ -722,10 +723,11 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
       <td><strong>${escapeHtml(row.number)}</strong></td>
       <td><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td>${row.rowCount}</td>
+      <td>${Number(row.shareCount || 1) > 1 ? `${row.shareCount} tipster` : "Tek"}</td>
       <td>${money.format(row.total)}</td>
       <td><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="6">Bu hafta icin eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="7">Bu hafta icin eslesme bulunamadi.</td></tr>`;
 }
 
 async function submitFeedbackForm(event, prefix) {
