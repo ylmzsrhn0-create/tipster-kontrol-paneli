@@ -231,6 +231,7 @@ function renderAdmins(admins) {
         <input type="password" minlength="8" placeholder="Yeni sifre" required>
         <button class="ghost small" type="submit">Sifre yenile</button>
       </form>
+      <button class="danger small" data-admin-delete="${admin.id}" type="button">Sil</button>
     </div>
   `).join("") || `<p class="muted">Henuz alt admin olusturulmadi.</p>`;
 }
@@ -919,6 +920,21 @@ document.getElementById("adminRows").addEventListener("submit", async event => {
     });
     input.value = "";
     setMessage("adminCreateMessage", "Admin sifresi yenilendi.", true);
+  } catch (error) {
+    setMessage("adminCreateMessage", error.message);
+  }
+});
+
+document.getElementById("adminRows").addEventListener("click", async event => {
+  const button = event.target.closest("button[data-admin-delete]");
+  if (!button) return;
+  const ok = confirm("Bu admin ve ona bagli tipster, Excel, mesaj ve rapor kayitlari silinsin mi?");
+  if (!ok) return;
+  setMessage("adminCreateMessage", "");
+  try {
+    await api(`/api/admins/${encodeURIComponent(button.dataset.adminDelete)}`, { method: "DELETE" });
+    setMessage("adminCreateMessage", "Admin silindi.", true);
+    await loadDashboard(selectedUploadId);
   } catch (error) {
     setMessage("adminCreateMessage", error.message);
   }
