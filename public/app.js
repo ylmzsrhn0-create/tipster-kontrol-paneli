@@ -231,6 +231,10 @@ function renderAdmins(admins) {
         <input type="password" minlength="8" placeholder="Yeni sifre" required>
         <button class="ghost small" type="submit">Sifre yenile</button>
       </form>
+      <label class="admin-toggle">
+        <input type="checkbox" data-admin-shared="${admin.id}" ${admin.sharedNumbersEnabled ? "checked" : ""}>
+        <span>Ortak numara paylasimi</span>
+      </label>
       <button class="danger small" data-admin-delete="${admin.id}" type="button">Sil</button>
     </div>
   `).join("") || `<p class="muted">Henuz alt admin olusturulmadi.</p>`;
@@ -938,6 +942,24 @@ document.getElementById("adminRows").addEventListener("click", async event => {
     setMessage("adminCreateMessage", "Admin silindi.", true);
     await loadDashboard(selectedUploadId);
   } catch (error) {
+    setMessage("adminCreateMessage", error.message);
+  }
+});
+
+document.getElementById("adminRows").addEventListener("change", async event => {
+  const input = event.target.closest("input[data-admin-shared]");
+  if (!input) return;
+  setMessage("adminCreateMessage", "");
+  try {
+    await api(`/api/admins/${encodeURIComponent(input.dataset.adminShared)}/shared-numbers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: input.checked })
+    });
+    setMessage("adminCreateMessage", input.checked ? "Ortak numara paylasimi acildi." : "Ortak numara paylasimi kapatildi.", true);
+    await loadDashboard(selectedUploadId);
+  } catch (error) {
+    input.checked = !input.checked;
     setMessage("adminCreateMessage", error.message);
   }
 });
