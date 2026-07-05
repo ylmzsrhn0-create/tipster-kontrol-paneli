@@ -10,11 +10,14 @@ const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
 const DATA = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, "data");
 const DB_FILE = path.join(DATA, "database.json");
+const BACKUP_DIR = path.join(DATA, "backups");
 const PORT = Number(process.env.PORT || 3000);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
 const TRUST_PROXY = process.env.TRUST_PROXY === "1";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 const OTP_TTL_MS = 1000 * 60 * 5;
+const LOGIN_LOCK_MS = 1000 * 60 * 10;
+const LOGIN_MAX_ATTEMPTS = 5;
 const OTP_ENABLED = process.env.EMAIL_OTP_ENABLED === "1";
 const FALLBACK_OTP_EMAIL = String(process.env.ADMIN_OTP_EMAIL || "").trim();
 const SMTP_HOST = String(process.env.SMTP_HOST || "").trim();
@@ -24,6 +27,7 @@ const SMTP_PASS = String(process.env.SMTP_PASS || "");
 const SMTP_FROM = String(process.env.SMTP_FROM || SMTP_USER || "").trim();
 
 fs.mkdirSync(DATA, { recursive: true });
+fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
 function safeEqual(a, b) {
   const left = Buffer.from(String(a));
@@ -78,6 +82,67 @@ function readDb() {
 
 function writeDb(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  createDailyBackup(db);
+}
+
+function backupSafeName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40) || "yedek";
+}
+
+function createBackupFile(db, reason = "manual", actor = "system") {
+  fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `${stamp}-${backupSafeName(reason)}-${backupSafeName(actor)}.json.gz`;
+  const filePath = path.join(BACKUP_DIR, filename);
+  const payload = {
+    createdAt: new Date().toISOString(),
+    reason,
+    actor,
+    database: db
+  };
+  fs.writeFileSync(filePath, zlib.gzipSync(Buffer.from(JSON.stringify(payload, null, 2), "utf8")));
+  cleanupBackups();
+  return backupInfo(filename);
+}
+
+function createDailyBackup(db) {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const hasToday = listBackups().some(item => item.filename.startsWith(today) && item.filename.includes("-otomatik-"));
+    if (!hasToday) createBackupFile(db, "otomatik", "sistem");
+  } catch {
+    // Yedekleme ana islemi bozmamali.
+  }
+}
+
+function backupInfo(filename) {
+  const filePath = path.join(BACKUP_DIR, filename);
+  const stat = fs.statSync(filePath);
+  return {
+    filename,
+    size: stat.size,
+    createdAt: stat.mtime.toISOString()
+  };
+}
+
+function listBackups() {
+  if (!fs.existsSync(BACKUP_DIR)) return [];
+  return fs.readdirSync(BACKUP_DIR)
+    .filter(filename => filename.endsWith(".json.gz"))
+    .map(filename => backupInfo(filename))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+function cleanupBackups() {
+  const backups = listBackups();
+  backups.slice(30).forEach(item => {
+    const filePath = path.join(BACKUP_DIR, item.filename);
+    if (filePath.startsWith(BACKUP_DIR)) fs.rmSync(filePath, { force: true });
+  });
 }
 
 function normalizeDb(db) {
@@ -147,6 +212,38 @@ function normalizeDb(db) {
 
 const sessions = new Map();
 const pendingOtps = new Map();
+const loginAttempts = new Map();
+
+function clientIp(req) {
+  const forwarded = TRUST_PROXY ? String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() : "";
+  return forwarded || req.socket.remoteAddress || "unknown";
+}
+
+function loginAttemptKey(req, username, loginType) {
+  return `${clientIp(req)}:${String(loginType || "")}:${String(username || "").trim().toLowerCase()}`;
+}
+
+function loginLockInfo(key) {
+  const item = loginAttempts.get(key);
+  if (!item) return null;
+  if (item.lockedUntil && item.lockedUntil > Date.now()) return item;
+  if (item.lockedUntil && item.lockedUntil <= Date.now()) loginAttempts.delete(key);
+  return null;
+}
+
+function recordLoginFailure(key) {
+  const item = loginAttempts.get(key) || { count: 0, lockedUntil: 0 };
+  item.count += 1;
+  if (item.count >= LOGIN_MAX_ATTEMPTS) {
+    item.lockedUntil = Date.now() + LOGIN_LOCK_MS;
+  }
+  loginAttempts.set(key, item);
+  return item;
+}
+
+function clearLoginFailure(key) {
+  loginAttempts.delete(key);
+}
 
 function parseCookies(req) {
   const out = {};
@@ -857,6 +954,35 @@ function adminSummary(db, uploadId, ownerId) {
   };
 }
 
+function adminOverview(db, uploadId, ownerId) {
+  const members = db.users.filter(user => user.role === "member" && user.ownerId === ownerId);
+  const rows = selectedRows(db, uploadId, ownerId);
+  const activeNumbers = new Set(rows.map(row => row.gsmMasked).filter(Boolean));
+  const passiveNumbers = passiveNumberSummary(db, uploadId, ownerId);
+  const unmatchedNumbers = unmatchedNumberSummary(db, uploadId, ownerId);
+  const unreadMessages = (db.messages || [])
+    .filter(message => message.ownerId === ownerId)
+    .reduce((sum, message) => {
+      const unread = message.recipientIds.filter(id => !message.readBy?.[id]).length;
+      return sum + unread;
+    }, 0);
+  const uploadReports = (db.uploadReports || []).filter(report => report.ownerId === ownerId);
+  const latestReport = uploadReports.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] || null;
+  const latestBackup = listBackups()[0] || null;
+  return {
+    totalMembers: members.length,
+    activeNumberCount: activeNumbers.size,
+    passiveNumberCount: passiveNumbers.length,
+    unmatchedNumberCount: unmatchedNumbers.length,
+    uploadCount: db.uploads.filter(upload => upload.ownerId === ownerId).length,
+    unreadMessageCount: unreadMessages,
+    feedbackCount: (db.feedbacks || []).filter(feedback => feedback.status === "new").length,
+    latestUploadAt: latestReport?.createdAt || "",
+    latestBackupAt: latestBackup?.createdAt || "",
+    latestBackupFile: latestBackup?.filename || ""
+  };
+}
+
 function unmatchedNumberSummary(db, uploadId, ownerId) {
   const registeredNumbers = new Set(
     db.users
@@ -1119,20 +1245,32 @@ async function handleApi(req, res) {
 
   if (req.method === "POST" && url.pathname === "/api/login") {
     const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
-    const user = db.users.find(item => item.username === body.username);
+    const username = String(body.username || "").trim();
+    const loginType = String(body.loginType || "");
+    const attemptKey = loginAttemptKey(req, username, loginType);
+    const locked = loginLockInfo(attemptKey);
+    if (locked) {
+      const minutes = Math.ceil((locked.lockedUntil - Date.now()) / 60000);
+      sendJson(res, 429, { error: `Cok fazla hatali deneme yapildi. ${minutes} dakika sonra tekrar deneyin.` });
+      return;
+    }
+    const user = db.users.find(item => item.username === username);
     if (!user || !verifyPassword(body.password, user.passwordHash)) {
+      recordLoginFailure(attemptKey);
       sendJson(res, 401, { error: "Kullanıcı adı veya şifre hatalı." });
       return;
     }
-    const loginType = String(body.loginType || "");
     if (loginType === "admin" && !isStaff(user)) {
+      recordLoginFailure(attemptKey);
       sendJson(res, 401, { error: "Bu hesap admin hesabi degil." });
       return;
     }
     if (loginType === "member" && user.role !== "member") {
+      recordLoginFailure(attemptKey);
       sendJson(res, 401, { error: "Bu hesap tipster hesabi degil." });
       return;
     }
+    clearLoginFailure(attemptKey);
     if (isStaff(user) && emailOtpConfigured()) {
       const otpEmail = otpRecipientFor(user);
       if (!validEmail(otpEmail)) {
@@ -1453,7 +1591,7 @@ async function handleApi(req, res) {
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 60)
         .map(publicAuditLog);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), members, uploads, messages, unmatchedNumbers, passiveNumbers, uploadReports, auditLogs, selectedUploadId: uploadId };
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id), backups: listBackups().slice(0, 10), members, uploads, messages, unmatchedNumbers, passiveNumbers, uploadReports, auditLogs, selectedUploadId: uploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -1484,6 +1622,36 @@ async function handleApi(req, res) {
       uploads,
       selectedUploadId: uploadId
     });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/backups") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const actor = db.users.find(item => item.id === session.userId);
+    const backup = createBackupFile(db, "manuel", actor?.username || "admin");
+    addAuditLog(db, session.userId, actor, "Yedek alindi", `${backup.filename} dosyasi olusturuldu`);
+    writeDb(db);
+    sendJson(res, 200, { ok: true, backup, backups: listBackups().slice(0, 10) });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/backups/download") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const filename = path.basename(String(url.searchParams.get("file") || ""));
+    const filePath = path.join(BACKUP_DIR, filename);
+    if (!filename.endsWith(".json.gz") || !filePath.startsWith(BACKUP_DIR) || !fs.existsSync(filePath)) {
+      sendJson(res, 404, { error: "Yedek bulunamadi." });
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": "application/gzip",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "no-store"
+    });
+    fs.createReadStream(filePath).pipe(res);
     return;
   }
 
