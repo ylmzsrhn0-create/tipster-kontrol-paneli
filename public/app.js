@@ -198,6 +198,8 @@ function renderAdmin(data, keepOwnerPanel = false) {
   document.getElementById("rowCount").textContent = data.summary.rowCount;
   document.getElementById("totalAmount").textContent = money.format(data.summary.totalAmount);
   document.getElementById("totalCommission").textContent = money.format(data.summary.totalCommission || 0);
+  renderOverview(data.overview || {});
+  renderBackups(data.backups || []);
   renderMembers();
   renderUnmatchedNumbers(data.unmatchedNumbers || []);
   renderPassiveNumbers(data.passiveNumbers || []);
@@ -246,6 +248,53 @@ function renderAdmins(admins) {
   `).join("") || `<p class="muted">Henuz alt admin olusturulmadi.</p>`;
 }
 
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString("tr-TR");
+}
+
+function formatFileSize(size) {
+  const bytes = Number(size || 0);
+  if (bytes >= 1024 * 1024) return `${money.format(bytes / 1024 / 1024)} MB`;
+  if (bytes >= 1024) return `${money.format(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
+function renderOverview(overview) {
+  const cards = [
+    ["Aktif numara", overview.activeNumberCount || 0, "Secili Excelde oynayan benzersiz numara"],
+    ["Pasif numara", overview.passiveNumberCount || 0, "Tipsterda kayitli olup secili haftada gorunmeyen"],
+    ["Tipstersiz", overview.unmatchedNumberCount || 0, "Excelde var, tipsterda kayitli degil"],
+    ["Okunmamis mesaj", overview.unreadMessageCount || 0, "Tipsterlar tarafindan henuz okunmayan"],
+    ["Excel sayisi", overview.uploadCount || 0, "Bu admin hesabindaki yuklu dosya"],
+    ["Son yedek", overview.latestBackupAt ? formatDateTime(overview.latestBackupAt) : "-", "Veri koruma kaydi"]
+  ];
+  if (currentDashboard?.role === "owner") {
+    cards.splice(5, 0, ["Gelen talep", overview.feedbackCount || 0, "Oneri ve sikayet kutusu"]);
+  }
+  document.getElementById("overviewGrid").innerHTML = cards.map(([label, value, help]) => `
+    <div class="overview-card">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <small>${escapeHtml(help)}</small>
+    </div>
+  `).join("");
+}
+
+function renderBackups(backups) {
+  document.getElementById("backupCount").textContent = backups.length;
+  document.getElementById("backupRows").innerHTML = backups.map(backup => `
+    <article class="backup-item">
+      <div>
+        <strong>${escapeHtml(formatDateTime(backup.createdAt))}</strong>
+        <span>${escapeHtml(backup.filename)} - ${escapeHtml(formatFileSize(backup.size))}</span>
+      </div>
+      <button class="ghost small" data-backup-download="${encodeURIComponent(backup.filename)}" type="button">Indir</button>
+    </article>
+  `).join("") || `<p class="muted">Henuz yedek bulunmuyor.</p>`;
+}
+
 function renderMembers() {
   const query = document.getElementById("search").value.trim().toLocaleLowerCase("tr");
   const rows = currentDashboard.members.filter(member => {
@@ -254,14 +303,14 @@ function renderMembers() {
   });
   document.getElementById("memberRows").innerHTML = rows.map(member => `
     <tr>
-      <td><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
-      <td>${escapeHtml(numberRecordText(member) || "-")}</td>
-      <td><strong>${member.numberCount ?? numberRecordsOf(member).length}</strong></td>
-      <td>%${money.format(member.percentage)}</td>
-      <td>${member.rowCount}</td>
-      <td>${money.format(member.total)}</td>
-      <td><strong>${money.format(member.calculated)}</strong></td>
-      <td class="action-cell">
+      <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
+      <td data-label="Numara">${escapeHtml(numberRecordText(member) || "-")}</td>
+      <td data-label="Uye"><strong>${member.numberCount ?? numberRecordsOf(member).length}</strong></td>
+      <td data-label="Yuzde">%${money.format(member.percentage)}</td>
+      <td data-label="Excel kayit">${member.rowCount}</td>
+      <td data-label="Toplam">${money.format(member.total)}</td>
+      <td data-label="Hesap"><strong>${money.format(member.calculated)}</strong></td>
+      <td data-label="Islem" class="action-cell">
         <button class="ghost small" data-detail="${member.id}" type="button">Detay</button>
         <button class="danger small" data-delete="${member.id}" type="button">Sil</button>
       </td>
@@ -273,10 +322,10 @@ function renderUnmatchedNumbers(numbers) {
   document.getElementById("unmatchedNumberCount").textContent = numbers.length;
   document.getElementById("unmatchedNumberRows").innerHTML = numbers.map(item => `
     <tr>
-      <td><strong>${escapeHtml(item.number)}</strong></td>
-      <td>${item.rowCount}</td>
-      <td>${money.format(item.total)}</td>
-      <td>${escapeHtml((item.uploads || []).join(", ") || "-")}</td>
+      <td data-label="Numara"><strong>${escapeHtml(item.number)}</strong></td>
+      <td data-label="Excel kayit">${item.rowCount}</td>
+      <td data-label="Toplam oyun">${money.format(item.total)}</td>
+      <td data-label="Hafta / dosya">${escapeHtml((item.uploads || []).join(", ") || "-")}</td>
     </tr>
   `).join("") || `<tr><td colspan="4">Secili haftada tipstersiz numara yok.</td></tr>`;
 }
@@ -326,10 +375,10 @@ function renderPassiveNumbers(numbers) {
             <tbody>
               ${group.numbers.map(item => `
                 <tr>
-                  <td>${escapeHtml(item.name || "-")}</td>
-                  <td><strong>${escapeHtml(item.number)}</strong></td>
-                  <td>${escapeHtml(item.passiveSince || "-")}</td>
-                  <td>${escapeHtml(item.statusText || "-")}</td>
+                  <td data-label="Isim">${escapeHtml(item.name || "-")}</td>
+                  <td data-label="Numara"><strong>${escapeHtml(item.number)}</strong></td>
+                  <td data-label="Ne zamandir pasif">${escapeHtml(item.passiveSince || "-")}</td>
+                  <td data-label="Son aktif">${escapeHtml(item.statusText || "-")}</td>
                 </tr>
               `).join("")}
             </tbody>
@@ -454,10 +503,10 @@ function renderMemberPassiveNumbers(numbers) {
   document.getElementById("memberPassiveNumberCount").textContent = numbers.length;
   document.getElementById("memberPassiveNumberRows").innerHTML = numbers.map(item => `
     <tr>
-      <td>${escapeHtml(item.name || "-")}</td>
-      <td><strong>${escapeHtml(item.number)}</strong></td>
-      <td>${escapeHtml(item.passiveSince || "-")}</td>
-      <td>${escapeHtml(item.statusText || "-")}</td>
+      <td data-label="Isim">${escapeHtml(item.name || "-")}</td>
+      <td data-label="Numara"><strong>${escapeHtml(item.number)}</strong></td>
+      <td data-label="Ne zamandir pasif">${escapeHtml(item.passiveSince || "-")}</td>
+      <td data-label="Son aktif">${escapeHtml(item.statusText || "-")}</td>
     </tr>
   `).join("") || `<tr><td colspan="4">Secili haftada pasif numaran yok.</td></tr>`;
 }
@@ -586,10 +635,10 @@ function renderMyRows(rows) {
   `;
   document.getElementById("myRows").innerHTML = visibleRows.map(row => `
     <tr>
-      <td>${escapeHtml(row.gsmMasked || "-")}</td>
-      <td>${escapeHtml(row.processType || "-")}</td>
-      <td>${money.format(row.totalAmount)}</td>
-      <td>${new Date(row.importedAt).toLocaleString("tr-TR")}</td>
+      <td data-label="Numara">${escapeHtml(row.gsmMasked || "-")}</td>
+      <td data-label="Islem tipi">${escapeHtml(row.processType || "-")}</td>
+      <td data-label="Toplam tutar">${money.format(row.totalAmount)}</td>
+      <td data-label="Aktarim">${new Date(row.importedAt).toLocaleString("tr-TR")}</td>
     </tr>
   `).join("") || `<tr><td colspan="4">Bu hafta icin kayit bulunamadi.</td></tr>`;
 }
@@ -597,13 +646,13 @@ function renderMyRows(rows) {
 function renderCommissionRows(rows) {
   document.getElementById("commissionRows").innerHTML = rows.map(row => `
     <tr>
-      <td>${escapeHtml(row.name || "-")}</td>
-      <td><strong>${escapeHtml(row.number)}</strong></td>
-      <td><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
-      <td>${row.rowCount}</td>
-      <td>${Number(row.shareCount || 1) > 1 ? `${row.shareCount} tipster` : "Tek"}</td>
-      <td>${money.format(row.total)}</td>
-      <td><strong>${money.format(row.calculated)}</strong></td>
+      <td data-label="Isim">${escapeHtml(row.name || "-")}</td>
+      <td data-label="Numara"><strong>${escapeHtml(row.number)}</strong></td>
+      <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
+      <td data-label="Kayit">${row.rowCount}</td>
+      <td data-label="Pay">${Number(row.shareCount || 1) > 1 ? `${row.shareCount} tipster` : "Tek"}</td>
+      <td data-label="Toplam oyun">${money.format(row.total)}</td>
+      <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
   `).join("") || `<tr><td colspan="7">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
 }
@@ -729,13 +778,13 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
   renderUploadSelect("detailUploadSelect", data.uploads, data.selectedUploadId);
   document.getElementById("detailNumberRows").innerHTML = (data.numberSummaries || []).map(row => `
     <tr>
-      <td>${escapeHtml(row.name || "-")}</td>
-      <td><strong>${escapeHtml(row.number)}</strong></td>
-      <td><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
-      <td>${row.rowCount}</td>
-      <td>${Number(row.shareCount || 1) > 1 ? `${row.shareCount} tipster` : "Tek"}</td>
-      <td>${money.format(row.total)}</td>
-      <td><strong>${money.format(row.calculated)}</strong></td>
+      <td data-label="Isim">${escapeHtml(row.name || "-")}</td>
+      <td data-label="Numara"><strong>${escapeHtml(row.number)}</strong></td>
+      <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
+      <td data-label="Kayit">${row.rowCount}</td>
+      <td data-label="Pay">${Number(row.shareCount || 1) > 1 ? `${row.shareCount} tipster` : "Tek"}</td>
+      <td data-label="Toplam">${money.format(row.total)}</td>
+      <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
   `).join("") || `<tr><td colspan="7">Bu hafta icin eslesme bulunamadi.</td></tr>`;
 }
@@ -1037,6 +1086,24 @@ document.getElementById("clearUploadsBtn").addEventListener("click", async () =>
   } catch (error) {
     setMessage("uploadMessage", error.message);
   }
+});
+
+document.getElementById("createBackupBtn").addEventListener("click", async () => {
+  setMessage("backupMessage", "");
+  try {
+    const data = await api("/api/backups", { method: "POST" });
+    renderBackups(data.backups || []);
+    setMessage("backupMessage", "Yedek alindi.", true);
+    await loadDashboard(selectedUploadId);
+  } catch (error) {
+    setMessage("backupMessage", error.message);
+  }
+});
+
+document.getElementById("backupRows").addEventListener("click", event => {
+  const button = event.target.closest("button[data-backup-download]");
+  if (!button) return;
+  window.location.href = `/api/backups/download?file=${button.dataset.backupDownload}`;
 });
 
 document.getElementById("adminPasswordForm").addEventListener("submit", async event => {
