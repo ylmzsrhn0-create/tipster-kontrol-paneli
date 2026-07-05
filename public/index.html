@@ -94,6 +94,32 @@
           </label>
         </section>
 
+        <section class="panel wide overview-panel">
+          <div class="section-head">
+            <div>
+              <h2>Genel durum</h2>
+              <p class="muted">Secili haftanin ve panel guvenliginin kisa ozeti</p>
+            </div>
+          </div>
+          <div class="overview-grid" id="overviewGrid"></div>
+        </section>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Yedekleme ve guvenlik</strong>
+              <small>Verileri korumak icin otomatik ve manuel yedekler</small>
+            </span>
+            <b id="backupCount">0</b>
+          </summary>
+          <div class="section-head collapsible-tools">
+            <p class="muted">Sistem gunde bir otomatik yedek alir. Istedigin zaman manuel yedek de alabilirsin.</p>
+            <button class="primary small" id="createBackupBtn" type="button">Yedek al</button>
+          </div>
+          <div class="message" id="backupMessage"></div>
+          <div class="backup-list collapsible-body" id="backupRows"></div>
+        </details>
+
         <details class="panel wide collapsible">
           <summary>
             <span>
