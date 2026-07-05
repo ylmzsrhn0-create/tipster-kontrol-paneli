@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f4c81">
+  <title>Tipster Kontrol Paneli | Bakim</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --ink: #172033;
+      --muted: #687386;
+      --panel: #ffffff;
+      --line: #dfe5ed;
+      --brand: #1769aa;
+      --accent: #0f766e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    main {
+      width: min(620px, 100%);
+      display: grid;
+      gap: 18px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 18px 55px rgba(23, 32, 51, .08);
+      text-align: center;
+    }
+    img {
+      width: 76px;
+      height: 76px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 6vw, 38px);
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.55;
+      font-weight: 700;
+    }
+    button {
+      min-height: 44px;
+      width: fit-content;
+      margin: 4px auto 0;
+      padding: 0 18px;
+      border: 0;
+      border-radius: 7px;
+      background: var(--brand);
+      color: #fff;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    small {
+      color: var(--accent);
+      font-weight: 900;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/icon.svg" alt="Tipster Kontrol Paneli">
+    <small>Sistem guncelleniyor</small>
+    <h1>Size daha iyi hizmet verebilmek adina kendimizi gelistiriyoruz.</h1>
+    <p>Kisa sure icinde tekrar aktif olacagiz. Lutfen biraz sonra tekrar deneyin.</p>
+    <button type="button" onclick="location.reload()">Tekrar dene</button>
+  </main>
+</body>
+</html>
