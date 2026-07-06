@@ -287,13 +287,24 @@
             <summary>
               <span>
                 <strong>Excel yukle</strong>
-                <small>Hafta veya donem dosyasi aktar</small>
+                <small>Haftalik veya gunluk dosya aktar</small>
               </span>
             </summary>
             <form class="collapsible-body" id="uploadForm">
-            <p class="muted">Her yukleme ayri hafta/donem olarak saklanir. Sadece Bonus Disi Kupon Oynama satirlari hesaba alinir.</p>
+            <p class="muted">Haftalik ve gunluk Excel yuklemeleri ayri saklanir. Her ikisinde de sadece Bonus Disi Kupon Oynama satirlari hesaba alinir.</p>
             <label>
-              Hafta / donem adi
+              Excel tipi
+              <select id="uploadType">
+                <option value="weekly">Haftalik Excel</option>
+                <option value="daily">Gunluk Excel</option>
+              </select>
+            </label>
+            <label>
+              Gunluk tarih
+              <input id="uploadDate" type="date">
+            </label>
+            <label>
+              Hafta / gun adi
               <input id="weekLabel" placeholder="Bos kalirsa dosya adi kullanilir">
             </label>
             <label>
@@ -302,7 +313,7 @@
             </label>
             <p class="muted" id="fileHelp">Bir veya birden fazla .xlsx dosyasi secebilirsin.</p>
             <button class="primary" type="submit">Excel aktar</button>
-            <button class="danger" id="clearUploadsBtn" type="button">Tum Excel kayitlarini temizle</button>
+            <button class="danger" id="clearUploadsBtn" type="button">Tum haftalik ve gunluk Excel kayitlarini temizle</button>
             <div class="message" id="uploadMessage"></div>
             <div class="uploads" id="uploads"></div>
             </form>
@@ -597,6 +608,29 @@
                 </tr>
               </thead>
               <tbody id="commissionRows"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Gunluk kazancim</strong>
+              <small>Adminin gunluk olarak yukledigi Excel sonuclari</small>
+            </span>
+            <b id="dailyEarningCount">0</b>
+          </summary>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Gun</th>
+                  <th>Excel kayit</th>
+                  <th>Toplam oyun</th>
+                  <th>Kazanc</th>
+                </tr>
+              </thead>
+              <tbody id="dailyEarningRows"></tbody>
             </table>
           </div>
         </details>
