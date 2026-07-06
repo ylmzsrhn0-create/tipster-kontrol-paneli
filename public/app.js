@@ -97,7 +97,12 @@ function resetOtpLogin() {
 
 function uploadLabel(upload) {
   if (!upload) return "Tum haftalar";
-  return `${upload.weekLabel || upload.filename} (${upload.rowCount} satir)`;
+  const type = upload.uploadType === "daily" ? "Gunluk" : "Haftalik";
+  return `${type}: ${upload.weekLabel || upload.filename} (${upload.rowCount} satir)`;
+}
+
+function uploadTypeText(upload) {
+  return upload?.uploadType === "daily" ? "Gunluk" : "Haftalik";
 }
 
 function numberRecordsOf(member) {
@@ -158,6 +163,11 @@ function setDefaultAdminPeriod() {
   endInput.value = dateInputValue(addYears(today, 1));
 }
 
+function setDefaultUploadDate() {
+  const input = document.getElementById("uploadDate");
+  if (input && !input.value) input.value = dateInputValue(new Date());
+}
+
 function renderAdminPeriod(admin) {
   const banner = document.getElementById("adminPeriodBanner");
   const info = accessPeriodInfo(admin);
@@ -208,12 +218,28 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderMessageRecipients(data.members || []);
   renderAdminMessages(data.messages || []);
   document.getElementById("adminFeedbackPanel").classList.toggle("hidden", data.role === "owner");
-  document.getElementById("uploads").innerHTML = data.uploads.map(upload => `
-    <div class="upload-item">
-      <strong>${escapeHtml(upload.weekLabel || upload.filename)}</strong><br>
-      ${escapeHtml(upload.filename)} - ${upload.rowCount} satir - ${new Date(upload.createdAt).toLocaleString("tr-TR")}
+  const weeklyUploads = data.uploads || [];
+  const dailyUploads = data.dailyUploads || [];
+  document.getElementById("uploads").innerHTML = `
+    <div class="upload-group">
+      <strong>Haftalik Excel dosyalari</strong>
+      ${weeklyUploads.map(upload => `
+        <div class="upload-item">
+          <strong>${escapeHtml(upload.weekLabel || upload.filename)}</strong><br>
+          ${escapeHtml(upload.filename)} - ${upload.rowCount} satir - ${new Date(upload.createdAt).toLocaleString("tr-TR")}
+        </div>
+      `).join("") || `<p class="muted">Henuz haftalik Excel yuklenmedi.</p>`}
     </div>
-  `).join("") || `<p class="muted">Henuz Excel yuklenmedi.</p>`;
+    <div class="upload-group">
+      <strong>Gunluk Excel dosyalari</strong>
+      ${dailyUploads.map(upload => `
+        <div class="upload-item">
+          <strong>${escapeHtml(upload.weekLabel || upload.filename)}</strong><br>
+          ${escapeHtml(upload.filename)} - ${escapeHtml(upload.uploadDate || "-")} - ${upload.rowCount} satir - ${new Date(upload.createdAt).toLocaleString("tr-TR")}
+        </div>
+      `).join("") || `<p class="muted">Henuz gunluk Excel yuklenmedi.</p>`}
+    </div>
+  `;
   calculateAdminTool();
 }
 
@@ -394,8 +420,8 @@ function renderUploadReports(reports) {
     <article class="report-card">
       <div class="message-card-head">
         <div>
-          <strong>${escapeHtml(report.weekLabel || report.filename || "Excel")}</strong>
-          <span>${escapeHtml(report.filename || "-")} - ${new Date(report.createdAt).toLocaleString("tr-TR")}</span>
+          <strong>${escapeHtml(report.uploadType === "daily" ? "Gunluk" : "Haftalik")}: ${escapeHtml(report.weekLabel || report.filename || "Excel")}</strong>
+          <span>${escapeHtml(report.filename || "-")} - ${escapeHtml(report.uploadDate || "")} - ${new Date(report.createdAt).toLocaleString("tr-TR")}</span>
         </div>
       </div>
       <div class="report-grid">
@@ -581,6 +607,7 @@ function renderMember(data) {
   document.getElementById("myCalculated").textContent = money.format(data.calculated);
   document.getElementById("myRate").textContent = `%${money.format(data.percentage || data.member.percentage || 0)}`;
   renderCommissionRows(data.numberSummaries || []);
+  renderDailyEarnings(data.dailySummaries || []);
   renderMemberPassiveNumbers(data.passiveNumbers || []);
   renderNumbers(numbers);
   renderMyRows(data.rows || []);
@@ -654,6 +681,18 @@ function renderCommissionRows(rows) {
       <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
   `).join("") || `<tr><td colspan="6">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
+}
+
+function renderDailyEarnings(rows) {
+  document.getElementById("dailyEarningCount").textContent = rows.length;
+  document.getElementById("dailyEarningRows").innerHTML = rows.map(row => `
+    <tr>
+      <td data-label="Gun"><strong>${escapeHtml(row.label || row.uploadDate || "-")}</strong><br><span class="muted">${escapeHtml(row.uploadDate || "-")}</span></td>
+      <td data-label="Excel kayit">${row.rowCount}</td>
+      <td data-label="Toplam oyun">${money.format(row.total || 0)}</td>
+      <td data-label="Kazanc"><strong>${money.format(row.calculated || 0)}</strong></td>
+    </tr>
+  `).join("") || `<tr><td colspan="4">Henuz gunluk Excel kazanci bulunmuyor.</td></tr>`;
 }
 
 function renderNumbers(records) {
@@ -1053,16 +1092,22 @@ document.getElementById("uploadForm").addEventListener("submit", async event => 
   setMessage("uploadMessage", "");
   const files = Array.from(document.getElementById("excelFile").files);
   const weekLabel = document.getElementById("weekLabel").value.trim();
+  const uploadType = document.getElementById("uploadType").value;
+  const uploadDate = document.getElementById("uploadDate").value;
   if (!files.length) return;
   try {
     const form = new FormData();
     form.append("weekLabel", weekLabel);
+    form.append("uploadType", uploadType);
+    form.append("uploadDate", uploadDate);
     for (const file of files) form.append("excel", file);
     const data = await api("/api/upload", { method: "POST", body: form });
     event.target.reset();
-    selectedUploadId = data.uploadId;
-    setMessage("uploadMessage", `${data.uploads.length} Excel aktarildi, Bonus Disi Kupon Oynama icin ${data.rowCount} satir islendi.`, true);
-    await loadDashboard(data.uploadId);
+    setDefaultUploadDate();
+    selectedUploadId = data.uploadType === "daily" ? "" : data.uploadId;
+    const typeText = uploadType === "daily" ? "Gunluk" : "Haftalik";
+    setMessage("uploadMessage", `${data.uploads.length} ${typeText} Excel aktarildi, Bonus Disi Kupon Oynama icin ${data.rowCount} satir islendi.`, true);
+    await loadDashboard(selectedUploadId);
   } catch (error) {
     setMessage("uploadMessage", error.message);
   }
@@ -1312,9 +1357,11 @@ kvkkModal.addEventListener("click", event => {
 });
 
 setDefaultAdminPeriod();
+setDefaultUploadDate();
 
 api("/api/me").then(async data => {
   setDefaultAdminPeriod();
+  setDefaultUploadDate();
   if (!data.user) {
     document.getElementById("username").value = "admin";
     document.getElementById("password").value = "";
