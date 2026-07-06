@@ -318,6 +318,11 @@ function validDateOnly(value) {
   return !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime());
 }
 
+function excelDateHeader(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}.${match[2]}.${match[1]}` : "";
+}
+
 function defaultAccessStartsAt(user) {
   return user.accessStartsAt || dateOnly(user.createdAt);
 }
@@ -830,7 +835,7 @@ function parseSheetRows(xml, sharedStrings) {
   return rows;
 }
 
-function parseExcel(buffer) {
+function parseExcel(buffer, options = {}) {
   const entries = zipEntries(buffer);
   const sharedStrings = parseSharedStrings(entries.get("xl/sharedStrings.xml"));
   const { sheetName, target } = parseWorkbook(entries);
@@ -843,18 +848,35 @@ function parseExcel(buffer) {
   if (gsmIndex === -1 || totalIndex === -1 || typeIndex === -1) {
     throw new Error("Excel icinde OYUNCU GSM, TOPLAM TUTAR ve ISLEM TIPI basliklari bulunmali.");
   }
+  const dailyColumnKeys = headers
+    .map((header, index) => ({ header, index }))
+    .filter(item => /^\d{2}\.\d{2}\.\d{4}$/.test(String(item.header)));
+  const selectedDailyHeader = excelDateHeader(options.uploadDate);
+  const hasDailyHeader = daily => selectedDailyHeader && Object.prototype.hasOwnProperty.call(daily, selectedDailyHeader);
   return rows
     .filter(row => normalizeGsm(row[gsmIndex]))
     .filter(row => isBonusDisiKuponOynama(row[typeIndex]))
-    .map(row => ({
-      id: crypto.randomUUID(),
-      gsmMasked: normalizeGsm(row[gsmIndex]),
-      processType: row[typeIndex] || "",
-      totalAmount: numberFrom(row[totalIndex]),
-      daily: Object.fromEntries(headers.map((h, i) => [h, numberFrom(row[i])]).filter(([h]) => /^\d{2}\.\d{2}\.\d{4}$/.test(String(h)))),
-      sheetName,
-      importedAt: new Date().toISOString()
-    }));
+    .map(row => {
+      const daily = Object.fromEntries(dailyColumnKeys.map(item => [item.header, numberFrom(row[item.index])]));
+      const hasDailyColumns = Object.keys(daily).length > 0;
+      const selectedDailyAmount = hasDailyHeader(daily)
+        ? daily[selectedDailyHeader]
+        : Object.values(daily).reduce((sum, value) => sum + value, 0);
+      const dailyCalculation = options.uploadType === "daily" && hasDailyColumns;
+      const totalAmount = dailyCalculation ? selectedDailyAmount : numberFrom(row[totalIndex]);
+      return {
+        id: crypto.randomUUID(),
+        gsmMasked: normalizeGsm(row[gsmIndex]),
+        processType: row[typeIndex] || "",
+        totalAmount,
+        excelTotalAmount: numberFrom(row[totalIndex]),
+        calculationSource: dailyCalculation ? (hasDailyHeader(daily) ? selectedDailyHeader : "gunluk tarih sutunlari") : "toplam tutar",
+        daily,
+        sheetName,
+        importedAt: new Date().toISOString()
+      };
+    })
+    .filter(row => options.uploadType !== "daily" || row.totalAmount !== 0 || !Object.keys(row.daily || {}).length);
 }
 
 function parseMultipart(buffer, contentType) {
@@ -2094,7 +2116,7 @@ async function handleApi(req, res) {
       : dateOnly(new Date());
     const imported = files.map(file => {
       const uploadId = crypto.randomUUID();
-      const rows = parseExcel(file.data).map(row => ({ ...row, uploadId, ownerId: session.userId }));
+      const rows = parseExcel(file.data, { uploadType, uploadDate }).map(row => ({ ...row, uploadId, ownerId: session.userId }));
       const fileBase = file.filename.replace(/\.xlsx$/i, "");
       const weekLabel = files.length === 1
         ? (baseWeekLabel || (uploadType === "daily" ? `Gunluk ${uploadDate}` : fileBase))
