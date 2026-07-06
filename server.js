@@ -937,6 +937,46 @@ function numberShareCounts(db, ownerId) {
   return counts;
 }
 
+function sharedNumberSummary(db, uploadId, ownerId) {
+  if (!sharedNumbersEnabledForOwner(db, ownerId)) return [];
+  const grouped = new Map();
+  db.users
+    .filter(user => user.role === "member" && user.ownerId === ownerId)
+    .forEach(member => {
+      getUserNumberRecords(member).forEach(record => {
+        if (!record.number) return;
+        const current = grouped.get(record.number) || {
+          number: record.number,
+          name: record.name || "",
+          members: []
+        };
+        current.members.push({
+          id: member.id,
+          name: member.name || member.username,
+          username: member.username,
+          percentage: Number(member.percentage) || 0
+        });
+        if (!current.name && record.name) current.name = record.name;
+        grouped.set(record.number, current);
+      });
+    });
+  const rows = selectedRows(db, uploadId, ownerId);
+  return Array.from(grouped.values())
+    .filter(item => item.members.length > 1)
+    .map(item => {
+      const numberRows = rows.filter(row => row.gsmMasked === item.number);
+      const total = numberRows.reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
+      return {
+        ...item,
+        memberCount: item.members.length,
+        rowCount: numberRows.length,
+        total,
+        sharedTotal: item.members.length ? total / item.members.length : total
+      };
+    })
+    .sort((a, b) => b.memberCount - a.memberCount || b.total - a.total || a.number.localeCompare(b.number));
+}
+
 function sharedRow(row, shareCounts) {
   const shareCount = Math.max(1, shareCounts.get(row.gsmMasked) || 1);
   const originalTotalAmount = Number(row.totalAmount) || 0;
@@ -1665,6 +1705,7 @@ async function handleApi(req, res) {
         .map(message => publicMessageForAdmin(db, message));
       const unmatchedNumbers = unmatchedNumberSummary(db, uploadId, user.id);
       const passiveNumbers = passiveNumberSummary(db, uploadId, user.id);
+      const sharedNumbers = sharedNumberSummary(db, uploadId, user.id);
       const uploadReports = (db.uploadReports || [])
         .filter(report => report.ownerId === user.id)
         .slice()
@@ -1677,7 +1718,7 @@ async function handleApi(req, res) {
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 60)
         .map(publicAuditLog);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), messages, unmatchedNumbers, passiveNumbers, uploadReports, auditLogs, selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
