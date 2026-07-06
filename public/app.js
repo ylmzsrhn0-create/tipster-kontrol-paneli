@@ -650,11 +650,10 @@ function renderCommissionRows(rows) {
       <td data-label="Numara"><strong>${escapeHtml(row.number)}</strong></td>
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td data-label="Kayit">${row.rowCount}</td>
-      <td data-label="Pay">${Number(row.shareCount || 1) > 1 ? `${row.shareCount} tipster` : "Tek"}</td>
       <td data-label="Toplam oyun">${money.format(row.total)}</td>
       <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="7">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="6">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
 }
 
 function renderNumbers(records) {
