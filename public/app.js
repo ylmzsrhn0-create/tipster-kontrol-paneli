@@ -2,6 +2,7 @@ let csrfToken = "";
 let currentDashboard = null;
 let selectedLoginType = "admin";
 let selectedUploadId = "";
+let selectedDailyUploadId = "";
 let detailMemberId = "";
 let detailUploadId = "";
 let pendingLoginToken = "";
@@ -193,9 +194,18 @@ function renderUploadSelect(selectId, uploads, selected) {
   select.value = selected || uploads[0]?.id || "all";
 }
 
+function renderDailyUploadSelect(selectId, uploads, selected) {
+  const select = document.getElementById(selectId);
+  select.innerHTML = uploads.length
+    ? uploads.map(upload => `<option value="${upload.id}">${escapeHtml(uploadLabel(upload))}</option>`).join("")
+    : `<option value="">Gunluk Excel yuklenmedi</option>`;
+  select.value = selected || uploads[0]?.id || "";
+}
+
 function renderAdmin(data, keepOwnerPanel = false) {
   currentDashboard = data;
   selectedUploadId = data.selectedUploadId;
+  selectedDailyUploadId = data.selectedDailyUploadId || "";
   if (!keepOwnerPanel) ownerPanel.classList.add("hidden");
   adminPanel.classList.remove("hidden");
   memberPanel.classList.add("hidden");
@@ -203,6 +213,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   document.title = "Tipster Kontrol Paneli";
   renderAdminPeriod(data.currentAdmin);
   renderUploadSelect("adminUploadSelect", data.uploads, data.selectedUploadId);
+  renderDailyUploadSelect("adminDailyUploadSelect", data.dailyUploads || [], data.selectedDailyUploadId);
   document.getElementById("adminEmail").value = data.currentAdmin?.email || "";
   document.getElementById("memberCount").textContent = data.summary.memberCount;
   document.getElementById("rowCount").textContent = data.summary.rowCount;
@@ -211,6 +222,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderOverview(data.overview || {});
   renderBackups(data.backups || []);
   renderMembers();
+  renderDailyMembers();
   renderUnmatchedNumbers(data.unmatchedNumbers || []);
   renderPassiveNumbers(data.passiveNumbers || []);
   renderUploadReports(data.uploadReports || []);
@@ -342,16 +354,31 @@ function renderMembers() {
       <td data-label="Excel kayit">${member.rowCount}</td>
       <td data-label="Toplam">${money.format(member.total)}</td>
       <td data-label="Hesap"><strong>${money.format(member.calculated)}</strong></td>
-      <td data-label="Gunluk kazanc">
-        <strong>${money.format(member.dailyCalculated || 0)}</strong><br>
-        <span class="muted">${escapeHtml(member.dailyLabel || "Gunluk Excel yok")} - ${member.dailyRowCount || 0} kayit</span>
-      </td>
       <td data-label="Islem" class="action-cell">
         <button class="ghost small" data-detail="${member.id}" type="button">Detay</button>
         <button class="danger small" data-delete="${member.id}" type="button">Sil</button>
       </td>
     </tr>
-  `).join("") || `<tr><td colspan="9">Tipster bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="8">Tipster bulunamadi.</td></tr>`;
+}
+
+function renderDailyMembers() {
+  const query = document.getElementById("search").value.trim().toLocaleLowerCase("tr");
+  const rows = (currentDashboard.dailyMembers || []).filter(member => {
+    const text = `${member.name} ${member.username} ${numberRecordText(member)}`.toLocaleLowerCase("tr");
+    return text.includes(query);
+  });
+  document.getElementById("dailyMemberRows").innerHTML = rows.map(member => `
+    <tr>
+      <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
+      <td data-label="Numara">${escapeHtml(numberRecordText(member) || "-")}</td>
+      <td data-label="Uye"><strong>${member.numberCount ?? numberRecordsOf(member).length}</strong></td>
+      <td data-label="Yuzde">%${money.format(member.percentage)}</td>
+      <td data-label="Gunluk kayit">${member.dailyRowCount || 0}</td>
+      <td data-label="Gunluk toplam">${money.format(member.dailyTotal || 0)}</td>
+      <td data-label="Gunluk kazanc"><strong>${money.format(member.dailyCalculated || 0)}</strong></td>
+    </tr>
+  `).join("") || `<tr><td colspan="7">Gunluk kazanc bulunamadi.</td></tr>`;
 }
 
 function renderUnmatchedNumbers(numbers) {
@@ -800,8 +827,11 @@ function clearNormalCalc() {
   updateNormalCalcDisplay();
 }
 
-async function loadDashboard(uploadId = selectedUploadId) {
-  const query = uploadId ? `?uploadId=${encodeURIComponent(uploadId)}` : "";
+async function loadDashboard(uploadId = selectedUploadId, dailyUploadId = selectedDailyUploadId) {
+  const params = new URLSearchParams();
+  if (uploadId) params.set("uploadId", uploadId);
+  if (dailyUploadId) params.set("dailyUploadId", dailyUploadId);
+  const query = params.toString() ? `?${params.toString()}` : "";
   const data = await api(`/api/dashboard${query}`);
   if (data.role === "owner") renderOwner(data);
   else if (data.role === "admin") renderAdmin(data);
@@ -902,6 +932,7 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
 
       csrfToken = data.csrf;
       selectedUploadId = "";
+      selectedDailyUploadId = "";
       resetOtpLogin();
       showApp(data.user);
       await loadDashboard("");
@@ -942,6 +973,7 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
 
     csrfToken = data.csrf;
     selectedUploadId = "";
+    selectedDailyUploadId = "";
     showApp(data.user);
     await loadDashboard("");
   } catch (error) {
@@ -1079,6 +1111,7 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
   await api("/api/logout", { method: "POST" }).catch(() => {});
   csrfToken = "";
   selectedUploadId = "";
+  selectedDailyUploadId = "";
   showLogin();
 });
 
@@ -1121,10 +1154,11 @@ async function submitExcelUpload(event, config) {
     const data = await api("/api/upload", { method: "POST", body: form });
     event.target.reset();
     setDefaultUploadDate();
-    selectedUploadId = config.uploadType === "daily" ? "" : data.uploadId;
+    if (config.uploadType === "daily") selectedDailyUploadId = data.uploadId;
+    else selectedUploadId = data.uploadId;
     const typeText = config.uploadType === "daily" ? "Gunluk" : "Haftalik";
     setMessage("uploadMessage", `${data.uploads.length} ${typeText} Excel aktarildi, Bonus Disi Kupon Oynama icin ${data.rowCount} satir islendi.`, true);
-    await loadDashboard(selectedUploadId);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
   } catch (error) {
     setMessage("uploadMessage", error.message);
   }
@@ -1163,6 +1197,7 @@ document.getElementById("clearUploadsBtn").addEventListener("click", async () =>
   try {
     await api("/api/uploads", { method: "DELETE" });
     selectedUploadId = "";
+    selectedDailyUploadId = "";
     setMessage("uploadMessage", "Tum Excel kayitlari temizlendi.", true);
     await loadDashboard("");
   } catch (error) {
@@ -1178,6 +1213,7 @@ document.getElementById("uploads").addEventListener("click", async event => {
   try {
     await api(`/api/uploads/${encodeURIComponent(button.dataset.uploadDelete)}`, { method: "DELETE" });
     selectedUploadId = "";
+    selectedDailyUploadId = "";
     setMessage("uploadMessage", "Secili Excel kaydi silindi.", true);
     await loadDashboard("");
   } catch (error) {
@@ -1352,10 +1388,14 @@ document.getElementById("memberMessageRows").addEventListener("click", async eve
   }
 });
 
-document.getElementById("adminUploadSelect").addEventListener("change", event => loadDashboard(event.target.value));
+document.getElementById("adminUploadSelect").addEventListener("change", event => loadDashboard(event.target.value, selectedDailyUploadId));
+document.getElementById("adminDailyUploadSelect").addEventListener("change", event => loadDashboard(selectedUploadId, event.target.value));
 document.getElementById("memberUploadSelect").addEventListener("change", event => loadDashboard(event.target.value));
 document.getElementById("detailUploadSelect").addEventListener("change", event => loadMemberDetail(detailMemberId, event.target.value));
-document.getElementById("search").addEventListener("input", renderMembers);
+document.getElementById("search").addEventListener("input", () => {
+  renderMembers();
+  renderDailyMembers();
+});
 document.getElementById("myRowsSort").addEventListener("change", () => {
   if (currentDashboard?.role === "member") renderMyRows(currentDashboard.rows || []);
 });
