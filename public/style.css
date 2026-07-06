@@ -17,9 +17,30 @@
 body {
   margin: 0;
   min-height: 100vh;
+  position: relative;
   font-family: Arial, Helvetica, sans-serif;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 88% 8%, rgba(243, 185, 42, .12), transparent 28rem),
+    linear-gradient(180deg, #f8fafc 0%, var(--bg) 42%, #eef3f8 100%);
   color: var(--ink);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: min(430px, 42vw);
+  aspect-ratio: 1;
+  background: url("/icon.svg") center / contain no-repeat;
+  opacity: .045;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.shell {
+  position: relative;
+  z-index: 1;
 }
 
 button, input, select, textarea { font: inherit; }
@@ -41,8 +62,11 @@ button { border: 0; cursor: pointer; }
   color: white;
   background:
     linear-gradient(rgba(13, 45, 75, .88), rgba(15, 118, 110, .76)),
+    url("/icon.svg"),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1300' height='900' viewBox='0 0 1300 900'%3E%3Crect width='1300' height='900' fill='%23132f4c'/%3E%3Cg fill='none' stroke='%23f2c078' stroke-width='3' opacity='.38'%3E%3Cpath d='M80 150 H1220'/%3E%3Cpath d='M80 315 H1220'/%3E%3Cpath d='M80 480 H1220'/%3E%3Cpath d='M80 645 H1220'/%3E%3Cpath d='M180 90 V760'/%3E%3Cpath d='M430 90 V760'/%3E%3Cpath d='M680 90 V760'/%3E%3Cpath d='M930 90 V760'/%3E%3C/g%3E%3Cg fill='%23ffffff' opacity='.13'%3E%3Crect x='210' y='210' width='230' height='95' rx='8'/%3E%3Crect x='720' y='390' width='320' height='105' rx='8'/%3E%3Crect x='500' y='600' width='260' height='90' rx='8'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: cover;
+  background-position: center, right 44px bottom 38px, center;
+  background-repeat: no-repeat;
+  background-size: cover, min(360px, 42vw) min(360px, 42vw), cover;
 }
 
 .brand {
@@ -1263,15 +1287,17 @@ td:last-child, th:last-child { text-align: right; }
 }
 
 @media (max-width: 900px) {
+  body::before { width: 280px; right: -52px; bottom: 18px; opacity: .035; }
   .login-view { grid-template-columns: 1fr; }
-  .cover { min-height: 380px; padding: 30px; }
+  .cover { min-height: 380px; padding: 30px; background-position: center, right -48px bottom 18px, center; background-size: cover, 260px 260px, cover; }
   .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid { grid-template-columns: 1fr; }
   .section-head { align-items: stretch; flex-direction: column; }
   .section-head input { width: 100%; }
 }
 
 @media (max-width: 560px) {
-  .cover { padding: 22px; }
+  body::before { width: 220px; right: -76px; }
+  .cover { padding: 22px; background-size: cover, 210px 210px, cover; }
   .cover h1 { font-size: 34px; }
   .login-card { width: calc(100% - 24px); padding: 22px; }
   .topbar { align-items: stretch; flex-direction: column; padding: 16px; }
