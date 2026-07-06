@@ -366,10 +366,10 @@ function renderBackups(backups) {
 }
 
 function renderMembers() {
-  const query = document.getElementById("search").value.trim().toLocaleLowerCase("tr");
+  const query = document.getElementById("search").value;
   const rows = currentDashboard.members.filter(member => {
-    const text = `${member.name} ${member.username} ${numberRecordText(member)}`.toLocaleLowerCase("tr");
-    return text.includes(query);
+    const text = `${member.name} ${member.username} ${numberRecordText(member)}`;
+    return searchMatches(text, query);
   });
   document.getElementById("memberRows").innerHTML = rows.map(member => `
     <tr>
@@ -389,10 +389,10 @@ function renderMembers() {
 }
 
 function renderDailyMembers() {
-  const query = document.getElementById("search").value.trim().toLocaleLowerCase("tr");
+  const query = document.getElementById("search").value;
   const rows = (currentDashboard.dailyMembers || []).filter(member => {
-    const text = `${member.name} ${member.username} ${numberRecordText(member)}`.toLocaleLowerCase("tr");
-    return text.includes(query);
+    const text = `${member.name} ${member.username} ${numberRecordText(member)}`;
+    return searchMatches(text, query);
   });
   document.getElementById("dailyMemberRows").innerHTML = rows.map(member => `
     <tr>
@@ -1441,6 +1441,22 @@ document.getElementById("adminDailyUploadSelect").addEventListener("change", eve
 document.getElementById("memberUploadSelect").addEventListener("change", event => loadDashboard(event.target.value));
 document.getElementById("detailUploadSelect").addEventListener("change", event => loadMemberDetail(detailMemberId, event.target.value));
 document.getElementById("search").addEventListener("input", () => {
+  renderMembers();
+  renderDailyMembers();
+});
+document.getElementById("search").addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    renderMembers();
+    renderDailyMembers();
+  }
+});
+document.getElementById("searchBtn").addEventListener("click", () => {
+  renderMembers();
+  renderDailyMembers();
+});
+document.getElementById("searchClearBtn").addEventListener("click", () => {
+  document.getElementById("search").value = "";
   renderMembers();
   renderDailyMembers();
 });
