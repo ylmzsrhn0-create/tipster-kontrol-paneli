@@ -697,7 +697,17 @@ td:last-child, th:last-child { text-align: right; }
   gap: 8px;
 }
 
-.uploads { display: grid; gap: 8px; }
+.uploads { display: grid; gap: 14px; }
+
+.upload-group {
+  display: grid;
+  gap: 8px;
+}
+
+.upload-group > strong {
+  color: #253149;
+  font-size: 13px;
+}
 
 .upload-item {
   padding: 10px;
