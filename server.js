@@ -170,6 +170,8 @@ function normalizeDb(db) {
   }
   db.uploads.forEach(upload => {
     if (!upload.ownerId) upload.ownerId = ownerId;
+    upload.uploadType = upload.uploadType === "daily" ? "daily" : "weekly";
+    upload.uploadDate ||= dateOnly(upload.createdAt);
   });
   db.rows.forEach(row => {
     if (!row.ownerId) {
@@ -624,6 +626,8 @@ function publicUploadReport(report) {
     uploadId: report.uploadId,
     filename: report.filename,
     weekLabel: report.weekLabel,
+    uploadType: report.uploadType || "weekly",
+    uploadDate: report.uploadDate || "",
     rowCount: report.rowCount,
     totalAmount: report.totalAmount,
     totalCommission: report.totalCommission,
@@ -883,6 +887,15 @@ function selectedRows(db, uploadId, ownerId) {
   return rows.filter(row => row.uploadId === uploadId);
 }
 
+function uploadsByType(db, ownerId, uploadType) {
+  return db.uploads.filter(upload => upload.ownerId === ownerId && (upload.uploadType || "weekly") === uploadType);
+}
+
+function latestUploadByType(db, ownerId, uploadType) {
+  const uploads = uploadsByType(db, ownerId, uploadType);
+  return uploads[uploads.length - 1] || null;
+}
+
 function sharedNumbersEnabledForOwner(db, ownerId) {
   const owner = db.users.find(user => user.id === ownerId && isStaff(user));
   return Boolean(owner?.sharedNumbersEnabled);
@@ -946,6 +959,22 @@ function memberPrivateSummary(summary) {
     rows: summary.rows.map(({ shareCount, originalTotalAmount, ...row }) => row),
     numberSummaries: summary.numberSummaries.map(({ shareCount, ...item }) => item)
   };
+}
+
+function memberDailySummaries(db, user, ownerId) {
+  const uploads = uploadsByType(db, ownerId, "daily").slice().reverse();
+  return uploads.map(upload => {
+    const summary = memberPrivateSummary(memberSummary(db, user, upload.id));
+    return {
+      uploadId: upload.id,
+      label: upload.weekLabel || upload.filename || "Gunluk Excel",
+      uploadDate: upload.uploadDate || dateOnly(upload.createdAt),
+      rowCount: summary.rows.length,
+      total: summary.total,
+      calculated: summary.calculated,
+      createdAt: upload.createdAt
+    };
+  });
 }
 
 function adminSummary(db, uploadId, ownerId) {
@@ -1026,6 +1055,10 @@ function uploadDisplayLabel(upload) {
   return upload ? (upload.weekLabel || upload.filename || "Excel") : "";
 }
 
+function uploadTypeLabel(upload) {
+  return upload?.uploadType === "daily" ? "Gunluk" : "Haftalik";
+}
+
 function passiveNumberSummary(db, uploadId, ownerId) {
   const selected = selectedRows(db, uploadId, ownerId);
   const selectedNumbers = new Set(selected.map(row => row.gsmMasked).filter(Boolean));
@@ -1069,6 +1102,8 @@ function createUploadReport(db, upload, ownerId) {
     ownerId,
     filename: upload.filename,
     weekLabel: upload.weekLabel,
+    uploadType: upload.uploadType || "weekly",
+    uploadDate: upload.uploadDate || "",
     rowCount: rows.length,
     totalAmount: rows.reduce((sum, row) => sum + Number(row.totalAmount || 0), 0),
     totalCommission: adminSummary(db, upload.id, ownerId).totalCommission,
@@ -1569,7 +1604,8 @@ async function handleApi(req, res) {
     if (!session) return;
     const user = db.users.find(item => item.id === session.userId);
     const staffOwnerId = isStaff(user) ? user.id : user.ownerId;
-    const visibleUploads = db.uploads.filter(upload => upload.ownerId === staffOwnerId);
+    const visibleUploads = uploadsByType(db, staffOwnerId, "weekly");
+    const dailyUploads = uploadsByType(db, staffOwnerId, "daily");
     const latestUpload = visibleUploads[visibleUploads.length - 1];
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
     const uploads = visibleUploads.slice().reverse();
@@ -1599,7 +1635,7 @@ async function handleApi(req, res) {
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 60)
         .map(publicAuditLog);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id), backups: listBackups().slice(0, 10), members, uploads, messages, unmatchedNumbers, passiveNumbers, uploadReports, auditLogs, selectedUploadId: uploadId };
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id), backups: listBackups().slice(0, 10), members, uploads, dailyUploads: dailyUploads.slice().reverse(), messages, unmatchedNumbers, passiveNumbers, uploadReports, auditLogs, selectedUploadId: uploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -1620,6 +1656,7 @@ async function handleApi(req, res) {
       percentage: Number(user.percentage) || 0,
       rows: summary.rows,
       numberSummaries: summary.numberSummaries,
+      dailySummaries: memberDailySummaries(db, user, user.ownerId),
       passiveNumbers: passiveNumberSummary(db, uploadId, user.ownerId).filter(item => item.memberId === user.id),
       messages: db.messages
         .filter(message => message.ownerId === user.ownerId && message.recipientIds.includes(user.id))
@@ -1628,6 +1665,7 @@ async function handleApi(req, res) {
         .slice(0, 30)
         .map(message => publicMessageForMember(message, user.id)),
       uploads,
+      dailyUploads: dailyUploads.slice().reverse(),
       selectedUploadId: uploadId
     });
     return;
@@ -2042,23 +2080,31 @@ async function handleApi(req, res) {
     const parts = parseMultipart(await readBody(req), req.headers["content-type"]);
     const files = parts.filter(part => part.name === "excel" && part.filename);
     const weekPart = parts.find(part => part.name === "weekLabel");
+    const typePart = parts.find(part => part.name === "uploadType");
+    const datePart = parts.find(part => part.name === "uploadDate");
     if (!files.length || files.some(file => !file.filename.toLowerCase().endsWith(".xlsx"))) {
       sendJson(res, 400, { error: "Lutfen .xlsx Excel dosyasi yukle." });
       return;
     }
     const baseWeekLabel = String(weekPart?.data?.toString("utf8") || "").trim();
+    const uploadType = String(typePart?.data?.toString("utf8") || "weekly").trim() === "daily" ? "daily" : "weekly";
+    const uploadDate = validDateOnly(String(datePart?.data?.toString("utf8") || "").trim())
+      ? String(datePart.data.toString("utf8")).trim()
+      : dateOnly(new Date());
     const imported = files.map(file => {
       const uploadId = crypto.randomUUID();
       const rows = parseExcel(file.data).map(row => ({ ...row, uploadId, ownerId: session.userId }));
       const fileBase = file.filename.replace(/\.xlsx$/i, "");
       const weekLabel = files.length === 1
-        ? (baseWeekLabel || fileBase)
-        : (baseWeekLabel ? baseWeekLabel + " - " + fileBase : fileBase);
+        ? (baseWeekLabel || (uploadType === "daily" ? `Gunluk ${uploadDate}` : fileBase))
+        : (baseWeekLabel ? baseWeekLabel + " - " + fileBase : (uploadType === "daily" ? `Gunluk ${uploadDate} - ${fileBase}` : fileBase));
       db.rows.push(...rows);
       const upload = {
         id: uploadId,
         filename: escapeHtml(file.filename),
         weekLabel: escapeHtml(weekLabel),
+        uploadType,
+        uploadDate,
         rowCount: rows.length,
         ownerId: session.userId,
         createdAt: new Date().toISOString()
@@ -2068,13 +2114,14 @@ async function handleApi(req, res) {
       db.uploadReports.push(createUploadReport(db, upload, session.userId));
       return { uploadId, rowCount: rows.length, filename: file.filename, weekLabel };
     });
-    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Excel yuklendi", `${imported.length} Excel aktarildi, ${imported.reduce((sum, item) => sum + item.rowCount, 0)} satir islendi`);
+    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), uploadType === "daily" ? "Gunluk Excel yuklendi" : "Haftalik Excel yuklendi", `${imported.length} Excel aktarildi, ${imported.reduce((sum, item) => sum + item.rowCount, 0)} Bonus Disi Kupon Oynama satiri islendi`);
     writeDb(db);
     const last = imported[imported.length - 1];
     sendJson(res, 200, {
       ok: true,
       rowCount: imported.reduce((sum, item) => sum + item.rowCount, 0),
       uploadId: last.uploadId,
+      uploadType,
       uploads: imported
     });
     return;
