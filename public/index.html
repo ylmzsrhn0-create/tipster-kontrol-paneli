@@ -177,7 +177,11 @@
             <b id="sharedNumberCount">0</b>
           </summary>
           <div class="section-head collapsible-tools">
-            <input id="sharedNumberSearch" placeholder="Numara veya tipster ara">
+            <div class="search-actions">
+              <input id="sharedNumberSearch" placeholder="Numara veya tipster ara">
+              <button class="primary small" id="sharedNumberSearchBtn" type="button">Ara</button>
+              <button class="ghost small" id="sharedNumberClearBtn" type="button">Temizle</button>
+            </div>
           </div>
           <div class="table-wrap collapsible-table">
             <table>
@@ -753,7 +757,11 @@
               <button class="ghost small summary-action" id="exportNumbersBtn" type="button">Excel indir</button>
             </summary>
             <div class="section-head compact-body">
-              <input id="numberSearch" placeholder="Numara veya isim ara">
+              <div class="search-actions">
+                <input id="numberSearch" placeholder="Numara veya isim ara">
+                <button class="primary small" id="numberSearchBtn" type="button">Ara</button>
+                <button class="ghost small" id="numberClearBtn" type="button">Temizle</button>
+              </div>
             </div>
             <div class="number-list collapsible-body compact-body" id="numberList"></div>
           </details>
