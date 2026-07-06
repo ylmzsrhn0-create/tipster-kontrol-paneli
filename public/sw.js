@@ -1,4 +1,4 @@
-const CACHE_NAME = "tipster-panel-v4";
+const CACHE_NAME = "tipster-panel-v5";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -34,14 +34,21 @@ self.addEventListener("fetch", event => {
     fetch(event.request)
       .then(response => {
         if (isNavigation && response.status >= 500) {
-          return caches.match("/maintenance.html").then(cached => cached || response);
+          return caches.match("/index.html")
+            .then(cached => cached || caches.match("/"))
+            .then(cached => cached || caches.match("/maintenance.html"))
+            .then(cached => cached || response);
         }
         const copy = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
         return response;
       })
       .catch(() => {
-        if (isNavigation) return caches.match("/maintenance.html").then(cached => cached || caches.match("/index.html"));
+        if (isNavigation) {
+          return caches.match("/index.html")
+            .then(cached => cached || caches.match("/"))
+            .then(cached => cached || caches.match("/maintenance.html"));
+        }
         return caches.match(event.request);
       })
   );
