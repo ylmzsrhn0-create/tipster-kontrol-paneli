@@ -940,6 +940,14 @@ function memberSummary(db, user, uploadId) {
   return { rows, total, calculated, numberSummaries };
 }
 
+function memberPrivateSummary(summary) {
+  return {
+    ...summary,
+    rows: summary.rows.map(({ shareCount, originalTotalAmount, ...row }) => row),
+    numberSummaries: summary.numberSummaries.map(({ shareCount, ...item }) => item)
+  };
+}
+
 function adminSummary(db, uploadId, ownerId) {
   const members = db.users.filter(user => user.role === "member" && user.ownerId === ownerId);
   const rows = selectedRows(db, uploadId, ownerId);
@@ -1603,7 +1611,7 @@ async function handleApi(req, res) {
       sendJson(res, 200, payload);
       return;
     }
-    const summary = memberSummary(db, user, uploadId);
+    const summary = memberPrivateSummary(memberSummary(db, user, uploadId));
     sendJson(res, 200, {
       role: "member",
       member: publicUser(user),
