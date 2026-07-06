@@ -1248,7 +1248,8 @@ function createNumbersXlsx(member, summaries) {
 }
 
 function serveStatic(req, res) {
-  const requested = req.url === "/" ? "/index.html" : decodeURIComponent(req.url.split("?")[0]);
+  const requestedPath = decodeURIComponent(req.url.split("?")[0]);
+  const requested = requestedPath === "/" ? "/index.html" : requestedPath;
   const filePath = path.normalize(path.join(PUBLIC, requested));
   if (!filePath.startsWith(PUBLIC)) {
     res.writeHead(403);
