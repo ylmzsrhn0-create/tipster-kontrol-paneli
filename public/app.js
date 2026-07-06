@@ -342,12 +342,16 @@ function renderMembers() {
       <td data-label="Excel kayit">${member.rowCount}</td>
       <td data-label="Toplam">${money.format(member.total)}</td>
       <td data-label="Hesap"><strong>${money.format(member.calculated)}</strong></td>
+      <td data-label="Gunluk kazanc">
+        <strong>${money.format(member.dailyCalculated || 0)}</strong><br>
+        <span class="muted">${escapeHtml(member.dailyLabel || "Gunluk Excel yok")} - ${member.dailyRowCount || 0} kayit</span>
+      </td>
       <td data-label="Islem" class="action-cell">
         <button class="ghost small" data-detail="${member.id}" type="button">Detay</button>
         <button class="danger small" data-delete="${member.id}" type="button">Sil</button>
       </td>
     </tr>
-  `).join("") || `<tr><td colspan="8">Tipster bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="9">Tipster bulunamadi.</td></tr>`;
 }
 
 function renderUnmatchedNumbers(numbers) {
@@ -831,6 +835,14 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
       <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
   `).join("") || `<tr><td colspan="7">Bu hafta icin eslesme bulunamadi.</td></tr>`;
+  document.getElementById("detailDailyRows").innerHTML = (data.dailySummaries || []).map(row => `
+    <tr>
+      <td data-label="Gun"><strong>${escapeHtml(row.label || row.uploadDate || "-")}</strong><br><span class="muted">${escapeHtml(row.uploadDate || "-")}</span></td>
+      <td data-label="Excel kayit">${row.rowCount}</td>
+      <td data-label="Toplam">${money.format(row.total || 0)}</td>
+      <td data-label="Kazanc"><strong>${money.format(row.calculated || 0)}</strong></td>
+    </tr>
+  `).join("") || `<tr><td colspan="4">Bu tipster icin gunluk kazanc bulunmuyor.</td></tr>`;
 }
 
 async function submitFeedbackForm(event, prefix) {
