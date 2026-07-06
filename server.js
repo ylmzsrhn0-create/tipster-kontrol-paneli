@@ -2126,6 +2126,29 @@ async function handleApi(req, res) {
     });
     return;
   }
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/uploads/")) {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const uploadId = decodeURIComponent(url.pathname.split("/").pop() || "");
+    const upload = db.uploads.find(item => item.id === uploadId && item.ownerId === session.userId);
+    if (!upload) {
+      sendJson(res, 404, { error: "Excel kaydi bulunamadi." });
+      return;
+    }
+    db.rows = db.rows.filter(row => row.uploadId !== uploadId || row.ownerId !== session.userId);
+    db.uploads = db.uploads.filter(item => item.id !== uploadId || item.ownerId !== session.userId);
+    db.uploadReports = (db.uploadReports || []).filter(report => report.uploadId !== uploadId || report.ownerId !== session.userId);
+    addAuditLog(
+      db,
+      session.userId,
+      db.users.find(item => item.id === session.userId),
+      upload.uploadType === "daily" ? "Gunluk Excel silindi" : "Haftalik Excel silindi",
+      `${upload.weekLabel || upload.filename} Excel kaydi silindi`
+    );
+    writeDb(db);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
   if (req.method === "DELETE" && url.pathname === "/api/uploads") {
     const session = requireStaff(req, res);
     if (!session) return;
