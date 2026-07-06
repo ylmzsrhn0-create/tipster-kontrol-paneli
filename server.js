@@ -1633,10 +1633,22 @@ async function handleApi(req, res) {
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
     const uploads = visibleUploads.slice().reverse();
     if (isStaff(user)) {
+      const latestDailyUpload = dailyUploads[dailyUploads.length - 1] || null;
       const members = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
         const summary = memberSummary(db, member, uploadId);
+        const dailySummary = latestDailyUpload ? memberSummary(db, member, latestDailyUpload.id) : null;
         const publicMember = publicUser(member);
-        return { ...publicMember, numberCount: publicMember.numberRecords.length, total: summary.total, calculated: summary.calculated, rowCount: summary.rows.length };
+        return {
+          ...publicMember,
+          numberCount: publicMember.numberRecords.length,
+          total: summary.total,
+          calculated: summary.calculated,
+          rowCount: summary.rows.length,
+          dailyTotal: dailySummary?.total || 0,
+          dailyCalculated: dailySummary?.calculated || 0,
+          dailyRowCount: dailySummary?.rows.length || 0,
+          dailyLabel: latestDailyUpload ? (latestDailyUpload.weekLabel || latestDailyUpload.filename || "Gunluk Excel") : ""
+        };
       });
       const messages = db.messages
         .filter(message => message.ownerId === user.id)
@@ -1905,7 +1917,7 @@ async function handleApi(req, res) {
       sendJson(res, 404, { error: "Tipster bulunamadi." });
       return;
     }
-    const visibleUploads = db.uploads.filter(upload => upload.ownerId === session.userId);
+    const visibleUploads = uploadsByType(db, session.userId, "weekly");
     const latestUpload = visibleUploads[visibleUploads.length - 1];
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
     const summary = memberSummary(db, member, uploadId);
@@ -1916,6 +1928,7 @@ async function handleApi(req, res) {
       percentage: Number(member.percentage) || 0,
       rows: summary.rows,
       numberSummaries: summary.numberSummaries,
+      dailySummaries: memberDailySummaries(db, member, session.userId),
       uploads: visibleUploads.slice().reverse(),
       selectedUploadId: uploadId
     });
