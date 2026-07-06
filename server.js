@@ -1630,24 +1630,31 @@ async function handleApi(req, res) {
     const visibleUploads = uploadsByType(db, staffOwnerId, "weekly");
     const dailyUploads = uploadsByType(db, staffOwnerId, "daily");
     const latestUpload = visibleUploads[visibleUploads.length - 1];
+    const latestDailyUpload = dailyUploads[dailyUploads.length - 1];
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
+    const dailyUploadId = url.searchParams.get("dailyUploadId") || latestDailyUpload?.id || "";
     const uploads = visibleUploads.slice().reverse();
     if (isStaff(user)) {
-      const latestDailyUpload = dailyUploads[dailyUploads.length - 1] || null;
       const members = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
         const summary = memberSummary(db, member, uploadId);
-        const dailySummary = latestDailyUpload ? memberSummary(db, member, latestDailyUpload.id) : null;
         const publicMember = publicUser(member);
         return {
           ...publicMember,
           numberCount: publicMember.numberRecords.length,
           total: summary.total,
           calculated: summary.calculated,
-          rowCount: summary.rows.length,
-          dailyTotal: dailySummary?.total || 0,
-          dailyCalculated: dailySummary?.calculated || 0,
-          dailyRowCount: dailySummary?.rows.length || 0,
-          dailyLabel: latestDailyUpload ? (latestDailyUpload.weekLabel || latestDailyUpload.filename || "Gunluk Excel") : ""
+          rowCount: summary.rows.length
+        };
+      });
+      const dailyMembers = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
+        const summary = dailyUploadId ? memberSummary(db, member, dailyUploadId) : { total: 0, calculated: 0, rows: [] };
+        const publicMember = publicUser(member);
+        return {
+          ...publicMember,
+          numberCount: publicMember.numberRecords.length,
+          dailyTotal: summary.total,
+          dailyCalculated: summary.calculated,
+          dailyRowCount: summary.rows.length
         };
       });
       const messages = db.messages
@@ -1670,7 +1677,7 @@ async function handleApi(req, res) {
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 60)
         .map(publicAuditLog);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id), backups: listBackups().slice(0, 10), members, uploads, dailyUploads: dailyUploads.slice().reverse(), messages, unmatchedNumbers, passiveNumbers, uploadReports, auditLogs, selectedUploadId: uploadId };
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), messages, unmatchedNumbers, passiveNumbers, uploadReports, auditLogs, selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
