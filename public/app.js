@@ -115,6 +115,31 @@ function numberRecordText(member) {
   return numberRecordsOf(member).map(record => record.name ? `${record.name} (${record.number})` : record.number).join(", ");
 }
 
+function searchText(value) {
+  return String(value || "").toLocaleLowerCase("tr").replace(/\s+/g, " ").trim();
+}
+
+function searchNumber(value) {
+  return String(value || "").toLocaleLowerCase("tr").replace(/[^0-9*]/g, "");
+}
+
+function searchDigits(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function searchMatches(haystack, query) {
+  const textQuery = searchText(query);
+  const numberQuery = searchNumber(query);
+  const digitQuery = searchDigits(query);
+  if (!textQuery && !numberQuery && !digitQuery) return true;
+  const textHaystack = searchText(haystack);
+  const numberHaystack = searchNumber(haystack);
+  const digitHaystack = searchDigits(haystack);
+  return (textQuery && textHaystack.includes(textQuery))
+    || (numberQuery && numberHaystack.includes(numberQuery))
+    || (digitQuery && digitHaystack.includes(digitQuery));
+}
+
 function dateInputValue(date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 10);
@@ -395,11 +420,11 @@ function renderUnmatchedNumbers(numbers) {
 }
 
 function renderSharedNumbers(numbers = currentDashboard?.sharedNumbers || []) {
-  const query = document.getElementById("sharedNumberSearch")?.value.trim().toLocaleLowerCase("tr") || "";
+  const query = document.getElementById("sharedNumberSearch")?.value || "";
   const rows = numbers.filter(item => {
     const memberText = (item.members || []).map(member => `${member.name} ${member.username}`).join(" ");
-    const text = `${item.number} ${item.name || ""} ${memberText}`.toLocaleLowerCase("tr");
-    return text.includes(query);
+    const text = `${item.number} ${item.name || ""} ${memberText}`;
+    return searchMatches(text, query);
   });
   document.getElementById("sharedNumberCount").textContent = numbers.length;
   document.getElementById("sharedNumberRows").innerHTML = rows.map(item => `
@@ -754,8 +779,8 @@ function renderDailyEarnings(rows) {
 }
 
 function renderNumbers(records) {
-  const query = document.getElementById("numberSearch")?.value.trim().toLocaleLowerCase("tr") || "";
-  const rows = records.filter(record => `${record.name || ""} ${record.number || ""}`.toLocaleLowerCase("tr").includes(query));
+  const query = document.getElementById("numberSearch")?.value || "";
+  const rows = records.filter(record => searchMatches(`${record.name || ""} ${record.number || ""}`, query));
   document.getElementById("numberList").innerHTML = rows.map(record => `
     <div class="number-item">
       <div>
@@ -1420,7 +1445,31 @@ document.getElementById("search").addEventListener("input", () => {
   renderDailyMembers();
 });
 document.getElementById("sharedNumberSearch").addEventListener("input", () => renderSharedNumbers());
+document.getElementById("sharedNumberSearch").addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    renderSharedNumbers();
+  }
+});
+document.getElementById("sharedNumberSearchBtn").addEventListener("click", () => renderSharedNumbers());
+document.getElementById("sharedNumberClearBtn").addEventListener("click", () => {
+  document.getElementById("sharedNumberSearch").value = "";
+  renderSharedNumbers();
+});
 document.getElementById("numberSearch").addEventListener("input", () => {
+  if (currentDashboard?.role === "member") renderNumbers(numberRecordsOf(currentDashboard.member));
+});
+document.getElementById("numberSearch").addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    if (currentDashboard?.role === "member") renderNumbers(numberRecordsOf(currentDashboard.member));
+  }
+});
+document.getElementById("numberSearchBtn").addEventListener("click", () => {
+  if (currentDashboard?.role === "member") renderNumbers(numberRecordsOf(currentDashboard.member));
+});
+document.getElementById("numberClearBtn").addEventListener("click", () => {
+  document.getElementById("numberSearch").value = "";
   if (currentDashboard?.role === "member") renderNumbers(numberRecordsOf(currentDashboard.member));
 });
 document.getElementById("myRowsSort").addEventListener("change", () => {
