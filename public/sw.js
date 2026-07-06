@@ -1,4 +1,4 @@
-const CACHE_NAME = "tipster-panel-v3";
+const CACHE_NAME = "tipster-panel-v4";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -6,7 +6,8 @@ const APP_SHELL = [
   "/style.css",
   "/app.js",
   "/manifest.webmanifest",
-  "/icon.svg"
+  "/icon.svg",
+  "/watermark.svg"
 ];
 
 self.addEventListener("install", event => {
