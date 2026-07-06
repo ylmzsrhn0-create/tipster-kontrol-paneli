@@ -171,6 +171,34 @@
         <details class="panel wide collapsible">
           <summary>
             <span>
+              <strong>Ortak numaralar</strong>
+              <small>Birden fazla tipsterda kayitli olan numaralar</small>
+            </span>
+            <b id="sharedNumberCount">0</b>
+          </summary>
+          <div class="section-head collapsible-tools">
+            <input id="sharedNumberSearch" placeholder="Numara veya tipster ara">
+          </div>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Numara</th>
+                  <th>Tipsterlar</th>
+                  <th>Kisi</th>
+                  <th>Excel kayit</th>
+                  <th>Toplam oyun</th>
+                  <th>Kisi basi</th>
+                </tr>
+              </thead>
+              <tbody id="sharedNumberRows"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
               <strong>Pasif numaralar</strong>
               <small>Tipsterda kayitli olup secili Excelde gorunmeyen numaralar</small>
             </span>
@@ -446,7 +474,7 @@
             </span>
           </summary>
           <div class="section-head collapsible-tools">
-            <input id="search" placeholder="Ara">
+            <input id="search" placeholder="Tipster veya numara ara">
           </div>
           <div class="table-wrap collapsible-table">
             <table>
@@ -724,6 +752,9 @@
               </span>
               <button class="ghost small summary-action" id="exportNumbersBtn" type="button">Excel indir</button>
             </summary>
+            <div class="section-head compact-body">
+              <input id="numberSearch" placeholder="Numara veya isim ara">
+            </div>
             <div class="number-list collapsible-body compact-body" id="numberList"></div>
           </details>
 
