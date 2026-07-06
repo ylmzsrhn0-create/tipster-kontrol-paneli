@@ -709,13 +709,46 @@ td:last-child, th:last-child { text-align: right; }
   font-size: 13px;
 }
 
+.upload-forms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.upload-box {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fbfd;
+}
+
+.upload-box > strong {
+  color: #253149;
+  font-size: 14px;
+}
+
 .upload-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: #f9fbfd;
   color: var(--muted);
   font-size: 13px;
+}
+
+.upload-item > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.upload-item .small {
+  flex: 0 0 auto;
 }
 
 .backup-list {
@@ -1234,6 +1267,7 @@ td:last-child, th:last-child { text-align: right; }
   .message-counts { justify-content: flex-start; }
   .collapsible summary { align-items: stretch; flex-wrap: wrap; }
   .summary-action { width: 100%; margin-left: 0; }
+  .upload-forms { grid-template-columns: 1fr; }
   .panel { padding: 18px; }
   .modal { padding: 10px; }
   th, td { padding: 12px; }
@@ -1243,6 +1277,8 @@ td:last-child, th:last-child { text-align: right; }
   .overview-grid { grid-template-columns: 1fr; padding: 14px; }
   .backup-item { align-items: stretch; flex-direction: column; }
   .backup-item .small { width: 100%; }
+  .upload-item { align-items: stretch; flex-direction: column; }
+  .upload-item .small { width: 100%; }
   .table-wrap { overflow-x: visible; }
   table {
     min-width: 0;
