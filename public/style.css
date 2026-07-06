@@ -636,6 +636,24 @@ input:focus, select:focus, textarea:focus {
 
 .section-head h2 { padding: 0; }
 .section-head input { width: min(320px, 100%); }
+
+.search-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(520px, 100%);
+}
+
+.search-actions input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.search-actions .small {
+  flex: 0 0 auto;
+}
+
 .table-wrap { overflow-x: auto; }
 
 .table-summary {
@@ -1267,6 +1285,8 @@ td:last-child, th:last-child { text-align: right; }
   .message-counts { justify-content: flex-start; }
   .collapsible summary { align-items: stretch; flex-wrap: wrap; }
   .summary-action { width: 100%; margin-left: 0; }
+  .search-actions { align-items: stretch; flex-direction: column; width: 100%; }
+  .search-actions .small { width: 100%; }
   .upload-forms { grid-template-columns: 1fr; }
   .panel { padding: 18px; }
   .modal { padding: 10px; }
