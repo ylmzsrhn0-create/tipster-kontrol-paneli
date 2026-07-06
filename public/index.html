@@ -290,33 +290,44 @@
                 <small>Haftalik veya gunluk dosya aktar</small>
               </span>
             </summary>
-            <form class="collapsible-body" id="uploadForm">
-            <p class="muted">Haftalik ve gunluk Excel yuklemeleri ayri saklanir. Her ikisinde de sadece Bonus Disi Kupon Oynama satirlari hesaba alinir.</p>
-            <label>
-              Excel tipi
-              <select id="uploadType">
-                <option value="weekly">Haftalik Excel</option>
-                <option value="daily">Gunluk Excel</option>
-              </select>
-            </label>
-            <label>
-              Gunluk tarih
-              <input id="uploadDate" type="date">
-            </label>
-            <label>
-              Hafta / gun adi
-              <input id="weekLabel" placeholder="Bos kalirsa dosya adi kullanilir">
-            </label>
-            <label>
-              Excel dosyalari
-              <input id="excelFile" name="excel" type="file" accept=".xlsx" multiple required>
-            </label>
-            <p class="muted" id="fileHelp">Bir veya birden fazla .xlsx dosyasi secebilirsin.</p>
-            <button class="primary" type="submit">Excel aktar</button>
-            <button class="danger" id="clearUploadsBtn" type="button">Tum haftalik ve gunluk Excel kayitlarini temizle</button>
-            <div class="message" id="uploadMessage"></div>
-            <div class="uploads" id="uploads"></div>
-            </form>
+            <div class="collapsible-body">
+              <p class="muted">Haftalik ve gunluk Excel yuklemeleri ayri saklanir. Her ikisinde de sadece Bonus Disi Kupon Oynama satirlari hesaba alinir.</p>
+              <div class="upload-forms">
+                <form class="upload-box" id="weeklyUploadForm">
+                  <strong>Haftalik Excel yukle</strong>
+                  <label>
+                    Hafta adi
+                    <input id="weeklyWeekLabel" placeholder="Bos kalirsa dosya adi kullanilir">
+                  </label>
+                  <label>
+                    Haftalik Excel dosyalari
+                    <input id="weeklyExcelFile" name="excel" type="file" accept=".xlsx" multiple required>
+                  </label>
+                  <p class="muted" id="weeklyFileHelp">Bir veya birden fazla haftalik .xlsx dosyasi secebilirsin.</p>
+                  <button class="primary" type="submit">Haftalik Excel aktar</button>
+                </form>
+                <form class="upload-box" id="dailyUploadForm">
+                  <strong>Gunluk Excel yukle</strong>
+                  <label>
+                    Gunluk tarih
+                    <input id="dailyUploadDate" type="date">
+                  </label>
+                  <label>
+                    Gun adi
+                    <input id="dailyWeekLabel" placeholder="Orn. Pazartesi veya 06.07.2026">
+                  </label>
+                  <label>
+                    Gunluk Excel dosyalari
+                    <input id="dailyExcelFile" name="excel" type="file" accept=".xlsx" multiple required>
+                  </label>
+                  <p class="muted" id="dailyFileHelp">Bir veya birden fazla gunluk .xlsx dosyasi secebilirsin.</p>
+                  <button class="primary" type="submit">Gunluk Excel aktar</button>
+                </form>
+              </div>
+              <button class="danger" id="clearUploadsBtn" type="button">Tum haftalik ve gunluk Excel kayitlarini temizle</button>
+              <div class="message" id="uploadMessage"></div>
+              <div class="uploads" id="uploads"></div>
+            </div>
           </details>
         </section>
 
