@@ -223,6 +223,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderBackups(data.backups || []);
   renderMembers();
   renderDailyMembers();
+  renderSharedNumbers(data.sharedNumbers || []);
   renderUnmatchedNumbers(data.unmatchedNumbers || []);
   renderPassiveNumbers(data.passiveNumbers || []);
   renderUploadReports(data.uploadReports || []);
@@ -391,6 +392,26 @@ function renderUnmatchedNumbers(numbers) {
       <td data-label="Hafta / dosya">${escapeHtml((item.uploads || []).join(", ") || "-")}</td>
     </tr>
   `).join("") || `<tr><td colspan="4">Secili haftada tipstersiz numara yok.</td></tr>`;
+}
+
+function renderSharedNumbers(numbers = currentDashboard?.sharedNumbers || []) {
+  const query = document.getElementById("sharedNumberSearch")?.value.trim().toLocaleLowerCase("tr") || "";
+  const rows = numbers.filter(item => {
+    const memberText = (item.members || []).map(member => `${member.name} ${member.username}`).join(" ");
+    const text = `${item.number} ${item.name || ""} ${memberText}`.toLocaleLowerCase("tr");
+    return text.includes(query);
+  });
+  document.getElementById("sharedNumberCount").textContent = numbers.length;
+  document.getElementById("sharedNumberRows").innerHTML = rows.map(item => `
+    <tr>
+      <td data-label="Numara"><strong>${escapeHtml(item.number)}</strong><br><span class="muted">${escapeHtml(item.name || "-")}</span></td>
+      <td data-label="Tipsterlar">${(item.members || []).map(member => `<span class="read-pill read">${escapeHtml(member.name)} (${escapeHtml(member.username)})</span>`).join("")}</td>
+      <td data-label="Kisi">${item.memberCount}</td>
+      <td data-label="Excel kayit">${item.rowCount}</td>
+      <td data-label="Toplam oyun">${money.format(item.total || 0)}</td>
+      <td data-label="Kisi basi">${money.format(item.sharedTotal || 0)}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="6">Ortak numara bulunamadi.</td></tr>`;
 }
 
 function renderPassiveNumbers(numbers) {
@@ -733,7 +754,9 @@ function renderDailyEarnings(rows) {
 }
 
 function renderNumbers(records) {
-  document.getElementById("numberList").innerHTML = records.map(record => `
+  const query = document.getElementById("numberSearch")?.value.trim().toLocaleLowerCase("tr") || "";
+  const rows = records.filter(record => `${record.name || ""} ${record.number || ""}`.toLocaleLowerCase("tr").includes(query));
+  document.getElementById("numberList").innerHTML = rows.map(record => `
     <div class="number-item">
       <div>
         <strong>${escapeHtml(record.name || "Isimsiz")}</strong>
@@ -1395,6 +1418,10 @@ document.getElementById("detailUploadSelect").addEventListener("change", event =
 document.getElementById("search").addEventListener("input", () => {
   renderMembers();
   renderDailyMembers();
+});
+document.getElementById("sharedNumberSearch").addEventListener("input", () => renderSharedNumbers());
+document.getElementById("numberSearch").addEventListener("input", () => {
+  if (currentDashboard?.role === "member") renderNumbers(numberRecordsOf(currentDashboard.member));
 });
 document.getElementById("myRowsSort").addEventListener("change", () => {
   if (currentDashboard?.role === "member") renderMyRows(currentDashboard.rows || []);
