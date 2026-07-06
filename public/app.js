@@ -164,7 +164,7 @@ function setDefaultAdminPeriod() {
 }
 
 function setDefaultUploadDate() {
-  const input = document.getElementById("uploadDate");
+  const input = document.getElementById("dailyUploadDate");
   if (input && !input.value) input.value = dateInputValue(new Date());
 }
 
@@ -225,8 +225,11 @@ function renderAdmin(data, keepOwnerPanel = false) {
       <strong>Haftalik Excel dosyalari</strong>
       ${weeklyUploads.map(upload => `
         <div class="upload-item">
-          <strong>${escapeHtml(upload.weekLabel || upload.filename)}</strong><br>
-          ${escapeHtml(upload.filename)} - ${upload.rowCount} satir - ${new Date(upload.createdAt).toLocaleString("tr-TR")}
+          <div>
+            <strong>${escapeHtml(upload.weekLabel || upload.filename)}</strong><br>
+            ${escapeHtml(upload.filename)} - ${upload.rowCount} satir - ${new Date(upload.createdAt).toLocaleString("tr-TR")}
+          </div>
+          <button class="danger small" type="button" data-upload-delete="${escapeHtml(upload.id)}" data-upload-name="${escapeHtml(upload.weekLabel || upload.filename)}">Sil</button>
         </div>
       `).join("") || `<p class="muted">Henuz haftalik Excel yuklenmedi.</p>`}
     </div>
@@ -234,8 +237,11 @@ function renderAdmin(data, keepOwnerPanel = false) {
       <strong>Gunluk Excel dosyalari</strong>
       ${dailyUploads.map(upload => `
         <div class="upload-item">
-          <strong>${escapeHtml(upload.weekLabel || upload.filename)}</strong><br>
-          ${escapeHtml(upload.filename)} - ${escapeHtml(upload.uploadDate || "-")} - ${upload.rowCount} satir - ${new Date(upload.createdAt).toLocaleString("tr-TR")}
+          <div>
+            <strong>${escapeHtml(upload.weekLabel || upload.filename)}</strong><br>
+            ${escapeHtml(upload.filename)} - ${escapeHtml(upload.uploadDate || "-")} - ${upload.rowCount} satir - ${new Date(upload.createdAt).toLocaleString("tr-TR")}
+          </div>
+          <button class="danger small" type="button" data-upload-delete="${escapeHtml(upload.id)}" data-upload-name="${escapeHtml(upload.weekLabel || upload.filename)}">Sil</button>
         </div>
       `).join("") || `<p class="muted">Henuz gunluk Excel yuklenmedi.</p>`}
     </div>
@@ -1087,37 +1093,57 @@ document.getElementById("memberForm").addEventListener("submit", async event => 
   }
 });
 
-document.getElementById("uploadForm").addEventListener("submit", async event => {
+async function submitExcelUpload(event, config) {
   event.preventDefault();
   setMessage("uploadMessage", "");
-  const files = Array.from(document.getElementById("excelFile").files);
-  const weekLabel = document.getElementById("weekLabel").value.trim();
-  const uploadType = document.getElementById("uploadType").value;
-  const uploadDate = document.getElementById("uploadDate").value;
+  const files = Array.from(document.getElementById(config.fileId).files);
+  const weekLabel = document.getElementById(config.labelId).value.trim();
+  const uploadDate = config.dateId ? document.getElementById(config.dateId).value : "";
   if (!files.length) return;
   try {
     const form = new FormData();
     form.append("weekLabel", weekLabel);
-    form.append("uploadType", uploadType);
+    form.append("uploadType", config.uploadType);
     form.append("uploadDate", uploadDate);
     for (const file of files) form.append("excel", file);
     const data = await api("/api/upload", { method: "POST", body: form });
     event.target.reset();
     setDefaultUploadDate();
-    selectedUploadId = data.uploadType === "daily" ? "" : data.uploadId;
-    const typeText = uploadType === "daily" ? "Gunluk" : "Haftalik";
+    selectedUploadId = config.uploadType === "daily" ? "" : data.uploadId;
+    const typeText = config.uploadType === "daily" ? "Gunluk" : "Haftalik";
     setMessage("uploadMessage", `${data.uploads.length} ${typeText} Excel aktarildi, Bonus Disi Kupon Oynama icin ${data.rowCount} satir islendi.`, true);
     await loadDashboard(selectedUploadId);
   } catch (error) {
     setMessage("uploadMessage", error.message);
   }
+}
+
+function updateFileHelp(event, helpId, emptyText) {
+  const files = Array.from(event.target.files);
+  document.getElementById(helpId).textContent = files.length
+    ? `${files.length} Excel secildi: ${files.map(file => file.name).join(", ")}`
+    : emptyText;
+}
+
+document.getElementById("weeklyUploadForm").addEventListener("submit", event => submitExcelUpload(event, {
+  uploadType: "weekly",
+  labelId: "weeklyWeekLabel",
+  fileId: "weeklyExcelFile"
+}));
+
+document.getElementById("dailyUploadForm").addEventListener("submit", event => submitExcelUpload(event, {
+  uploadType: "daily",
+  labelId: "dailyWeekLabel",
+  dateId: "dailyUploadDate",
+  fileId: "dailyExcelFile"
+}));
+
+document.getElementById("weeklyExcelFile").addEventListener("change", event => {
+  updateFileHelp(event, "weeklyFileHelp", "Bir veya birden fazla haftalik .xlsx dosyasi secebilirsin.");
 });
 
-document.getElementById("excelFile").addEventListener("change", event => {
-  const files = Array.from(event.target.files);
-  document.getElementById("fileHelp").textContent = files.length
-    ? `${files.length} Excel secildi: ${files.map(file => file.name).join(", ")}`
-    : "Bir veya birden fazla .xlsx dosyasi secebilirsin.";
+document.getElementById("dailyExcelFile").addEventListener("change", event => {
+  updateFileHelp(event, "dailyFileHelp", "Bir veya birden fazla gunluk .xlsx dosyasi secebilirsin.");
 });
 
 document.getElementById("clearUploadsBtn").addEventListener("click", async () => {
@@ -1126,6 +1152,21 @@ document.getElementById("clearUploadsBtn").addEventListener("click", async () =>
     await api("/api/uploads", { method: "DELETE" });
     selectedUploadId = "";
     setMessage("uploadMessage", "Tum Excel kayitlari temizlendi.", true);
+    await loadDashboard("");
+  } catch (error) {
+    setMessage("uploadMessage", error.message);
+  }
+});
+
+document.getElementById("uploads").addEventListener("click", async event => {
+  const button = event.target.closest("button[data-upload-delete]");
+  if (!button) return;
+  const uploadName = button.dataset.uploadName || "secili Excel";
+  if (!confirm(`${uploadName} silinsin mi? Sadece bu Excel ve ona bagli satirlar silinir.`)) return;
+  try {
+    await api(`/api/uploads/${encodeURIComponent(button.dataset.uploadDelete)}`, { method: "DELETE" });
+    selectedUploadId = "";
+    setMessage("uploadMessage", "Secili Excel kaydi silindi.", true);
     await loadDashboard("");
   } catch (error) {
     setMessage("uploadMessage", error.message);
