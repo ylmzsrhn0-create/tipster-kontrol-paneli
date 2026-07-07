@@ -678,6 +678,21 @@ input:focus, select:focus, textarea:focus {
 
 .table-wrap { overflow-x: auto; }
 
+.payment-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.payment-form .wide-field {
+  grid-column: span 2;
+}
+
+.payment-summary {
+  margin: 14px 0;
+}
+
 .table-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1288,7 +1303,8 @@ td:last-child, th:last-child { text-align: right; }
   body::before { background-size: 210px 210px; opacity: .045; }
   .login-view { grid-template-columns: 1fr; }
   .cover { min-height: 380px; padding: 30px; }
-  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid { grid-template-columns: 1fr; }
+  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid, .payment-form { grid-template-columns: 1fr; }
+  .payment-form .wide-field { grid-column: auto; }
   .section-head { align-items: stretch; flex-direction: column; }
   .section-head input { width: 100%; }
 }
