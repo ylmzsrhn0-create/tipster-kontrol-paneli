@@ -239,6 +239,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderAdminPeriod(data.currentAdmin);
   renderUploadSelect("adminUploadSelect", data.uploads, data.selectedUploadId);
   renderDailyUploadSelect("adminDailyUploadSelect", data.dailyUploads || [], data.selectedDailyUploadId);
+  document.getElementById("deleteSelectedDailyUploadBtn").disabled = !(data.dailyUploads || []).length || !data.selectedDailyUploadId;
   document.getElementById("adminEmail").value = data.currentAdmin?.email || "";
   document.getElementById("memberCount").textContent = data.summary.memberCount;
   document.getElementById("rowCount").textContent = data.summary.rowCount;
@@ -1264,6 +1265,24 @@ document.getElementById("uploads").addEventListener("click", async event => {
     selectedDailyUploadId = "";
     setMessage("uploadMessage", "Secili Excel kaydi silindi.", true);
     await loadDashboard("");
+  } catch (error) {
+    setMessage("uploadMessage", error.message);
+  }
+});
+
+document.getElementById("deleteSelectedDailyUploadBtn").addEventListener("click", async () => {
+  if (!selectedDailyUploadId) {
+    setMessage("uploadMessage", "Silinecek gunluk Excel secili degil.");
+    return;
+  }
+  const dailyUpload = (currentDashboard?.dailyUploads || []).find(upload => upload.id === selectedDailyUploadId);
+  const uploadName = dailyUpload?.weekLabel || dailyUpload?.filename || "secili gunluk Excel";
+  if (!confirm(`${uploadName} silinsin mi? Sadece bu gunluk Excel ve ona bagli satirlar silinir.`)) return;
+  try {
+    await api(`/api/uploads/${encodeURIComponent(selectedDailyUploadId)}`, { method: "DELETE" });
+    selectedDailyUploadId = "";
+    setMessage("uploadMessage", "Secili gunluk Excel kaydi silindi.", true);
+    await loadDashboard(selectedUploadId, "");
   } catch (error) {
     setMessage("uploadMessage", error.message);
   }
