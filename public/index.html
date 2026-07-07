@@ -124,6 +124,62 @@
         <details class="panel wide collapsible">
           <summary>
             <span>
+              <strong>Haftalik odeme kayitlari</strong>
+              <small>Tipsterlara odenen tutarlari hafta hafta sakla</small>
+            </span>
+          </summary>
+          <div class="collapsible-body">
+            <form class="payment-form" id="paymentForm">
+              <label>
+                Hafta
+                <input id="paymentWeekLabel" readonly>
+              </label>
+              <label>
+                Tipster
+                <select id="paymentMemberSelect" required></select>
+              </label>
+              <label>
+                Odenen tutar
+                <input id="paymentAmount" inputmode="decimal" required placeholder="Orn. 1250">
+              </label>
+              <label>
+                Odeme tarihi
+                <input id="paymentDate" type="date">
+              </label>
+              <label class="wide-field">
+                Not
+                <input id="paymentNote" maxlength="240" placeholder="Orn. IBAN'a gonderildi">
+              </label>
+              <button class="primary" type="submit">Odeme kaydet</button>
+            </form>
+            <div class="message" id="paymentMessage"></div>
+            <div class="table-summary payment-summary">
+              <div><span>Secili hafta kayit</span><strong id="paymentCount">0</strong></div>
+              <div><span>Hesaplanan</span><strong id="paymentCalculatedTotal">0</strong></div>
+              <div><span>Odenen</span><strong id="paymentPaidTotal">0</strong></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tarih</th>
+                    <th>Hafta</th>
+                    <th>Tipster</th>
+                    <th>Hesap</th>
+                    <th>Odenen</th>
+                    <th>Not</th>
+                    <th>Islem</th>
+                  </tr>
+                </thead>
+                <tbody id="paymentRows"></tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
               <strong>Excel yukleme raporlari</strong>
               <small>Yuklenen dosyalarin aktif, pasif ve tipstersiz ozeti</small>
             </span>
