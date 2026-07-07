@@ -194,6 +194,11 @@ function setDefaultUploadDate() {
   if (input && !input.value) input.value = dateInputValue(new Date());
 }
 
+function setDefaultPaymentDate() {
+  const input = document.getElementById("paymentDate");
+  if (input && !input.value) input.value = dateInputValue(new Date());
+}
+
 function renderAdminPeriod(admin) {
   const banner = document.getElementById("adminPeriodBanner");
   const info = accessPeriodInfo(admin);
@@ -249,6 +254,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderBackups(data.backups || []);
   renderMembers();
   renderDailyMembers();
+  renderPaymentPanel();
   renderSharedNumbers(data.sharedNumbers || []);
   renderUnmatchedNumbers(data.unmatchedNumbers || []);
   renderPassiveNumbers(data.passiveNumbers || []);
@@ -286,6 +292,43 @@ function renderAdmin(data, keepOwnerPanel = false) {
     </div>
   `;
   calculateAdminTool();
+}
+
+function selectedWeeklyUploadLabel() {
+  if (selectedUploadId === "all") return "Tum haftalar";
+  const upload = (currentDashboard?.uploads || []).find(item => item.id === selectedUploadId);
+  return upload ? uploadLabel(upload) : "Haftalik Excel secilmedi";
+}
+
+function renderPaymentPanel() {
+  const members = currentDashboard?.members || [];
+  const payments = currentDashboard?.payments || [];
+  const selectedWeekPayments = payments.filter(payment => payment.uploadId === selectedUploadId);
+  const summary = currentDashboard?.paymentSummary || {
+    count: selectedWeekPayments.length,
+    totalPaid: selectedWeekPayments.reduce((sum, payment) => sum + Number(payment.paidAmount || 0), 0),
+    totalCalculated: selectedWeekPayments.reduce((sum, payment) => sum + Number(payment.calculatedAmount || 0), 0)
+  };
+  const memberSelect = document.getElementById("paymentMemberSelect");
+  memberSelect.innerHTML = members.length
+    ? members.map(member => `<option value="${escapeHtml(member.id)}">${escapeHtml(member.name)} - hesap: ${money.format(member.calculated || 0)}</option>`).join("")
+    : `<option value="">Tipster yok</option>`;
+  document.getElementById("paymentWeekLabel").value = selectedWeeklyUploadLabel();
+  document.getElementById("paymentCount").textContent = summary.count || 0;
+  document.getElementById("paymentCalculatedTotal").textContent = money.format(summary.totalCalculated || 0);
+  document.getElementById("paymentPaidTotal").textContent = money.format(summary.totalPaid || 0);
+  document.getElementById("paymentRows").innerHTML = payments.map(payment => `
+    <tr>
+      <td data-label="Tarih">${escapeHtml(payment.paymentDate || "-")}</td>
+      <td data-label="Hafta">${escapeHtml(payment.weekLabel || "-")}</td>
+      <td data-label="Tipster"><strong>${escapeHtml(payment.memberName || "-")}</strong><br><span class="muted">${escapeHtml(payment.memberUsername || "")}</span></td>
+      <td data-label="Hesap">${money.format(payment.calculatedAmount || 0)}</td>
+      <td data-label="Odenen"><strong>${money.format(payment.paidAmount || 0)}</strong></td>
+      <td data-label="Not">${escapeHtml(payment.note || "-")}</td>
+      <td data-label="Islem"><button class="danger small" data-payment-delete="${escapeHtml(payment.id)}" type="button">Sil</button></td>
+    </tr>
+  `).join("") || `<tr><td colspan="7">Henuz odeme kaydi yok.</td></tr>`;
+  setDefaultPaymentDate();
 }
 
 function renderOwner(data) {
@@ -1288,6 +1331,48 @@ document.getElementById("deleteSelectedDailyUploadBtn").addEventListener("click"
   }
 });
 
+document.getElementById("paymentForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  setMessage("paymentMessage", "");
+  if (!selectedUploadId || selectedUploadId === "all") {
+    setMessage("paymentMessage", "Odeme kaydi icin once belirli bir hafta sec.");
+    return;
+  }
+  try {
+    await api("/api/payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        uploadId: selectedUploadId,
+        memberId: document.getElementById("paymentMemberSelect").value,
+        paidAmount: document.getElementById("paymentAmount").value,
+        paymentDate: document.getElementById("paymentDate").value,
+        note: document.getElementById("paymentNote").value
+      })
+    });
+    document.getElementById("paymentAmount").value = "";
+    document.getElementById("paymentNote").value = "";
+    setDefaultPaymentDate();
+    setMessage("paymentMessage", "Odeme kaydi eklendi.", true);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+  } catch (error) {
+    setMessage("paymentMessage", error.message);
+  }
+});
+
+document.getElementById("paymentRows").addEventListener("click", async event => {
+  const button = event.target.closest("button[data-payment-delete]");
+  if (!button) return;
+  if (!confirm("Bu odeme kaydi silinsin mi?")) return;
+  try {
+    await api(`/api/payments/${encodeURIComponent(button.dataset.paymentDelete)}`, { method: "DELETE" });
+    setMessage("paymentMessage", "Odeme kaydi silindi.", true);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+  } catch (error) {
+    setMessage("paymentMessage", error.message);
+  }
+});
+
 document.getElementById("createBackupBtn").addEventListener("click", async () => {
   setMessage("backupMessage", "");
   try {
@@ -1562,10 +1647,12 @@ kvkkModal.addEventListener("click", event => {
 
 setDefaultAdminPeriod();
 setDefaultUploadDate();
+setDefaultPaymentDate();
 
 api("/api/me").then(async data => {
   setDefaultAdminPeriod();
   setDefaultUploadDate();
+  setDefaultPaymentDate();
   if (!data.user) {
     document.getElementById("username").value = "admin";
     document.getElementById("password").value = "";
