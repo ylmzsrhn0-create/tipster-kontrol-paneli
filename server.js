@@ -1053,12 +1053,12 @@ function adminSummary(db, uploadId, ownerId) {
   };
 }
 
-function adminOverview(db, uploadId, ownerId) {
+function adminOverview(db, uploadId, ownerId, unmatchedUploadIds = [uploadId]) {
   const members = db.users.filter(user => user.role === "member" && user.ownerId === ownerId);
   const rows = selectedRows(db, uploadId, ownerId);
   const activeNumbers = new Set(rows.map(row => row.gsmMasked).filter(Boolean));
   const passiveNumbers = passiveNumberSummary(db, uploadId, ownerId);
-  const unmatchedNumbers = unmatchedNumberSummary(db, uploadId, ownerId);
+  const unmatchedNumbers = combinedUnmatchedNumberSummary(db, unmatchedUploadIds, ownerId);
   const unreadMessages = (db.messages || [])
     .filter(message => message.ownerId === ownerId)
     .reduce((sum, message) => {
@@ -1108,6 +1108,31 @@ function unmatchedNumberSummary(db, uploadId, ownerId) {
       }
       grouped.set(row.gsmMasked, current);
     });
+  return Array.from(grouped.values())
+    .map(item => ({ ...item, uploads: Array.from(item.uploads) }))
+    .sort((a, b) => b.total - a.total || a.number.localeCompare(b.number));
+}
+
+function combinedUnmatchedNumberSummary(db, uploadIds, ownerId) {
+  const ids = Array.from(new Set((uploadIds || []).filter(Boolean)));
+  const summaries = ids.length ? ids.flatMap(id => unmatchedNumberSummary(db, id, ownerId)) : unmatchedNumberSummary(db, "", ownerId);
+  const grouped = new Map();
+  summaries.forEach(item => {
+    const current = grouped.get(item.number) || {
+      number: item.number,
+      rowCount: 0,
+      total: 0,
+      uploads: new Set(),
+      lastSeenAt: ""
+    };
+    current.rowCount += Number(item.rowCount) || 0;
+    current.total += Number(item.total) || 0;
+    (item.uploads || []).forEach(upload => current.uploads.add(upload));
+    if (!current.lastSeenAt || String(item.lastSeenAt || "").localeCompare(current.lastSeenAt) > 0) {
+      current.lastSeenAt = item.lastSeenAt || "";
+    }
+    grouped.set(item.number, current);
+  });
   return Array.from(grouped.values())
     .map(item => ({ ...item, uploads: Array.from(item.uploads) }))
     .sort((a, b) => b.total - a.total || a.number.localeCompare(b.number));
@@ -1703,7 +1728,7 @@ async function handleApi(req, res) {
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 30)
         .map(message => publicMessageForAdmin(db, message));
-      const unmatchedNumbers = unmatchedNumberSummary(db, uploadId, user.id);
+      const unmatchedNumbers = combinedUnmatchedNumberSummary(db, [uploadId, dailyUploadId], user.id);
       const passiveNumbers = passiveNumberSummary(db, uploadId, user.id);
       const sharedNumbers = sharedNumberSummary(db, uploadId, user.id);
       const uploadReports = (db.uploadReports || [])
@@ -1718,7 +1743,7 @@ async function handleApi(req, res) {
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 60)
         .map(publicAuditLog);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -1879,13 +1904,14 @@ async function handleApi(req, res) {
     if (!session) return;
     const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
     const uploadId = String(body.uploadId || "all");
+    const dailyUploadId = String(body.dailyUploadId || "");
     const admin = db.users.find(user => user.id === session.userId && isStaff(user));
     if (!admin) {
       sendJson(res, 404, { error: "Admin bulunamadi." });
       return;
     }
     const existing = new Set(getUserGsms(admin));
-    const unmatched = unmatchedNumberSummary(db, uploadId, session.userId);
+    const unmatched = combinedUnmatchedNumberSummary(db, [uploadId, dailyUploadId], session.userId);
     const records = getUserNumberRecords(admin);
     let addedCount = 0;
     unmatched.forEach(item => {
