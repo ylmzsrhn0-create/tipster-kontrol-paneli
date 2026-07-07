@@ -67,7 +67,8 @@ function defaultDb() {
     messages: [],
     feedbacks: [],
     auditLogs: [],
-    uploadReports: []
+    uploadReports: [],
+    payments: []
   };
 }
 
@@ -153,6 +154,7 @@ function normalizeDb(db) {
   db.feedbacks ||= [];
   db.auditLogs ||= [];
   db.uploadReports ||= [];
+  db.payments ||= [];
   let owner = db.users.find(user => user.role === "owner");
   if (!owner) {
     owner = db.users.find(user => user.role === "admin" && user.username === "admin") || db.users.find(user => user.role === "admin");
@@ -208,6 +210,16 @@ function normalizeDb(db) {
     report.activeNumberCount ||= 0;
     report.passiveCount ||= 0;
     report.unmatchedCount ||= 0;
+  });
+  db.payments.forEach(payment => {
+    payment.ownerId ||= ownerId;
+    payment.memberId ||= "";
+    payment.uploadId ||= "";
+    payment.weekLabel ||= "";
+    payment.calculatedAmount = Number(payment.calculatedAmount) || 0;
+    payment.paidAmount = Number(payment.paidAmount) || 0;
+    payment.paymentDate = validDateOnly(payment.paymentDate) ? payment.paymentDate : dateOnly(payment.createdAt);
+    payment.note ||= "";
   });
   return db;
 }
@@ -640,6 +652,33 @@ function publicUploadReport(report) {
     passiveCount: report.passiveCount,
     unmatchedCount: report.unmatchedCount,
     createdAt: report.createdAt
+  };
+}
+
+function publicPayment(db, payment) {
+  const member = db.users.find(user => user.id === payment.memberId);
+  const upload = db.uploads.find(item => item.id === payment.uploadId);
+  return {
+    id: payment.id,
+    ownerId: payment.ownerId,
+    memberId: payment.memberId,
+    memberName: member?.name || payment.memberName || "",
+    memberUsername: member?.username || payment.memberUsername || "",
+    uploadId: payment.uploadId,
+    weekLabel: payment.weekLabel || upload?.weekLabel || upload?.filename || "Hafta",
+    calculatedAmount: Number(payment.calculatedAmount) || 0,
+    paidAmount: Number(payment.paidAmount) || 0,
+    paymentDate: payment.paymentDate || "",
+    note: payment.note || "",
+    createdAt: payment.createdAt
+  };
+}
+
+function paymentSummary(payments) {
+  return {
+    count: payments.length,
+    totalPaid: payments.reduce((sum, payment) => sum + Number(payment.paidAmount || 0), 0),
+    totalCalculated: payments.reduce((sum, payment) => sum + Number(payment.calculatedAmount || 0), 0)
   };
 }
 
@@ -1678,6 +1717,7 @@ async function handleApi(req, res) {
     db.messages = (db.messages || []).filter(message => message.ownerId !== admin.id);
     db.auditLogs = (db.auditLogs || []).filter(log => log.ownerId !== admin.id && log.actorId !== admin.id && !memberIds.has(log.actorId));
     db.feedbacks = (db.feedbacks || []).filter(feedback => feedback.senderId !== admin.id && !memberIds.has(feedback.senderId));
+    db.payments = (db.payments || []).filter(payment => payment.ownerId !== admin.id && !memberIds.has(payment.memberId));
     for (const [sid, activeSession] of sessions.entries()) {
       if (activeSession.userId === admin.id || memberIds.has(activeSession.userId)) sessions.delete(sid);
     }
@@ -1743,7 +1783,15 @@ async function handleApi(req, res) {
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 60)
         .map(publicAuditLog);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const ownerPayments = (db.payments || [])
+        .filter(payment => payment.ownerId === user.id)
+        .slice()
+        .sort((a, b) => String(b.paymentDate || b.createdAt).localeCompare(String(a.paymentDate || a.createdAt)));
+      const payments = ownerPayments
+        .slice(0, 120)
+        .map(payment => publicPayment(db, payment));
+      const selectedPayments = ownerPayments.filter(payment => payment.uploadId === uploadId);
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -1928,6 +1976,76 @@ async function handleApi(req, res) {
     addAuditLog(db, session.userId, admin, "Tipstersiz numaralar admin kaydina aktarildi", `${addedCount} tipstersiz numara admin kaydina eklendi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, addedCount, admin: publicUser(admin) });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/payments") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const admin = db.users.find(user => user.id === session.userId && isStaff(user));
+    const member = db.users.find(user => user.id === String(body.memberId || "") && user.role === "member" && user.ownerId === session.userId);
+    const uploadId = String(body.uploadId || "");
+    const upload = db.uploads.find(item => item.id === uploadId && item.ownerId === session.userId && (item.uploadType || "weekly") === "weekly");
+    const paidAmount = numberFrom(body.paidAmount);
+    const paymentDate = validDateOnly(String(body.paymentDate || "")) ? String(body.paymentDate) : dateOnly(new Date());
+    const note = String(body.note || "").trim().slice(0, 240);
+    if (!admin || !member) {
+      sendJson(res, 404, { error: "Tipster bulunamadi." });
+      return;
+    }
+    if (!upload) {
+      sendJson(res, 400, { error: "Haftalik Excel secimi gerekli." });
+      return;
+    }
+    if (paidAmount <= 0) {
+      sendJson(res, 400, { error: "Odenen tutar 0'dan buyuk olmali." });
+      return;
+    }
+    const calculatedAmount = memberSummary(db, member, uploadId).calculated;
+    const payment = {
+      id: crypto.randomUUID(),
+      ownerId: session.userId,
+      memberId: member.id,
+      memberName: member.name || member.username,
+      memberUsername: member.username,
+      uploadId,
+      weekLabel: upload.weekLabel || upload.filename || "Hafta",
+      calculatedAmount,
+      paidAmount,
+      paymentDate,
+      note,
+      createdAt: new Date().toISOString()
+    };
+    db.payments ||= [];
+    db.payments.push(payment);
+    addAuditLog(db, session.userId, admin, "Haftalik odeme kaydi eklendi", `${member.name || member.username} icin ${payment.weekLabel} odemesi: ${paidAmount}`, {
+      memberId: member.id,
+      memberName: member.name || member.username,
+      memberUsername: member.username
+    });
+    writeDb(db);
+    sendJson(res, 200, { ok: true, payment: publicPayment(db, payment) });
+    return;
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/payments/")) {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const id = decodeURIComponent(url.pathname.split("/").pop() || "");
+    const payment = (db.payments || []).find(item => item.id === id && item.ownerId === session.userId);
+    if (!payment) {
+      sendJson(res, 404, { error: "Odeme kaydi bulunamadi." });
+      return;
+    }
+    db.payments = (db.payments || []).filter(item => item.id !== id);
+    addAuditLog(db, session.userId, db.users.find(user => user.id === session.userId), "Haftalik odeme kaydi silindi", `${payment.memberName || payment.memberUsername || "Tipster"} icin ${payment.weekLabel || "hafta"} odeme kaydi silindi`, {
+      memberId: payment.memberId,
+      memberName: payment.memberName,
+      memberUsername: payment.memberUsername
+    });
+    writeDb(db);
+    sendJson(res, 200, { ok: true });
     return;
   }
 
