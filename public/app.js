@@ -414,9 +414,9 @@ function renderUnmatchedNumbers(numbers) {
       <td data-label="Numara"><strong>${escapeHtml(item.number)}</strong></td>
       <td data-label="Excel kayit">${item.rowCount}</td>
       <td data-label="Toplam oyun">${money.format(item.total)}</td>
-      <td data-label="Hafta / dosya">${escapeHtml((item.uploads || []).join(", ") || "-")}</td>
+      <td data-label="Excel / dosya">${escapeHtml((item.uploads || []).join(", ") || "-")}</td>
     </tr>
-  `).join("") || `<tr><td colspan="4">Secili haftada tipstersiz numara yok.</td></tr>`;
+  `).join("") || `<tr><td colspan="4">Secili haftalik ve gunluk Excelde tipstersiz numara yok.</td></tr>`;
 }
 
 function renderSharedNumbers(numbers = currentDashboard?.sharedNumbers || []) {
@@ -1359,10 +1359,10 @@ document.getElementById("assignUnmatchedAdminBtn").addEventListener("click", asy
     const data = await api("/api/unmatched-numbers/assign-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uploadId: selectedUploadId || "all" })
+      body: JSON.stringify({ uploadId: selectedUploadId || "all", dailyUploadId: selectedDailyUploadId || "" })
     });
     setMessage("unmatchedNumberMessage", `${data.addedCount} numara admin kaydina eklendi.`, true);
-    await loadDashboard(selectedUploadId);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
   } catch (error) {
     setMessage("unmatchedNumberMessage", error.message);
   }
