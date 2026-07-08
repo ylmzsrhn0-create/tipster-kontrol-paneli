@@ -167,6 +167,20 @@ function searchDigits(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function maskedNumberMatches(haystack, query) {
+  const haystackNumber = searchNumber(haystack);
+  const queryNumber = searchNumber(query);
+  if (!haystackNumber || !queryNumber) return false;
+  const wildcardMatch = (masked, candidate) => {
+    if (!masked.includes("*")) return false;
+    const pattern = masked
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\\\*+/g, "\\d*");
+    return new RegExp(pattern).test(candidate);
+  };
+  return wildcardMatch(haystackNumber, queryNumber) || wildcardMatch(queryNumber, haystackNumber);
+}
+
 function searchMatches(haystack, query) {
   const textQuery = searchText(query);
   const numberQuery = searchNumber(query);
@@ -177,7 +191,8 @@ function searchMatches(haystack, query) {
   const digitHaystack = searchDigits(haystack);
   return (textQuery && textHaystack.includes(textQuery))
     || (numberQuery && numberHaystack.includes(numberQuery))
-    || (digitQuery && digitHaystack.includes(digitQuery));
+    || (digitQuery && digitHaystack.includes(digitQuery))
+    || maskedNumberMatches(haystack, query);
 }
 
 function dateInputValue(date) {
