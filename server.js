@@ -68,7 +68,8 @@ function defaultDb() {
     feedbacks: [],
     auditLogs: [],
     uploadReports: [],
-    payments: []
+    payments: [],
+    portalLists: []
   };
 }
 
@@ -155,6 +156,7 @@ function normalizeDb(db) {
   db.auditLogs ||= [];
   db.uploadReports ||= [];
   db.payments ||= [];
+  db.portalLists ||= [];
   let owner = db.users.find(user => user.role === "owner");
   if (!owner) {
     owner = db.users.find(user => user.role === "admin" && user.username === "admin") || db.users.find(user => user.role === "admin");
@@ -220,6 +222,13 @@ function normalizeDb(db) {
     payment.paidAmount = Number(payment.paidAmount) || 0;
     payment.paymentDate = validDateOnly(payment.paymentDate) ? payment.paymentDate : dateOnly(payment.createdAt);
     payment.note ||= "";
+  });
+  db.portalLists.forEach(list => {
+    list.ownerId ||= ownerId;
+    list.weekLabel ||= list.filename || "Bayi Portal listesi";
+    list.numbers = Array.from(new Set((list.numbers || []).map(normalizeGsm).filter(Boolean)));
+    list.rowCount = Number(list.rowCount) || list.numbers.length;
+    list.createdAt ||= new Date().toISOString();
   });
   return db;
 }
@@ -674,6 +683,16 @@ function publicPayment(db, payment) {
   };
 }
 
+function publicPortalList(list) {
+  return {
+    id: list.id,
+    filename: list.filename,
+    weekLabel: list.weekLabel,
+    rowCount: Number(list.rowCount) || (list.numbers || []).length,
+    createdAt: list.createdAt
+  };
+}
+
 function paymentSummary(payments) {
   return {
     count: payments.length,
@@ -731,6 +750,16 @@ function normalizeGsm(value) {
   return String(value ?? "").trim().replace(/\s+/g, "");
 }
 
+function portalNumberFromCell(value) {
+  const text = normalizeGsm(value);
+  const masked = text.match(/05\d{2}\*{3}\d{4}/);
+  if (masked) return masked[0];
+  const digits = text.replace(/\D/g, "");
+  if (/^05\d{9}$/.test(digits)) return digits;
+  if (/^5\d{9}$/.test(digits)) return `0${digits}`;
+  return "";
+}
+
 function normalizeNumberName(value) {
   return String(value ?? "").trim().slice(0, 80);
 }
@@ -759,6 +788,28 @@ function getUserNumberRecords(user) {
 
 function getUserGsms(user) {
   return getUserNumberRecords(user).map(record => record.number);
+}
+
+function latestPortalList(db, ownerId) {
+  return (db.portalLists || [])
+    .filter(list => list.ownerId === ownerId)
+    .slice()
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0] || null;
+}
+
+function portalNumberSet(db, ownerId) {
+  return new Set((latestPortalList(db, ownerId)?.numbers || []).map(normalizeGsm).filter(Boolean));
+}
+
+function withPortalStatus(records, portalSet) {
+  return (records || []).map(record => {
+    const registered = portalSet.has(record.number);
+    return {
+      ...record,
+      portalRegistered: registered,
+      portalStatusText: registered ? "Kayitli" : "Kayitli degil"
+    };
+  });
 }
 
 function findNumberOwner(db, ownerId, gsm, exceptUserId = "") {
@@ -918,6 +969,25 @@ function parseExcel(buffer, options = {}) {
     .filter(row => options.uploadType !== "daily" || row.totalAmount !== 0 || !Object.keys(row.daily || {}).length);
 }
 
+function parsePortalNumberExcel(buffer) {
+  const entries = zipEntries(buffer);
+  const sharedStrings = parseSharedStrings(entries.get("xl/sharedStrings.xml"));
+  const { target } = parseWorkbook(entries);
+  const rows = parseSheetRows(entries.get(target), sharedStrings);
+  const numbers = [];
+  const seen = new Set();
+  rows.flat().forEach(cell => {
+    const number = portalNumberFromCell(cell);
+    if (!number || seen.has(number)) return;
+    seen.add(number);
+    numbers.push(number);
+  });
+  if (!numbers.length) {
+    throw new Error("Bayi Portal Excel icinde telefon numarasi bulunamadi.");
+  }
+  return numbers;
+}
+
 function parseMultipart(buffer, contentType) {
   const boundaryMatch = String(contentType || "").match(/boundary=(?:"([^"]+)"|([^;]+))/);
   if (!boundaryMatch) throw new Error("Yükleme sınırı bulunamadı.");
@@ -1034,6 +1104,7 @@ function memberSummary(db, user, uploadId) {
   const gsmSet = new Set(numbers);
   const sourceRows = selectedRows(db, uploadId, ownerId);
   const shareCounts = numberShareCounts(db, ownerId);
+  const portalSet = portalNumberSet(db, ownerId);
   const rows = sourceRows.filter(row => gsmSet.has(row.gsmMasked)).map(row => sharedRow(row, shareCounts));
   const total = rows.reduce((sum, row) => sum + row.totalAmount, 0);
   const calculated = total * (Number(user.percentage) || 0) / 100;
@@ -1045,6 +1116,8 @@ function memberSummary(db, user, uploadId) {
       number: record.number,
       name: record.name,
       active: numberRows.length > 0,
+      portalRegistered: portalSet.has(record.number),
+      portalStatusText: portalSet.has(record.number) ? "Kayitli" : "Kayitli degil",
       rowCount: numberRows.length,
       shareCount,
       total: numberTotal,
@@ -1341,11 +1414,12 @@ function createZip(files) {
 
 function createNumbersXlsx(member, summaries) {
   const rows = [
-    ["Isim", "Numara", "Durum", "Kayit", "Toplam oyun", "Komisyon"],
+    ["Isim", "Numara", "Durum", "Bayi Portal", "Kayit", "Toplam oyun", "Komisyon"],
     ...summaries.map(item => [
       item.name || "",
       item.number,
       item.active ? "Aktif" : "Pasif",
+      item.portalRegistered ? "Kayitli" : "Kayitli degil",
       item.rowCount,
       item.total,
       item.calculated
@@ -1734,6 +1808,9 @@ async function handleApi(req, res) {
     const staffOwnerId = isStaff(user) ? user.id : user.ownerId;
     const visibleUploads = uploadsByType(db, staffOwnerId, "weekly");
     const dailyUploads = uploadsByType(db, staffOwnerId, "daily");
+    const portalLists = (db.portalLists || []).filter(list => list.ownerId === staffOwnerId);
+    const currentPortalList = latestPortalList(db, staffOwnerId);
+    const currentPortalSet = portalNumberSet(db, staffOwnerId);
     const latestUpload = visibleUploads[visibleUploads.length - 1];
     const latestDailyUpload = dailyUploads[dailyUploads.length - 1];
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
@@ -1743,6 +1820,7 @@ async function handleApi(req, res) {
       const members = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
         const summary = memberSummary(db, member, uploadId);
         const publicMember = publicUser(member);
+        publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalSet);
         return {
           ...publicMember,
           numberCount: publicMember.numberRecords.length,
@@ -1754,6 +1832,7 @@ async function handleApi(req, res) {
       const dailyMembers = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
         const summary = dailyUploadId ? memberSummary(db, member, dailyUploadId) : { total: 0, calculated: 0, rows: [] };
         const publicMember = publicUser(member);
+        publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalSet);
         return {
           ...publicMember,
           numberCount: publicMember.numberRecords.length,
@@ -1791,7 +1870,7 @@ async function handleApi(req, res) {
         .slice(0, 120)
         .map(payment => publicPayment(db, payment));
       const selectedPayments = ownerPayments.filter(payment => payment.uploadId === uploadId);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -1804,9 +1883,11 @@ async function handleApi(req, res) {
       return;
     }
     const summary = memberPrivateSummary(memberSummary(db, user, uploadId));
+    const publicMember = publicUser(user);
+    publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalSet);
     sendJson(res, 200, {
       role: "member",
-      member: publicUser(user),
+      member: publicMember,
       total: summary.total,
       calculated: summary.calculated,
       percentage: Number(user.percentage) || 0,
@@ -1822,6 +1903,7 @@ async function handleApi(req, res) {
         .map(message => publicMessageForMember(message, user.id)),
       uploads,
       dailyUploads: dailyUploads.slice().reverse(),
+      currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null,
       selectedUploadId: uploadId
     });
     return;
@@ -2113,8 +2195,10 @@ async function handleApi(req, res) {
     const latestUpload = visibleUploads[visibleUploads.length - 1];
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
     const summary = memberSummary(db, member, uploadId);
+    const publicMember = publicUser(member);
+    publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, portalNumberSet(db, session.userId));
     sendJson(res, 200, {
-      member: publicUser(member),
+      member: publicMember,
       total: summary.total,
       calculated: summary.calculated,
       percentage: Number(member.percentage) || 0,
@@ -2299,6 +2383,52 @@ async function handleApi(req, res) {
     addAuditLog(db, user.ownerId, user, "Numara silindi", `${gsm} numarasi silindi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, numbers });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/portal-list") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const parts = parseMultipart(await readBody(req), req.headers["content-type"]);
+    const file = parts.find(part => part.name === "excel" && part.filename);
+    const weekPart = parts.find(part => part.name === "weekLabel");
+    if (!file || !file.filename.toLowerCase().endsWith(".xlsx")) {
+      sendJson(res, 400, { error: "Lutfen Bayi Portal telefon listesini .xlsx olarak yukle." });
+      return;
+    }
+    const numbers = parsePortalNumberExcel(file.data);
+    const fileBase = file.filename.replace(/\.xlsx$/i, "");
+    const weekLabel = String(weekPart?.data?.toString("utf8") || "").trim() || fileBase;
+    const portalList = {
+      id: crypto.randomUUID(),
+      ownerId: session.userId,
+      filename: escapeHtml(file.filename),
+      weekLabel: escapeHtml(weekLabel),
+      numbers,
+      rowCount: numbers.length,
+      createdAt: new Date().toISOString()
+    };
+    db.portalLists ||= [];
+    db.portalLists.push(portalList);
+    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Bayi Portal listesi yuklendi", `${portalList.weekLabel} icin ${numbers.length} numara aktarildi`);
+    writeDb(db);
+    sendJson(res, 200, { ok: true, portalList: publicPortalList(portalList) });
+    return;
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/portal-lists/")) {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const id = decodeURIComponent(url.pathname.split("/").pop() || "");
+    const portalList = (db.portalLists || []).find(item => item.id === id && item.ownerId === session.userId);
+    if (!portalList) {
+      sendJson(res, 404, { error: "Bayi Portal listesi bulunamadi." });
+      return;
+    }
+    db.portalLists = (db.portalLists || []).filter(item => item.id !== id || item.ownerId !== session.userId);
+    addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Bayi Portal listesi silindi", `${portalList.weekLabel || portalList.filename} listesi silindi`);
+    writeDb(db);
+    sendJson(res, 200, { ok: true });
     return;
   }
 
