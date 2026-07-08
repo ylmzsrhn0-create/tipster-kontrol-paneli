@@ -51,11 +51,11 @@ body::after {
 }
 
 .page-watermark-main {
-  right: 22px;
-  bottom: 22px;
-  width: min(520px, 58vw);
-  height: min(520px, 58vw);
-  opacity: .24;
+  right: 34px;
+  bottom: 34px;
+  width: min(620px, 66vw);
+  height: min(620px, 66vw);
+  opacity: .34;
 }
 
 .page-watermark-soft {
@@ -63,7 +63,7 @@ body::after {
   top: 150px;
   width: min(300px, 42vw);
   height: min(300px, 42vw);
-  opacity: .1;
+  opacity: .14;
 }
 
 .shell {
@@ -1413,8 +1413,8 @@ td:last-child, th:last-child { text-align: right; }
 }
 
 @media (max-width: 900px) {
-  .page-watermark-main { right: -68px; bottom: -68px; width: min(430px, 90vw); height: min(430px, 90vw); opacity: .2; }
-  .page-watermark-soft { left: -120px; top: 260px; width: min(260px, 58vw); height: min(260px, 58vw); opacity: .07; }
+  .page-watermark-main { right: -62px; bottom: -62px; width: min(480px, 94vw); height: min(480px, 94vw); opacity: .28; }
+  .page-watermark-soft { left: -120px; top: 260px; width: min(260px, 58vw); height: min(260px, 58vw); opacity: .09; }
   .login-view { grid-template-columns: 1fr; }
   .cover { min-height: 380px; padding: 30px; }
   .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid, .payment-form { grid-template-columns: 1fr; }
@@ -1424,7 +1424,7 @@ td:last-child, th:last-child { text-align: right; }
 }
 
 @media (max-width: 560px) {
-  .page-watermark-main { right: -120px; bottom: -100px; width: min(360px, 112vw); height: min(360px, 112vw); opacity: .18; }
+  .page-watermark-main { right: -112px; bottom: -96px; width: min(380px, 112vw); height: min(380px, 112vw); opacity: .24; }
   .page-watermark-soft { display: none; }
   .cover-watermark-main { right: -88px; bottom: -96px; width: min(330px, 96vw); height: min(330px, 96vw); opacity: .34; }
   .cover-watermark-soft { display: none; }
