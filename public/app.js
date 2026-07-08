@@ -66,6 +66,8 @@ function api(path, options = {}) {
 function showApp(user) {
   loginView.classList.add("hidden");
   appView.classList.remove("hidden");
+  document.body.classList.remove("login-mode");
+  document.body.classList.add("app-mode");
   document.getElementById("panelTitle").textContent = user.role === "owner" ? "Ana Admin Paneli" : user.role === "admin" ? "Admin Paneli" : user.name;
   document.getElementById("panelSubtitle").textContent = user.role === "owner"
     ? "Admin hesaplari ve kendi paneliniz burada yonetilir."
@@ -77,6 +79,8 @@ function showApp(user) {
 function showLogin() {
   appView.classList.add("hidden");
   loginView.classList.remove("hidden");
+  document.body.classList.remove("app-mode");
+  document.body.classList.add("login-mode");
   ownerPanel.classList.add("hidden");
   adminPanel.classList.add("hidden");
   memberPanel.classList.add("hidden");

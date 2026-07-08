@@ -38,6 +38,11 @@ body::after {
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
+  display: none;
+}
+
+body.app-mode .page-watermarks {
+  display: block;
 }
 
 .page-watermark {
@@ -67,6 +72,8 @@ body::after {
 }
 
 body:has(#loginView:not(.hidden)) .page-watermarks,
+body.login-mode .page-watermarks,
+.app-view.hidden .page-watermarks,
 #loginView:not(.hidden) .cover-watermarks {
   display: none;
 }
