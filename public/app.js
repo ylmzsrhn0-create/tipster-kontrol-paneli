@@ -12,6 +12,7 @@ let normalCalcValue = "0";
 let normalCalcStored = null;
 let normalCalcOperator = "";
 let normalCalcFresh = true;
+const expandedAdminNumbers = new Set();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -135,6 +136,23 @@ function numberRecordsHtml(member) {
       ${portalStatusPill(record)}
     </div>
   `).join("");
+}
+
+function adminNumberRecordsToggleHtml(member, scope) {
+  const records = numberRecordsOf(member);
+  if (!records.length) return "-";
+  const key = `${scope}:${member.id}`;
+  const expanded = expandedAdminNumbers.has(key);
+  return `
+    <div class="admin-number-toggle">
+      <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
+        ${expanded ? "Numaralari gizle" : `${records.length} numarayi goster`}
+      </button>
+      <div class="admin-number-list ${expanded ? "" : "hidden"}">
+        ${numberRecordsHtml(member)}
+      </div>
+    </div>
+  `;
 }
 
 function searchText(value) {
@@ -453,7 +471,7 @@ function renderMembers() {
   document.getElementById("memberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
-      <td data-label="Numara">${numberRecordsHtml(member)}</td>
+      <td data-label="Numara">${adminNumberRecordsToggleHtml(member, "weekly")}</td>
       <td data-label="Uye"><strong>${member.numberCount ?? numberRecordsOf(member).length}</strong></td>
       <td data-label="Yuzde">%${money.format(member.percentage)}</td>
       <td data-label="Excel kayit">${member.rowCount}</td>
@@ -476,7 +494,7 @@ function renderDailyMembers() {
   document.getElementById("dailyMemberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
-      <td data-label="Numara">${numberRecordsHtml(member)}</td>
+      <td data-label="Numara">${adminNumberRecordsToggleHtml(member, "daily")}</td>
       <td data-label="Uye"><strong>${member.numberCount ?? numberRecordsOf(member).length}</strong></td>
       <td data-label="Yuzde">%${money.format(member.percentage)}</td>
       <td data-label="Gunluk kayit">${member.dailyRowCount || 0}</td>
@@ -1674,7 +1692,21 @@ document.getElementById("myRowsSort").addEventListener("change", () => {
   if (currentDashboard?.role === "member") renderMyRows(currentDashboard.rows || []);
 });
 
+function toggleAdminNumberList(button) {
+  const key = button.dataset.numberToggle;
+  if (!key) return;
+  if (expandedAdminNumbers.has(key)) expandedAdminNumbers.delete(key);
+  else expandedAdminNumbers.add(key);
+  renderMembers();
+  renderDailyMembers();
+}
+
 document.getElementById("memberRows").addEventListener("click", async event => {
+  const toggleButton = event.target.closest("button[data-number-toggle]");
+  if (toggleButton) {
+    toggleAdminNumberList(toggleButton);
+    return;
+  }
   const detailButton = event.target.closest("button[data-detail]");
   if (detailButton) {
     setMessage("detailMessage", "");
@@ -1686,6 +1718,11 @@ document.getElementById("memberRows").addEventListener("click", async event => {
   if (!confirm("Bu tipster silinsin mi?")) return;
   await api(`/api/members/${deleteButton.dataset.delete}`, { method: "DELETE" });
   await loadDashboard();
+});
+
+document.getElementById("dailyMemberRows").addEventListener("click", event => {
+  const toggleButton = event.target.closest("button[data-number-toggle]");
+  if (toggleButton) toggleAdminNumberList(toggleButton);
 });
 
 document.getElementById("detailEditForm").addEventListener("submit", async event => {

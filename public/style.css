@@ -1217,6 +1217,22 @@ td:last-child, th:last-child { text-align: right; }
   font-weight: 650;
 }
 
+.admin-number-toggle {
+  display: grid;
+  gap: 8px;
+  min-width: 150px;
+}
+
+.number-toggle-btn {
+  justify-self: start;
+}
+
+.admin-number-list {
+  display: grid;
+  gap: 4px;
+  padding-top: 4px;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
