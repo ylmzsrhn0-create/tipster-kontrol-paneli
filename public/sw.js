@@ -1,4 +1,4 @@
-const CACHE_NAME = "tipster-panel-v5";
+const CACHE_NAME = "tipster-panel-v6-logo";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -7,6 +7,7 @@ const APP_SHELL = [
   "/app.js",
   "/manifest.webmanifest",
   "/icon.svg",
+  "/logo-watermark.png",
   "/watermark.svg"
 ];
 
