@@ -22,9 +22,23 @@
       display: grid;
       place-items: center;
       padding: 22px;
-      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, #f8fafc 0%, var(--bg) 100%);
       color: var(--ink);
       font-family: Arial, Helvetica, sans-serif;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      right: -80px;
+      bottom: -90px;
+      width: min(520px, 82vw);
+      aspect-ratio: 1;
+      background: url("/logo-watermark.png") center / contain no-repeat;
+      opacity: .09;
+      filter: drop-shadow(0 24px 36px rgba(23, 32, 51, .16));
+      pointer-events: none;
     }
     main {
       width: min(620px, 100%);
@@ -36,6 +50,8 @@
       background: var(--panel);
       box-shadow: 0 18px 55px rgba(23, 32, 51, .08);
       text-align: center;
+      position: relative;
+      z-index: 1;
     }
     img {
       width: 76px;
@@ -74,10 +90,10 @@
 </head>
 <body>
   <main>
-    <img src="/icon.svg" alt="Tipster Kontrol Paneli">
+    <img src="/logo-watermark.png" alt="Tipster Kontrol Paneli">
     <small>Sistem guncelleniyor</small>
     <h1>Size daha iyi hizmet verebilmek adina kendimizi gelistiriyoruz.</h1>
-    <p>Kisa sure icinde tekrar aktif olacagiz. Lutfen biraz sonra tekrar deneyin.</p>
+    <p>Kisa sure icinde tekrar aktif olacagiz. Lutfen biraz sonra sayfayi yenileyin.</p>
     <button type="button" onclick="location.reload()">Tekrar dene</button>
   </main>
 </body>
