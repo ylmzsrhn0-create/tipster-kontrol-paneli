@@ -412,6 +412,19 @@
                   <p class="muted" id="dailyFileHelp">Bir veya birden fazla gunluk .xlsx dosyasi secebilirsin.</p>
                   <button class="primary" type="submit">Gunluk Excel aktar</button>
                 </form>
+                <form class="upload-box" id="portalListForm">
+                  <strong>Bayi Portal haftalik liste</strong>
+                  <label>
+                    Hafta adi
+                    <input id="portalWeekLabel" placeholder="Orn. 08.07.2026 haftasi">
+                  </label>
+                  <label>
+                    Telefon listesi Excel
+                    <input id="portalExcelFile" name="excel" type="file" accept=".xlsx" required>
+                  </label>
+                  <p class="muted" id="portalFileHelp">Bayi Portaldan aldigin telefon numaralari Excelini sec.</p>
+                  <button class="primary" type="submit">Bayi Portal listesini aktar</button>
+                </form>
               </div>
               <button class="danger" id="clearUploadsBtn" type="button">Tum haftalik ve gunluk Excel kayitlarini temizle</button>
               <div class="message" id="uploadMessage"></div>
@@ -738,6 +751,7 @@
                   <th>Isim</th>
                   <th>Numara</th>
                   <th>Durum</th>
+                  <th>Bayi Portal</th>
                   <th>Kayit</th>
                   <th>Toplam oyun</th>
                   <th>Komisyon</th>
@@ -973,6 +987,7 @@
                     <th>Isim</th>
                     <th>Numara</th>
                     <th>Durum</th>
+                    <th>Bayi Portal</th>
                     <th>Kayit</th>
                     <th>Pay</th>
                     <th>Toplam</th>

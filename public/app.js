@@ -106,6 +106,13 @@ function uploadTypeText(upload) {
   return upload?.uploadType === "daily" ? "Gunluk" : "Haftalik";
 }
 
+function portalStatusPill(item) {
+  const hasList = Boolean(currentDashboard?.currentPortalList);
+  if (!hasList) return `<span class="status-pill passive">Liste yok</span>`;
+  const registered = Boolean(item?.portalRegistered);
+  return `<span class="status-pill ${registered ? "active" : "passive"}">${registered ? "Kayitli" : "Kayitli degil"}</span>`;
+}
+
 function numberRecordsOf(member) {
   if (Array.isArray(member.numberRecords)) return member.numberRecords;
   return (member.gsmList || []).map(number => ({ number, name: "" }));
@@ -113,6 +120,17 @@ function numberRecordsOf(member) {
 
 function numberRecordText(member) {
   return numberRecordsOf(member).map(record => record.name ? `${record.name} (${record.number})` : record.number).join(", ");
+}
+
+function numberRecordsHtml(member) {
+  const records = numberRecordsOf(member);
+  if (!records.length) return "-";
+  return records.map(record => `
+    <div class="number-status-line">
+      <span>${escapeHtml(record.name ? `${record.name} (${record.number})` : record.number)}</span>
+      ${portalStatusPill(record)}
+    </div>
+  `).join("");
 }
 
 function searchText(value) {
@@ -265,6 +283,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   document.getElementById("adminFeedbackPanel").classList.toggle("hidden", data.role === "owner");
   const weeklyUploads = data.uploads || [];
   const dailyUploads = data.dailyUploads || [];
+  const portalLists = data.portalLists || [];
   document.getElementById("uploads").innerHTML = `
     <div class="upload-group">
       <strong>Haftalik Excel dosyalari</strong>
@@ -289,6 +308,18 @@ function renderAdmin(data, keepOwnerPanel = false) {
           <button class="danger small" type="button" data-upload-delete="${escapeHtml(upload.id)}" data-upload-name="${escapeHtml(upload.weekLabel || upload.filename)}">Sil</button>
         </div>
       `).join("") || `<p class="muted">Henuz gunluk Excel yuklenmedi.</p>`}
+    </div>
+    <div class="upload-group">
+      <strong>Bayi Portal haftalik listeleri</strong>
+      ${portalLists.map(list => `
+        <div class="upload-item">
+          <div>
+            <strong>${escapeHtml(list.weekLabel || list.filename)}</strong><br>
+            ${escapeHtml(list.filename)} - ${list.rowCount} numara - ${new Date(list.createdAt).toLocaleString("tr-TR")}
+          </div>
+          <button class="danger small" type="button" data-portal-delete="${escapeHtml(list.id)}" data-portal-name="${escapeHtml(list.weekLabel || list.filename)}">Sil</button>
+        </div>
+      `).join("") || `<p class="muted">Henuz Bayi Portal listesi yuklenmedi.</p>`}
     </div>
   `;
   calculateAdminTool();
@@ -418,7 +449,7 @@ function renderMembers() {
   document.getElementById("memberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
-      <td data-label="Numara">${escapeHtml(numberRecordText(member) || "-")}</td>
+      <td data-label="Numara">${numberRecordsHtml(member)}</td>
       <td data-label="Uye"><strong>${member.numberCount ?? numberRecordsOf(member).length}</strong></td>
       <td data-label="Yuzde">%${money.format(member.percentage)}</td>
       <td data-label="Excel kayit">${member.rowCount}</td>
@@ -441,7 +472,7 @@ function renderDailyMembers() {
   document.getElementById("dailyMemberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
-      <td data-label="Numara">${escapeHtml(numberRecordText(member) || "-")}</td>
+      <td data-label="Numara">${numberRecordsHtml(member)}</td>
       <td data-label="Uye"><strong>${member.numberCount ?? numberRecordsOf(member).length}</strong></td>
       <td data-label="Yuzde">%${money.format(member.percentage)}</td>
       <td data-label="Gunluk kayit">${member.dailyRowCount || 0}</td>
@@ -803,11 +834,12 @@ function renderCommissionRows(rows) {
       <td data-label="Isim">${escapeHtml(row.name || "-")}</td>
       <td data-label="Numara"><strong>${escapeHtml(row.number)}</strong></td>
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
+      <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Kayit">${row.rowCount}</td>
       <td data-label="Toplam oyun">${money.format(row.total)}</td>
       <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="6">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="7">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
 }
 
 function renderDailyEarnings(rows) {
@@ -830,6 +862,7 @@ function renderNumbers(records) {
       <div>
         <strong>${escapeHtml(record.name || "Isimsiz")}</strong>
         <span>${escapeHtml(record.number)}</span>
+        ${portalStatusPill(record)}
       </div>
       <button class="danger small" type="button" data-number-delete="${encodeURIComponent(record.number)}">Sil</button>
     </div>
@@ -951,12 +984,13 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
       <td data-label="Isim">${escapeHtml(row.name || "-")}</td>
       <td data-label="Numara"><strong>${escapeHtml(row.number)}</strong></td>
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
+      <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Kayit">${row.rowCount}</td>
       <td data-label="Pay">${Number(row.shareCount || 1) > 1 ? `${row.shareCount} tipster` : "Tek"}</td>
       <td data-label="Toplam">${money.format(row.total)}</td>
       <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="7">Bu hafta icin eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="8">Bu hafta icin eslesme bulunamadi.</td></tr>`;
   document.getElementById("detailDailyRows").innerHTML = (data.dailySummaries || []).map(row => `
     <tr>
       <td data-label="Gun"><strong>${escapeHtml(row.label || row.uploadDate || "-")}</strong><br><span class="muted">${escapeHtml(row.uploadDate || "-")}</span></td>
@@ -1276,12 +1310,36 @@ document.getElementById("dailyUploadForm").addEventListener("submit", event => s
   fileId: "dailyExcelFile"
 }));
 
+document.getElementById("portalListForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  setMessage("uploadMessage", "");
+  const fileInput = document.getElementById("portalExcelFile");
+  const file = fileInput.files[0];
+  if (!file) return;
+  try {
+    const form = new FormData();
+    form.append("weekLabel", document.getElementById("portalWeekLabel").value.trim());
+    form.append("excel", file);
+    const data = await api("/api/portal-list", { method: "POST", body: form });
+    event.target.reset();
+    document.getElementById("portalFileHelp").textContent = "Bayi Portaldan aldigin telefon numaralari Excelini sec.";
+    setMessage("uploadMessage", `${data.portalList.rowCount} numaralik Bayi Portal listesi aktarildi.`, true);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+  } catch (error) {
+    setMessage("uploadMessage", error.message);
+  }
+});
+
 document.getElementById("weeklyExcelFile").addEventListener("change", event => {
   updateFileHelp(event, "weeklyFileHelp", "Bir veya birden fazla haftalik .xlsx dosyasi secebilirsin.");
 });
 
 document.getElementById("dailyExcelFile").addEventListener("change", event => {
   updateFileHelp(event, "dailyFileHelp", "Bir veya birden fazla gunluk .xlsx dosyasi secebilirsin.");
+});
+
+document.getElementById("portalExcelFile").addEventListener("change", event => {
+  updateFileHelp(event, "portalFileHelp", "Bayi Portaldan aldigin telefon numaralari Excelini sec.");
 });
 
 document.getElementById("clearUploadsBtn").addEventListener("click", async () => {
@@ -1308,6 +1366,20 @@ document.getElementById("uploads").addEventListener("click", async event => {
     selectedDailyUploadId = "";
     setMessage("uploadMessage", "Secili Excel kaydi silindi.", true);
     await loadDashboard("");
+  } catch (error) {
+    setMessage("uploadMessage", error.message);
+  }
+});
+
+document.getElementById("uploads").addEventListener("click", async event => {
+  const button = event.target.closest("button[data-portal-delete]");
+  if (!button) return;
+  const listName = button.dataset.portalName || "secili Bayi Portal listesi";
+  if (!confirm(`${listName} silinsin mi? Tipster numaralari silinmez.`)) return;
+  try {
+    await api(`/api/portal-lists/${encodeURIComponent(button.dataset.portalDelete)}`, { method: "DELETE" });
+    setMessage("uploadMessage", "Bayi Portal listesi silindi.", true);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
   } catch (error) {
     setMessage("uploadMessage", error.message);
   }

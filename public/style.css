@@ -766,7 +766,7 @@ td:last-child, th:last-child { text-align: right; }
 
 .upload-forms {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
 }
 
@@ -1194,6 +1194,19 @@ td:last-child, th:last-child { text-align: right; }
   margin-top: 3px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.number-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+
+.number-status-line span:first-child {
+  color: var(--text);
+  font-weight: 650;
 }
 
 .status-pill {
