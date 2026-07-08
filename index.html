@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f4c81">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Tipster Panel">
+  <title>Tipster Kontrol Paneli</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="login-view" id="loginView">
+      <div class="cover">
+        <div class="brand">Tipster Kontrol Paneli</div>
+        <div>
+          <h1>Excel, tipster ve komisyon takibi tek panelde.</h1>
+          <p>Admin haftalari yukler, tipster hesaplarini yonetir ve sonuclari kontrol eder. Tipsterlar kendi numaralariyla eslesen haftalik toplam ve komisyonlarini gorur.</p>
+        </div>
+      </div>
+
+      <form class="login-card" id="loginForm">
+        <h2>Giris</h2>
+        <div class="login-tabs" aria-label="Giris tipi">
+          <button class="tab active" type="button" data-login-type="admin">Admin Girisi</button>
+          <button class="tab" type="button" data-login-type="member">Tipster Girisi</button>
+        </div>
+        <p id="loginHint">Admin hesabi icin size verilen guvenli sifreyi kullanin.</p>
+        <label>
+          Kullanici adi
+          <input id="username" autocomplete="username" required>
+        </label>
+        <label>
+          Sifre
+          <input id="password" type="password" autocomplete="current-password" required>
+        </label>
+        <div class="otp-panel hidden" id="otpPanel">
+          <p id="otpHint">E-posta adresine gelen 6 haneli kodu gir.</p>
+          <label>
+            E-posta onay kodu
+            <input id="otpCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6 haneli kod">
+          </label>
+          <button class="ghost" id="restartLoginBtn" type="button">Bilgileri yeniden gir</button>
+        </div>
+        <button class="primary" type="submit">Giris yap</button>
+        <button class="text-link" id="openKvkkLoginBtn" type="button">KVKK Aydinlatma Metni</button>
+        <div class="message" id="loginMessage"></div>
+      </form>
+    </section>
+
+    <section class="app-view hidden" id="appView">
+      <header class="topbar">
+        <div>
+          <strong id="panelTitle">Panel</strong>
+          <span id="panelSubtitle">Guvenli oturum acik.</span>
+        </div>
+        <div class="top-actions">
+          <span class="notification-badge hidden" id="notificationBadge">Yeni mesaj</span>
+          <button class="ghost" id="openKvkkPanelBtn" type="button">KVKK</button>
+          <button class="ghost" id="logoutBtn" type="button">Cikis</button>
+        </div>
+      </header>
+
+      <div class="admin-panel hidden" id="adminPanel">
+        <section class="period-banner hidden" id="adminPeriodBanner"></section>
+
+        <section class="stats stats-four">
+          <div class="stat">
+            <span>Tipster</span>
+            <strong id="memberCount">0</strong>
+          </div>
+          <div class="stat">
+            <span>Secili hafta satiri</span>
+            <strong id="rowCount">0</strong>
+          </div>
+          <div class="stat">
+            <span>Secili hafta toplami</span>
+            <strong id="totalAmount">0</strong>
+          </div>
+          <div class="stat">
+            <span>Toplam komisyon</span>
+            <strong id="totalCommission">0</strong>
+          </div>
+        </section>
+
+        <section class="toolbar-panel">
+          <label>
+            Goruntulenen hafta
+            <select id="adminUploadSelect"></select>
+          </label>
+        </section>
+
+        <section class="panel wide overview-panel">
+          <div class="section-head">
+            <div>
+              <h2>Genel durum</h2>
+              <p class="muted">Secili haftanin ve panel guvenliginin kisa ozeti</p>
+            </div>
+          </div>
+          <div class="overview-grid" id="overviewGrid"></div>
+        </section>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Yedekleme ve guvenlik</strong>
+              <small>Verileri korumak icin otomatik ve manuel yedekler</small>
+            </span>
+            <b id="backupCount">0</b>
+          </summary>
+          <div class="section-head collapsible-tools">
+            <p class="muted">Sistem gunde bir otomatik yedek alir. Istedigin zaman manuel yedek de alabilirsin.</p>
+            <button class="primary small" id="createBackupBtn" type="button">Yedek al</button>
+          </div>
+          <div class="message" id="backupMessage"></div>
+          <div class="backup-list collapsible-body" id="backupRows"></div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Haftalik odeme kayitlari</strong>
+              <small>Tipsterlara odenen tutarlari hafta hafta sakla</small>
+            </span>
+          </summary>
+          <div class="collapsible-body">
+            <form class="payment-form" id="paymentForm">
+              <label>
+                Hafta
+                <input id="paymentWeekLabel" readonly>
+              </label>
+              <label>
+                Tipster
+                <select id="paymentMemberSelect" required></select>
+              </label>
+              <label>
+                Odenen tutar
+                <input id="paymentAmount" inputmode="decimal" required placeholder="Orn. 1250">
+              </label>
+              <label>
+                Odeme tarihi
+                <input id="paymentDate" type="date">
+              </label>
+              <label class="wide-field">
+                Not
+                <input id="paymentNote" maxlength="240" placeholder="Orn. IBAN'a gonderildi">
+              </label>
+              <button class="primary" type="submit">Odeme kaydet</button>
+            </form>
+            <div class="message" id="paymentMessage"></div>
+            <div class="table-summary payment-summary">
+              <div><span>Secili hafta kayit</span><strong id="paymentCount">0</strong></div>
+              <div><span>Hesaplanan</span><strong id="paymentCalculatedTotal">0</strong></div>
+              <div><span>Odenen</span><strong id="paymentPaidTotal">0</strong></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tarih</th>
+                    <th>Hafta</th>
+                    <th>Tipster</th>
+                    <th>Hesap</th>
+                    <th>Odenen</th>
+                    <th>Not</th>
+                    <th>Islem</th>
+                  </tr>
+                </thead>
+                <tbody id="paymentRows"></tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Excel yukleme raporlari</strong>
+              <small>Yuklenen dosyalarin aktif, pasif ve tipstersiz ozeti</small>
+            </span>
+          </summary>
+          <div class="report-list collapsible-body" id="uploadReportRows"></div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Islem gecmisi</strong>
+              <small>Bu admin panelinde yapilan son islemler</small>
+            </span>
+          </summary>
+          <div class="message-list grouped-list collapsible-body" id="auditLogRows"></div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Tipstersiz numaralar</strong>
+              <small>Secili haftalik ve gunluk Excelde olup hicbir tipsterda kayitli olmayan numaralar</small>
+            </span>
+            <b id="unmatchedNumberCount">0</b>
+          </summary>
+          <div class="section-head collapsible-tools">
+            <p class="muted">Secili haftalik ve gunluk Exceldeki tipstersiz numaralari kendi admin kaydina aktarabilirsin.</p>
+            <button class="primary small" id="assignUnmatchedAdminBtn" type="button">Admine kaydet</button>
+          </div>
+          <div class="message" id="unmatchedNumberMessage"></div>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Numara</th>
+                  <th>Excel kayit</th>
+                  <th>Toplam oyun</th>
+                  <th>Excel / dosya</th>
+                </tr>
+              </thead>
+              <tbody id="unmatchedNumberRows"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Ortak numaralar</strong>
+              <small>Birden fazla tipsterda kayitli olan numaralar</small>
+            </span>
+            <b id="sharedNumberCount">0</b>
+          </summary>
+          <div class="section-head collapsible-tools">
+            <div class="search-actions">
+              <input id="sharedNumberSearch" placeholder="Numara veya tipster ara">
+              <button class="primary small" id="sharedNumberSearchBtn" type="button">Ara</button>
+              <button class="ghost small" id="sharedNumberClearBtn" type="button">Temizle</button>
+            </div>
+          </div>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Numara</th>
+                  <th>Tipsterlar</th>
+                  <th>Kisi</th>
+                  <th>Excel kayit</th>
+                  <th>Toplam oyun</th>
+                  <th>Kisi basi</th>
+                </tr>
+              </thead>
+              <tbody id="sharedNumberRows"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Pasif numaralar</strong>
+              <small>Tipsterda kayitli olup secili Excelde gorunmeyen numaralar</small>
+            </span>
+            <b id="passiveNumberCount">0</b>
+          </summary>
+          <div class="message-list grouped-list collapsible-body" id="passiveNumberRows"></div>
+        </details>
+
+        <details class="panel collapsible calculator-panel">
+          <summary>
+            <span>
+              <strong>Hesap makinesi</strong>
+              <small>Toplam tutar ve yuzde ile komisyon hesapla</small>
+            </span>
+            <b id="calculatorSummary">0</b>
+          </summary>
+          <div class="calculator-shell">
+            <div class="calculator-tabs" aria-label="Hesap makinesi tipi">
+              <button class="tab active" id="commissionCalcTab" type="button">Komisyon</button>
+              <button class="tab" id="normalCalcTab" type="button">Normal hesap</button>
+            </div>
+            <div class="calculator-pane" id="commissionCalcPane">
+              <div class="calculator-body">
+                <label>
+                  Toplam tutar
+                  <input id="calculatorAmount" inputmode="decimal" placeholder="Orn. 12500">
+                </label>
+                <label>
+                  Yuzde
+                  <input id="calculatorPercent" inputmode="decimal" placeholder="Orn. 20">
+                </label>
+                <label>
+                  Komisyon tutari
+                  <input id="calculatorCommissionInput" inputmode="decimal" placeholder="Orn. 2500">
+                </label>
+                <div class="calculator-result">
+                  <span>Komisyon</span>
+                  <strong id="calculatorResult">0</strong>
+                </div>
+                <div class="calculator-result muted-result">
+                  <span>Hesaplanan yuzde</span>
+                  <strong id="calculatorAutoPercent">%0</strong>
+                </div>
+                <div class="calculator-result muted-result">
+                  <span>Kalan tutar</span>
+                  <strong id="calculatorRemainder">0</strong>
+                </div>
+                <button class="ghost" id="calculatorClearBtn" type="button">Temizle</button>
+              </div>
+            </div>
+            <div class="calculator-pane hidden" id="normalCalcPane">
+              <div class="normal-calculator">
+                <input id="normalCalcDisplay" inputmode="decimal" readonly value="0" aria-label="Normal hesap sonucu">
+                <div class="normal-calc-keys">
+                  <button class="ghost" data-calc-clear type="button">C</button>
+                  <button class="ghost" data-calc-back type="button">Sil</button>
+                  <button class="ghost" data-calc-op="/" type="button">/</button>
+                  <button class="ghost" data-calc-op="*" type="button">x</button>
+                  <button class="ghost" data-calc-value="7" type="button">7</button>
+                  <button class="ghost" data-calc-value="8" type="button">8</button>
+                  <button class="ghost" data-calc-value="9" type="button">9</button>
+                  <button class="ghost" data-calc-op="-" type="button">-</button>
+                  <button class="ghost" data-calc-value="4" type="button">4</button>
+                  <button class="ghost" data-calc-value="5" type="button">5</button>
+                  <button class="ghost" data-calc-value="6" type="button">6</button>
+                  <button class="ghost" data-calc-op="+" type="button">+</button>
+                  <button class="ghost" data-calc-value="1" type="button">1</button>
+                  <button class="ghost" data-calc-value="2" type="button">2</button>
+                  <button class="ghost" data-calc-value="3" type="button">3</button>
+                  <button class="primary normal-equals" data-calc-equals type="button">=</button>
+                  <button class="ghost normal-zero" data-calc-value="0" type="button">0</button>
+                  <button class="ghost" data-calc-value="." type="button">,</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <section class="grid">
+          <details class="panel collapsible">
+            <summary>
+              <span>
+                <strong>Tipster olustur</strong>
+                <small>Yeni tipster hesabi ac</small>
+              </span>
+            </summary>
+            <form class="collapsible-body" id="memberForm">
+            <label>
+              Ad soyad
+              <input id="memberName" required placeholder="Orn. Mehmet Kaya">
+            </label>
+            <label>
+              Kullanici adi
+              <input id="memberUsername" required placeholder="orn. mehmet">
+            </label>
+            <label>
+              Gecici sifre
+              <input id="memberPassword" required minlength="6" placeholder="En az 6 karakter">
+            </label>
+            <label>
+              Ilk Excel GSM
+              <input id="memberGsm" required placeholder="Orn. 05321234567 veya 0532***4567">
+            </label>
+            <label>
+              Yuzde
+              <input id="memberPercentage" type="number" min="0" max="100" step="0.01" required placeholder="Orn. 20">
+            </label>
+            <button class="primary" type="submit">Tipster kaydet</button>
+            <div class="message" id="memberMessage"></div>
+            </form>
+          </details>
+
+          <details class="panel collapsible">
+            <summary>
+              <span>
+                <strong>Excel yukle</strong>
+                <small>Haftalik veya gunluk dosya aktar</small>
+              </span>
+            </summary>
+            <div class="collapsible-body">
+              <p class="muted">Haftalik ve gunluk Excel yuklemeleri ayri saklanir. Her ikisinde de sadece Bonus Disi Kupon Oynama satirlari hesaba alinir.</p>
+              <div class="upload-forms">
+                <form class="upload-box" id="weeklyUploadForm">
+                  <strong>Haftalik Excel yukle</strong>
+                  <label>
+                    Hafta adi
+                    <input id="weeklyWeekLabel" placeholder="Bos kalirsa dosya adi kullanilir">
+                  </label>
+                  <label>
+                    Haftalik Excel dosyalari
+                    <input id="weeklyExcelFile" name="excel" type="file" accept=".xlsx" multiple required>
+                  </label>
+                  <p class="muted" id="weeklyFileHelp">Bir veya birden fazla haftalik .xlsx dosyasi secebilirsin.</p>
+                  <button class="primary" type="submit">Haftalik Excel aktar</button>
+                </form>
+                <form class="upload-box" id="dailyUploadForm">
+                  <strong>Gunluk Excel yukle</strong>
+                  <label>
+                    Gunluk tarih
+                    <input id="dailyUploadDate" type="date">
+                  </label>
+                  <label>
+                    Gun adi
+                    <input id="dailyWeekLabel" placeholder="Orn. Pazartesi veya 06.07.2026">
+                  </label>
+                  <label>
+                    Gunluk Excel dosyalari
+                    <input id="dailyExcelFile" name="excel" type="file" accept=".xlsx" multiple required>
+                  </label>
+                  <p class="muted" id="dailyFileHelp">Bir veya birden fazla gunluk .xlsx dosyasi secebilirsin.</p>
+                  <button class="primary" type="submit">Gunluk Excel aktar</button>
+                </form>
+                <form class="upload-box" id="portalListForm">
+                  <strong>Bayi Portal haftalik liste</strong>
+                  <label>
+                    Hafta adi
+                    <input id="portalWeekLabel" placeholder="Orn. 08.07.2026 haftasi">
+                  </label>
+                  <label>
+                    Telefon listesi Excel
+                    <input id="portalExcelFile" name="excel" type="file" accept=".xlsx" required>
+                  </label>
+                  <p class="muted" id="portalFileHelp">Bayi Portaldan aldigin telefon numaralari Excelini sec.</p>
+                  <button class="primary" type="submit">Bayi Portal listesini aktar</button>
+                </form>
+              </div>
+              <button class="danger" id="clearUploadsBtn" type="button">Tum haftalik ve gunluk Excel kayitlarini temizle</button>
+              <div class="message" id="uploadMessage"></div>
+              <div class="uploads" id="uploads"></div>
+            </div>
+          </details>
+        </section>
+
+        <details class="panel collapsible">
+          <summary>
+            <span>
+              <strong>Admin sifresini degistir</strong>
+              <small>Hesap guvenligi</small>
+            </span>
+          </summary>
+          <div class="collapsible-body">
+            <p class="muted">Guvenlik icin sifrenizi belirli araliklarla yenileyin.</p>
+            <form class="inline-form" id="adminPasswordForm">
+            <label>
+              Mevcut sifre
+              <input id="currentAdminPassword" type="password" autocomplete="current-password" required>
+            </label>
+            <label>
+              Yeni sifre
+              <input id="newAdminPassword" type="password" autocomplete="new-password" minlength="8" required>
+            </label>
+            <button class="primary" type="submit">Sifreyi guncelle</button>
+            </form>
+            <div class="message" id="passwordMessage"></div>
+          </div>
+        </details>
+
+        <details class="panel collapsible">
+          <summary>
+            <span>
+              <strong>Admin e-posta adresi</strong>
+              <small>Giris onay kodlari bu adrese gider</small>
+            </span>
+          </summary>
+          <div class="collapsible-body">
+            <form class="inline-form" id="adminEmailForm">
+              <label>
+                E-posta
+                <input id="adminEmail" type="email" autocomplete="email" required placeholder="ornek@mail.com">
+              </label>
+              <button class="primary" type="submit">E-postayi kaydet</button>
+            </form>
+            <div class="message" id="emailMessage"></div>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Tipsterlara mesaj gonder</strong>
+              <small>Toplu veya secili tipsterlara panel ici mesaj</small>
+            </span>
+          </summary>
+          <form class="collapsible-body" id="messageForm">
+            <label>
+              Baslik
+              <input id="messageTitle" required maxlength="90" placeholder="Orn. Bu hafta odeme bilgilendirmesi">
+            </label>
+            <label>
+              Mesaj
+              <textarea id="messageBody" required maxlength="1200" placeholder="Tipsterlara gonderilecek mesaj"></textarea>
+            </label>
+            <label class="check-row">
+              <input id="messageAllMembers" type="checkbox" checked>
+              Tum tipsterlara gonder
+            </label>
+            <div class="message-recipient-list" id="messageRecipients"></div>
+            <button class="primary" type="submit">Mesaji gonder</button>
+            <div class="message" id="messageSendMessage"></div>
+          </form>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Gonderilen mesajlar</strong>
+              <small>Okundu / okunmadi takibi</small>
+            </span>
+          </summary>
+          <div class="message-list collapsible-body" id="adminMessageRows"></div>
+        </details>
+
+        <details class="panel wide collapsible" id="adminFeedbackPanel">
+          <summary>
+            <span>
+              <strong>Oneri ve sikayet gonder</strong>
+              <small>Mesajiniz dogrudan ana admine duser</small>
+            </span>
+          </summary>
+          <form class="collapsible-body" id="adminFeedbackForm">
+            <label>
+              Tur
+              <select id="adminFeedbackType">
+                <option value="suggestion">Oneri</option>
+                <option value="complaint">Sikayet</option>
+              </select>
+            </label>
+            <label>
+              Baslik
+              <input id="adminFeedbackTitle" required maxlength="90" placeholder="Kisa baslik">
+            </label>
+            <label>
+              Mesaj
+              <textarea id="adminFeedbackBody" required maxlength="1200" placeholder="Oneri veya sikayetinizi yazin"></textarea>
+            </label>
+            <button class="primary" type="submit">Ana admine gonder</button>
+            <div class="message" id="adminFeedbackMessage"></div>
+          </form>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Tipster sonuclari</strong>
+              <small>Uye, toplam ve komisyon listesi</small>
+            </span>
+          </summary>
+          <div class="section-head collapsible-tools">
+            <div class="search-actions">
+              <input id="search" placeholder="Tipster veya numara ara">
+              <button class="primary small" id="searchBtn" type="button">Ara</button>
+              <button class="ghost small" id="searchClearBtn" type="button">Temizle</button>
+            </div>
+          </div>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tipster</th>
+                  <th>Numara</th>
+                  <th>Uye</th>
+                  <th>Yuzde</th>
+                  <th>Excel kayit</th>
+                  <th>Toplam</th>
+                  <th>Hesap</th>
+                  <th>Islem</th>
+                </tr>
+              </thead>
+              <tbody id="memberRows"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Tipster gunluk kazanc</strong>
+              <small>Secili gunluk Excel icin tipster kazanc listesi</small>
+            </span>
+          </summary>
+          <div class="section-head collapsible-tools">
+            <label>
+              Goruntulenen gun
+              <select id="adminDailyUploadSelect"></select>
+            </label>
+            <button class="danger small" id="deleteSelectedDailyUploadBtn" type="button">Secili gunluk Exceli sil</button>
+          </div>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tipster</th>
+                  <th>Numara</th>
+                  <th>Uye</th>
+                  <th>Yuzde</th>
+                  <th>Gunluk kayit</th>
+                  <th>Gunluk toplam</th>
+                  <th>Gunluk kazanc</th>
+                </tr>
+              </thead>
+              <tbody id="dailyMemberRows"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
+      <div class="owner-panel hidden" id="ownerPanel">
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Admin hesaplari</strong>
+              <small>Admin olusturma ve kayitli adminler</small>
+            </span>
+          </summary>
+          <div class="collapsible-body">
+            <p class="muted">Buradan admin acilir ve gerekirse sifresi yenilenir. Adminlerin Excel ve tipster icerikleri burada gorunmez.</p>
+            <div class="owner-grid">
+              <form class="panel" id="adminCreateForm">
+                <h2>Admin olustur</h2>
+                <label>
+                  Admin adi
+                  <input id="adminName" required placeholder="Orn. Ahmet Yilmaz">
+                </label>
+                <label>
+                  Kullanici adi
+                  <input id="adminUsername" required placeholder="orn. ahmetadmin">
+                </label>
+                <label>
+                  E-posta
+                  <input id="adminCreateEmail" type="email" autocomplete="email" required placeholder="ornek@mail.com">
+                </label>
+                <label>
+                  Telefon numarasi
+                  <input id="adminCreatePhone" inputmode="tel" autocomplete="tel" required placeholder="Orn. 05XXXXXXXXX">
+                </label>
+                <label>
+                  Ilk sifre
+                  <input id="adminPassword" type="password" autocomplete="new-password" minlength="8" required placeholder="En az 8 karakter">
+                </label>
+                <div class="date-grid">
+                  <label>
+                    Kullanim baslangici
+                    <input id="adminAccessStartsAt" type="date" required>
+                  </label>
+                  <label>
+                    Kullanim bitisi
+                    <input id="adminAccessEndsAt" type="date" required>
+                  </label>
+                </div>
+                <button class="primary" type="submit">Admin kaydet</button>
+                <div class="message" id="adminCreateMessage"></div>
+              </form>
+              <section class="panel">
+                <h2>Kayitli adminler</h2>
+                <div class="admin-list" id="adminRows"></div>
+              </section>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Gelen oneri ve sikayetler</strong>
+              <small>Admin ve tipsterlardan ana admine gelen mesajlar</small>
+            </span>
+          </summary>
+          <div class="message-list collapsible-body" id="ownerFeedbackRows"></div>
+        </details>
+      </div>
+
+      <div class="member-panel hidden" id="memberPanel">
+        <section class="info-banner">
+          Sali gunu komisyonlariniz ogleden sonra belirttiginiz IBAN'lara aktarilir.
+        </section>
+
+        <details class="panel wide collapsible" id="memberMessagesPanel">
+          <summary>
+            <span>
+              <strong>Admin mesajlari</strong>
+              <small id="memberMessageSummary">Mesaj bulunmuyor</small>
+            </span>
+          </summary>
+          <div class="message-list collapsible-body" id="memberMessageRows"></div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Oneri ve sikayet gonder</strong>
+              <small>Mesajiniz dogrudan ana admine duser</small>
+            </span>
+          </summary>
+          <form class="collapsible-body" id="memberFeedbackForm">
+            <label>
+              Tur
+              <select id="memberFeedbackType">
+                <option value="suggestion">Oneri</option>
+                <option value="complaint">Sikayet</option>
+              </select>
+            </label>
+            <label>
+              Baslik
+              <input id="memberFeedbackTitle" required maxlength="90" placeholder="Kisa baslik">
+            </label>
+            <label>
+              Mesaj
+              <textarea id="memberFeedbackBody" required maxlength="1200" placeholder="Oneri veya sikayetinizi yazin"></textarea>
+            </label>
+            <button class="primary" type="submit">Ana admine gonder</button>
+            <div class="message" id="memberFeedbackMessage"></div>
+          </form>
+        </details>
+
+        <section class="stats">
+          <div class="stat">
+            <span>Kayitli numara</span>
+            <strong id="myGsm">-</strong>
+          </div>
+          <div class="stat">
+            <span>Toplam oyun</span>
+            <strong id="myTotal">0</strong>
+          </div>
+          <div class="stat">
+            <span>Haftalik komisyon</span>
+            <strong id="myCalculated">0</strong>
+          </div>
+        </section>
+
+        <section class="toolbar-panel week-panel">
+          <label>
+            Goruntulenen hafta
+            <select id="memberUploadSelect"></select>
+          </label>
+        </section>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Haftalik komisyon ozeti</strong>
+              <small>Numara bazli aktif/pasif ve komisyon</small>
+            </span>
+            <b id="myRate">%-</b>
+          </summary>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Isim</th>
+                  <th>Numara</th>
+                  <th>Durum</th>
+                  <th>Bayi Portal</th>
+                  <th>Kayit</th>
+                  <th>Toplam oyun</th>
+                  <th>Komisyon</th>
+                </tr>
+              </thead>
+              <tbody id="commissionRows"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Gunluk kazancim</strong>
+              <small>Adminin gunluk olarak yukledigi Excel sonuclari</small>
+            </span>
+            <b id="dailyEarningCount">0</b>
+          </summary>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Gun</th>
+                  <th>Excel kayit</th>
+                  <th>Toplam oyun</th>
+                  <th>Kazanc</th>
+                </tr>
+              </thead>
+              <tbody id="dailyEarningRows"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Pasif numaralarim</strong>
+              <small>Secili Excel haftasinda gorunmeyen kayitli numaralar</small>
+            </span>
+            <b id="memberPassiveNumberCount">0</b>
+          </summary>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Isim</th>
+                  <th>Numara</th>
+                  <th>Ne zamandir pasif</th>
+                  <th>Son aktif</th>
+                </tr>
+              </thead>
+              <tbody id="memberPassiveNumberRows"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <section class="grid">
+          <form class="panel" id="numberForm">
+            <h2>Numara kaydet</h2>
+            <p class="muted">Excelde gorunen maskeli GSM formatini gir. Ornek: <strong>0505***0794</strong></p>
+            <label>
+              Isim
+              <input id="newGsmName" placeholder="Orn. Ali Yilmaz">
+            </label>
+            <label>
+              GSM
+              <input id="newGsm" required placeholder="05321234567 veya 0532***4567">
+            </label>
+            <button class="primary" type="submit">Numarayi kaydet</button>
+            <div class="message" id="numberMessage"></div>
+          </form>
+
+          <details class="panel collapsible">
+            <summary>
+              <span>
+                <strong>Kayitli numaralarim</strong>
+                <small>Kaydettigin isim ve numaralar</small>
+              </span>
+              <button class="ghost small summary-action" id="exportNumbersBtn" type="button">Excel indir</button>
+            </summary>
+            <div class="section-head compact-body">
+              <div class="search-actions">
+                <input id="numberSearch" placeholder="Numara veya isim ara">
+                <button class="primary small" id="numberSearchBtn" type="button">Ara</button>
+                <button class="ghost small" id="numberClearBtn" type="button">Temizle</button>
+              </div>
+            </div>
+            <div class="number-list collapsible-body compact-body" id="numberList"></div>
+          </details>
+
+          <details class="panel collapsible">
+            <summary>
+              <span>
+                <strong>Sifremi degistir</strong>
+                <small>Kendi giris sifreni guncelle</small>
+              </span>
+            </summary>
+            <form class="compact-body" id="memberPasswordForm">
+              <label>
+                Mevcut sifre
+                <input id="currentMemberPassword" type="password" autocomplete="current-password" required>
+              </label>
+              <label>
+                Yeni sifre
+                <input id="newMemberPassword" type="password" autocomplete="new-password" minlength="6" required>
+              </label>
+              <button class="primary" type="submit">Sifreyi guncelle</button>
+              <div class="message" id="memberPasswordMessage"></div>
+            </form>
+          </details>
+        </section>
+
+        <details class="panel wide collapsible">
+          <summary>
+            <span>
+              <strong>Benim kayitlarim</strong>
+              <small>Secili haftada Excel eslesmeleri</small>
+            </span>
+          </summary>
+          <div class="toolbar-panel compact-body">
+            <label>
+              Siralama
+              <select id="myRowsSort">
+                <option value="default">Varsayilan</option>
+                <option value="desc">Toplam tutar: yuksekten dusuge</option>
+                <option value="asc">Toplam tutar: dusukten yuksege</option>
+              </select>
+            </label>
+          </div>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Numara</th>
+                  <th>Bayi Portal</th>
+                  <th>Islem tipi</th>
+                  <th>Toplam tutar</th>
+                  <th>Aktarim</th>
+                </tr>
+              </thead>
+              <tbody id="myRows"></tbody>
+            </table>
+          </div>
+          <div class="table-summary" id="myRowsSummary"></div>
+        </details>
+      </div>
+    </section>
+
+    <section class="modal hidden" id="kvkkModal" aria-modal="true" role="dialog">
+      <div class="modal-panel legal-modal">
+        <div class="section-head">
+          <div>
+            <h2>KVKK Aydinlatma Metni</h2>
+            <p class="muted">Tipster Kontrol Paneli veri isleme bilgilendirmesi</p>
+          </div>
+          <button class="ghost" id="closeKvkkBtn" type="button">Kapat</button>
+        </div>
+        <div class="legal-content">
+          <p class="legal-note">Bu metin bilgilendirme amacli taslak metindir. Resmi kullanim oncesi hukuki danisman tarafindan kontrol edilmesi onerilir.</p>
+
+          <h3>1. Veri sorumlusu</h3>
+          <p>Tipster Kontrol Paneli uzerinden islenen veriler, ilgili admin hesabi tarafindan kendi tipster ve Excel sureclerini yonetmek amaciyla kullanilir.</p>
+
+          <h3>2. Islenen kisisel veriler</h3>
+          <p>Sistemde kullanici adi, ad soyad, e-posta adresi, maskeli GSM bilgisi, tipster kayitlari, Excel dosyalarindan aktarilan islem verileri, komisyon hesaplari, panel ici mesajlar, okundu/okunmadi bilgileri ve oturum guvenligi kayitlari islenebilir.</p>
+
+          <h3>3. Isleme amaclari</h3>
+          <p>Veriler; admin ve tipster hesaplarini yonetmek, Excel yuklemelerini haftalara gore takip etmek, tipster kayitlari ile Excel verilerini eslestirmek, komisyon hesaplarini gostermek, panel ici mesajlasmayi saglamak ve hesap guvenligini korumak amaciyla islenir.</p>
+
+          <h3>4. Veri paylasimi</h3>
+          <p>Veriler panel disinda ucuncu kisilere satis veya reklam amaciyla aktarilmaz. Site altyapisinin calismasi icin barindirma, alan adi ve teknik servis saglayicilari uzerinden teknik olarak islenebilir.</p>
+
+          <h3>5. Saklama ve silme</h3>
+          <p>Veriler, panelin kullanim amaci devam ettigi surece saklanir. Admin tarafindan tipster, Excel kaydi veya mesaj silme/temizleme islemleri yapildiginda ilgili kayitlar sistemden kaldirilabilir.</p>
+
+          <h3>6. Guvenlik</h3>
+          <p>Yetkisiz erisimi azaltmak icin sifreli giris, admin e-posta onay kodu, oturum kontrolu ve yetki ayrimi kullanilir. Sifreler sistemde acik metin olarak saklanmaz.</p>
+
+          <h3>7. Ilgili kisi haklari</h3>
+          <p>Ilgili kisiler, KVKK kapsaminda verilerinin islenip islenmedigini ogrenme, duzeltme, silme, isleme amacini ogrenme ve mevzuatta belirtilen diger haklarini kullanma taleplerini iletebilir.</p>
+
+          <h3>8. Iletisim</h3>
+          <p>Veri ve hesap talepleri icin panel yoneticisiyle veya kayitli iletisim e-postasi ile irtibat kurulabilir.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="modal hidden" id="memberDetailModal" aria-modal="true" role="dialog">
+      <div class="modal-panel">
+        <div class="section-head">
+          <div>
+            <h2 id="detailTitle">Tipster detayi</h2>
+            <p class="muted" id="detailSubtitle"></p>
+          </div>
+          <button class="ghost" id="closeDetailBtn" type="button">Kapat</button>
+        </div>
+        <div class="detail-grid">
+          <form class="panel" id="detailEditForm">
+            <h2>Bilgileri duzenle</h2>
+            <label>
+              Ad soyad
+              <input id="detailName" required>
+            </label>
+            <label>
+              Ana GSM
+              <input id="detailGsm" required placeholder="05321234567 veya 0532***4567">
+            </label>
+            <label>
+              Yuzde
+              <input id="detailPercentage" type="number" min="0" max="100" step="0.01" required>
+            </label>
+            <label>
+              Yeni sifre
+              <input id="detailPassword" type="password" minlength="6" placeholder="Bos birakirsan degismez">
+            </label>
+            <p class="muted">Guvenlik icin mevcut sifre goruntulenmez. Buradan tipstere yeni sifre verebilirsin.</p>
+            <button class="primary" type="submit">Kaydet</button>
+            <div class="message" id="detailMessage"></div>
+          </form>
+          <section class="panel">
+            <h2>Hafta sonucu</h2>
+            <label>
+              Goruntulenen hafta
+              <select id="detailUploadSelect"></select>
+            </label>
+            <div class="mini-stats">
+              <div><span>Toplam</span><strong id="detailTotal">0</strong></div>
+              <div><span>Komisyon</span><strong id="detailCalculated">0</strong></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Isim</th>
+                    <th>Numara</th>
+                    <th>Durum</th>
+                    <th>Bayi Portal</th>
+                    <th>Kayit</th>
+                    <th>Pay</th>
+                    <th>Toplam</th>
+                    <th>Komisyon</th>
+                  </tr>
+                </thead>
+                <tbody id="detailNumberRows"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="panel">
+            <h2>Gunluk kazanc</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Gun</th>
+                    <th>Excel kayit</th>
+                    <th>Toplam</th>
+                    <th>Kazanc</th>
+                  </tr>
+                </thead>
+                <tbody id="detailDailyRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

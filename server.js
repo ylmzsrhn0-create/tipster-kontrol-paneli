@@ -747,7 +747,21 @@ function isBonusDisiKuponOynama(value) {
 }
 
 function normalizeGsm(value) {
-  return String(value ?? "").trim().replace(/\s+/g, "");
+  const text = String(value ?? "").trim().replace(/\s+/g, "");
+  const masked = text.match(/0?5\d{2}\*{3}\d{4}/);
+  if (masked) {
+    const value = masked[0];
+    return value.startsWith("0") ? value : `0${value}`;
+  }
+
+  const digits = text.replace(/\D/g, "");
+  let national = "";
+  if (/^05\d{9}$/.test(digits)) national = digits;
+  if (/^5\d{9}$/.test(digits)) national = `0${digits}`;
+  if (/^905\d{9}$/.test(digits)) national = `0${digits.slice(2)}`;
+  if (!national) return text;
+
+  return `${national.slice(0, 4)}***${national.slice(-4)}`;
 }
 
 function portalNumberFromCell(value) {
