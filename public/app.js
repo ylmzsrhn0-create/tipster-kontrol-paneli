@@ -122,12 +122,16 @@ function numberRecordText(member) {
   return numberRecordsOf(member).map(record => record.name ? `${record.name} (${record.number})` : record.number).join(", ");
 }
 
+function numberDateHtml(record) {
+  return record?.createdAt ? `<small class="number-date">Kayit: ${escapeHtml(formatDateTime(record.createdAt))}</small>` : "";
+}
+
 function numberRecordsHtml(member) {
   const records = numberRecordsOf(member);
   if (!records.length) return "-";
   return records.map(record => `
     <div class="number-status-line">
-      <span>${escapeHtml(record.name ? `${record.name} (${record.number})` : record.number)}</span>
+      <span>${escapeHtml(record.name ? `${record.name} (${record.number})` : record.number)}${numberDateHtml(record)}</span>
       ${portalStatusPill(record)}
     </div>
   `).join("");
@@ -820,7 +824,7 @@ function renderMyRows(rows) {
   `;
   document.getElementById("myRows").innerHTML = visibleRows.map(row => `
     <tr>
-      <td data-label="Numara">${escapeHtml(row.gsmMasked || "-")}</td>
+      <td data-label="Numara">${escapeHtml(row.gsmMasked || "-")}${numberDateHtml(row)}</td>
       <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Islem tipi">${escapeHtml(row.processType || "-")}</td>
       <td data-label="Toplam tutar">${money.format(row.totalAmount)}</td>
@@ -833,7 +837,7 @@ function renderCommissionRows(rows) {
   document.getElementById("commissionRows").innerHTML = rows.map(row => `
     <tr>
       <td data-label="Isim">${escapeHtml(row.name || "-")}</td>
-      <td data-label="Numara"><strong>${escapeHtml(row.number)}</strong></td>
+      <td data-label="Numara"><strong>${escapeHtml(row.number)}</strong>${numberDateHtml(row)}</td>
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Kayit">${row.rowCount}</td>
@@ -863,6 +867,7 @@ function renderNumbers(records) {
       <div>
         <strong>${escapeHtml(record.name || "Isimsiz")}</strong>
         <span>${escapeHtml(record.number)}</span>
+        ${numberDateHtml(record)}
         ${portalStatusPill(record)}
       </div>
       <button class="danger small" type="button" data-number-delete="${encodeURIComponent(record.number)}">Sil</button>
@@ -983,7 +988,7 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
   document.getElementById("detailNumberRows").innerHTML = (data.numberSummaries || []).map(row => `
     <tr>
       <td data-label="Isim">${escapeHtml(row.name || "-")}</td>
-      <td data-label="Numara"><strong>${escapeHtml(row.number)}</strong></td>
+      <td data-label="Numara"><strong>${escapeHtml(row.number)}</strong>${numberDateHtml(row)}</td>
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Kayit">${row.rowCount}</td>
