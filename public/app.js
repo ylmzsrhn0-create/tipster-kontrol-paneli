@@ -821,11 +821,12 @@ function renderMyRows(rows) {
   document.getElementById("myRows").innerHTML = visibleRows.map(row => `
     <tr>
       <td data-label="Numara">${escapeHtml(row.gsmMasked || "-")}</td>
+      <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Islem tipi">${escapeHtml(row.processType || "-")}</td>
       <td data-label="Toplam tutar">${money.format(row.totalAmount)}</td>
       <td data-label="Aktarim">${new Date(row.importedAt).toLocaleString("tr-TR")}</td>
     </tr>
-  `).join("") || `<tr><td colspan="4">Bu hafta icin kayit bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="5">Bu hafta icin kayit bulunamadi.</td></tr>`;
 }
 
 function renderCommissionRows(rows) {
