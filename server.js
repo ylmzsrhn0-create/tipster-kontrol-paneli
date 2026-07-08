@@ -1105,7 +1105,15 @@ function memberSummary(db, user, uploadId) {
   const sourceRows = selectedRows(db, uploadId, ownerId);
   const shareCounts = numberShareCounts(db, ownerId);
   const portalSet = portalNumberSet(db, ownerId);
-  const rows = sourceRows.filter(row => gsmSet.has(row.gsmMasked)).map(row => sharedRow(row, shareCounts));
+  const rows = sourceRows.filter(row => gsmSet.has(row.gsmMasked)).map(row => {
+    const shared = sharedRow(row, shareCounts);
+    const registered = portalSet.has(shared.gsmMasked);
+    return {
+      ...shared,
+      portalRegistered: registered,
+      portalStatusText: registered ? "Kayitli" : "Kayitli degil"
+    };
+  });
   const total = rows.reduce((sum, row) => sum + row.totalAmount, 0);
   const calculated = total * (Number(user.percentage) || 0) / 100;
   const numberSummaries = numberRecords.map(record => {
