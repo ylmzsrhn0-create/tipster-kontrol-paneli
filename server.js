@@ -1518,6 +1518,24 @@ function serveStatic(req, res) {
   }
   fs.readFile(filePath, (err, data) => {
     if (err) {
+      const wantsPage = !path.extname(filePath) || path.extname(filePath) === ".html";
+      if (wantsPage && requested !== "/maintenance.html") {
+        const maintenancePath = path.join(PUBLIC, "maintenance.html");
+        fs.readFile(maintenancePath, (maintenanceErr, maintenanceData) => {
+          if (maintenanceErr) {
+            res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8" });
+            res.end("Sistem guncelleniyor. Lutfen biraz sonra tekrar deneyin.");
+            return;
+          }
+          res.writeHead(503, {
+            "Content-Type": "text/html; charset=utf-8",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-store"
+          });
+          res.end(maintenanceData);
+        });
+        return;
+      }
       res.writeHead(404);
       res.end("Not found");
       return;
