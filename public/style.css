@@ -27,16 +27,33 @@ body {
 body::before {
   content: "";
   position: fixed;
-  right: -70px;
-  bottom: -70px;
-  width: min(560px, 78vw);
+  right: 24px;
+  bottom: 24px;
+  width: min(520px, 58vw);
   aspect-ratio: 1;
   background-image: url("/logo-watermark.png");
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center;
-  opacity: .09;
-  filter: grayscale(.06) drop-shadow(0 24px 36px rgba(15, 23, 42, .16));
+  opacity: .16;
+  filter: grayscale(.04) drop-shadow(0 24px 36px rgba(15, 23, 42, .18));
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  left: -90px;
+  top: 150px;
+  width: min(300px, 42vw);
+  aspect-ratio: 1;
+  background-image: url("/logo-watermark.png");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  opacity: .075;
+  filter: grayscale(.1) drop-shadow(0 18px 26px rgba(15, 23, 42, .12));
   pointer-events: none;
   z-index: 0;
 }
@@ -74,16 +91,32 @@ button { border: 0; cursor: pointer; }
 .cover::before {
   content: "";
   position: absolute;
-  right: -80px;
-  bottom: -110px;
-  width: min(520px, 80vw);
+  right: 28px;
+  bottom: 26px;
+  width: min(360px, 46vw);
   aspect-ratio: 1;
   background-image: url("/logo-watermark.png");
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center;
-  opacity: .22;
-  filter: drop-shadow(0 24px 36px rgba(0, 0, 0, .35));
+  opacity: .32;
+  filter: drop-shadow(0 24px 36px rgba(0, 0, 0, .38));
+  pointer-events: none;
+}
+
+.cover::after {
+  content: "";
+  position: absolute;
+  left: -70px;
+  top: 54px;
+  width: min(250px, 34vw);
+  aspect-ratio: 1;
+  background-image: url("/logo-watermark.png");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  opacity: .16;
+  filter: drop-shadow(0 18px 26px rgba(0, 0, 0, .28));
   pointer-events: none;
 }
 
@@ -1362,7 +1395,8 @@ td:last-child, th:last-child { text-align: right; }
 }
 
 @media (max-width: 900px) {
-  body::before { right: -90px; bottom: -90px; width: min(460px, 92vw); opacity: .075; }
+  body::before { right: -70px; bottom: -70px; width: min(430px, 90vw); opacity: .13; }
+  body::after { left: -120px; top: 260px; width: min(260px, 58vw); opacity: .055; }
   .login-view { grid-template-columns: 1fr; }
   .cover { min-height: 380px; padding: 30px; }
   .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid, .payment-form { grid-template-columns: 1fr; }
@@ -1372,7 +1406,10 @@ td:last-child, th:last-child { text-align: right; }
 }
 
 @media (max-width: 560px) {
-  body::before { right: -120px; bottom: -110px; width: min(390px, 112vw); opacity: .065; }
+  body::before { right: -120px; bottom: -100px; width: min(360px, 112vw); opacity: .12; }
+  body::after { display: none; }
+  .cover::before { right: -90px; bottom: -100px; width: min(330px, 96vw); opacity: .24; }
+  .cover::after { display: none; }
   .cover { padding: 22px; }
   .cover h1 { font-size: 34px; }
   .login-card { width: calc(100% - 24px); padding: 22px; }
