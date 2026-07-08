@@ -963,12 +963,17 @@ function parseExcel(buffer, options = {}) {
   const gsmIndex = normalizedHeaders.findIndex(h => h === "oyuncu gsm");
   const totalIndex = normalizedHeaders.findIndex(h => h === "toplam tutar");
   const typeIndex = normalizedHeaders.findIndex(h => h === "islem tipi");
-  if (gsmIndex === -1 || totalIndex === -1 || typeIndex === -1) {
-    throw new Error("Excel icinde OYUNCU GSM, TOPLAM TUTAR ve ISLEM TIPI basliklari bulunmali.");
+  if (gsmIndex === -1 || typeIndex === -1 || (options.uploadType !== "daily" && totalIndex === -1)) {
+    throw new Error(options.uploadType === "daily"
+      ? "Gunluk Excel icinde OYUNCU GSM, ISLEM TIPI ve gunluk tarih sutunlari bulunmali."
+      : "Excel icinde OYUNCU GSM, TOPLAM TUTAR ve ISLEM TIPI basliklari bulunmali.");
   }
   const dailyColumnKeys = headers
     .map((header, index) => ({ header, index }))
     .filter(item => /^\d{2}\.\d{2}\.\d{4}$/.test(String(item.header)));
+  if (options.uploadType === "daily" && !dailyColumnKeys.length) {
+    throw new Error("Gunluk Excel icinde 01.07.2026 gibi tarih baslikli tutar sutunlari bulunmali.");
+  }
   const selectedDailyHeader = excelDateHeader(options.uploadDate);
   const hasDailyHeader = daily => selectedDailyHeader && Object.prototype.hasOwnProperty.call(daily, selectedDailyHeader);
   return rows
@@ -981,13 +986,14 @@ function parseExcel(buffer, options = {}) {
         ? daily[selectedDailyHeader]
         : Object.values(daily).reduce((sum, value) => sum + value, 0);
       const dailyCalculation = options.uploadType === "daily" && hasDailyColumns;
-      const totalAmount = dailyCalculation ? selectedDailyAmount : numberFrom(row[totalIndex]);
+      const excelTotalAmount = totalIndex === -1 ? 0 : numberFrom(row[totalIndex]);
+      const totalAmount = dailyCalculation ? selectedDailyAmount : excelTotalAmount;
       return {
         id: crypto.randomUUID(),
         gsmMasked: normalizeGsm(row[gsmIndex]),
         processType: row[typeIndex] || "",
         totalAmount,
-        excelTotalAmount: numberFrom(row[totalIndex]),
+        excelTotalAmount,
         calculationSource: dailyCalculation ? (hasDailyHeader(daily) ? selectedDailyHeader : "gunluk tarih sutunlari") : "toplam tutar",
         daily,
         sheetName,
