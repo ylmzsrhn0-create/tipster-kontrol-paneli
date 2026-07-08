@@ -189,10 +189,10 @@ function normalizeDb(db) {
     if (isStaff(user)) user.email = normalizeEmail(user.email);
     if (user.role === "member" && !user.ownerId) user.ownerId = ownerId;
     if (user.role === "admin" && !user.createdBy) user.createdBy = ownerId;
-    const records = getUserNumberRecords(user);
+    const records = backfillNumberRecordDates(db, user);
     user.numberRecords = records;
     user.gsmMasked = records[0]?.number || user.gsmMasked || "";
-    user.gsmList = records.slice(user.gsmMasked ? 1 : 0).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+    user.gsmList = records.slice(user.gsmMasked ? 1 : 0).map(record => record.name || record.createdAt ? { number: record.number, name: record.name, createdAt: record.createdAt } : record.number);
   });
   db.messages.forEach(message => {
     message.recipientIds ||= [];
@@ -764,14 +764,21 @@ function normalizeNumberName(value) {
   return String(value ?? "").trim().slice(0, 80);
 }
 
+function validIsoDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
 function numberRecordFrom(value) {
   if (typeof value === "object" && value !== null) {
     return {
       number: normalizeGsm(value.number || value.gsmMasked || value.gsm || ""),
-      name: normalizeNumberName(value.name || value.label || "")
+      name: normalizeNumberName(value.name || value.label || ""),
+      createdAt: validIsoDate(value.createdAt || value.registeredAt || value.addedAt)
     };
   }
-  return { number: normalizeGsm(value), name: "" };
+  return { number: normalizeGsm(value), name: "", createdAt: "" };
 }
 
 function getUserNumberRecords(user) {
@@ -784,6 +791,27 @@ function getUserNumberRecords(user) {
   add({ number: normalizeGsm(user.gsmMasked), name: normalizeNumberName(user.gsmName || "") });
   (user.gsmList || []).map(numberRecordFrom).forEach(add);
   return records;
+}
+
+function auditCreatedAtForNumber(db, user, number) {
+  const normalized = normalizeGsm(number);
+  return (db.auditLogs || [])
+    .filter(log =>
+      log.action === "Numara eklendi" &&
+      log.actorId === user.id &&
+      String(log.details || "").includes(normalized)
+    )
+    .map(log => log.createdAt)
+    .filter(Boolean)
+    .sort()[0] || "";
+}
+
+function backfillNumberRecordDates(db, user) {
+  const fallbackDate = validIsoDate(user.createdAt) || new Date().toISOString();
+  return getUserNumberRecords(user).map(record => ({
+    ...record,
+    createdAt: record.createdAt || auditCreatedAtForNumber(db, user, record.number) || fallbackDate
+  }));
 }
 
 function getUserGsms(user) {
@@ -1107,9 +1135,11 @@ function memberSummary(db, user, uploadId) {
   const portalSet = portalNumberSet(db, ownerId);
   const rows = sourceRows.filter(row => gsmSet.has(row.gsmMasked)).map(row => {
     const shared = sharedRow(row, shareCounts);
+    const record = numberRecords.find(item => item.number === shared.gsmMasked);
     const registered = portalSet.has(shared.gsmMasked);
     return {
       ...shared,
+      createdAt: record?.createdAt || "",
       portalRegistered: registered,
       portalStatusText: registered ? "Kayitli" : "Kayitli degil"
     };
@@ -1123,6 +1153,7 @@ function memberSummary(db, user, uploadId) {
     return {
       number: record.number,
       name: record.name,
+      createdAt: record.createdAt,
       active: numberRows.length > 0,
       portalRegistered: portalSet.has(record.number),
       portalStatusText: portalSet.has(record.number) ? "Kayitli" : "Kayitli degil",
@@ -1422,10 +1453,11 @@ function createZip(files) {
 
 function createNumbersXlsx(member, summaries) {
   const rows = [
-    ["Isim", "Numara", "Durum", "Bayi Portal", "Kayit", "Toplam oyun", "Komisyon"],
+    ["Isim", "Numara", "Kayit tarihi", "Durum", "Bayi Portal", "Kayit", "Toplam oyun", "Komisyon"],
     ...summaries.map(item => [
       item.name || "",
       item.number,
+      item.createdAt ? new Date(item.createdAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" }) : "",
       item.active ? "Aktif" : "Pasif",
       item.portalRegistered ? "Kayitli" : "Kayitli degil",
       item.rowCount,
@@ -2055,14 +2087,14 @@ async function handleApi(req, res) {
     unmatched.forEach(item => {
       const number = normalizeGsm(item.number);
       if (!number || existing.has(number)) return;
-      records.push({ number, name: "" });
+      records.push({ number, name: "", createdAt: new Date().toISOString() });
       existing.add(number);
       addedCount += 1;
     });
     admin.numberRecords = records;
     admin.gsmMasked = records[0]?.number || admin.gsmMasked || "";
     admin.gsmName = records[0]?.name || admin.gsmName || "";
-    admin.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+    admin.gsmList = records.slice(1).map(record => record.name || record.createdAt ? { number: record.number, name: record.name, createdAt: record.createdAt } : record.number);
     addAuditLog(db, session.userId, admin, "Tipstersiz numaralar admin kaydina aktarildi", `${addedCount} tipstersiz numara admin kaydina eklendi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, addedCount, admin: publicUser(admin) });
@@ -2253,9 +2285,11 @@ async function handleApi(req, res) {
         member.numberRecords = records;
         member.gsmMasked = nextGsm;
         member.gsmName = records[0].name || "";
-        member.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+        records[0].createdAt ||= new Date().toISOString();
+        member.gsmList = records.slice(1).map(record => record.name || record.createdAt ? { number: record.number, name: record.name, createdAt: record.createdAt } : record.number);
       } else {
         member.gsmMasked = nextGsm;
+        member.numberRecords = [{ number: nextGsm, name: "", createdAt: new Date().toISOString() }];
       }
     }
     if (body.password) {
@@ -2324,11 +2358,11 @@ async function handleApi(req, res) {
         return;
       }
     }
-    const records = [...getUserNumberRecords(user), { number: gsm, name }];
+    const records = [...getUserNumberRecords(user), { number: gsm, name, createdAt: new Date().toISOString() }];
     user.numberRecords = records;
     user.gsmMasked = records[0]?.number || "";
     user.gsmName = records[0]?.name || "";
-    user.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+    user.gsmList = records.slice(1).map(record => record.name || record.createdAt ? { number: record.number, name: record.name, createdAt: record.createdAt } : record.number);
     addAuditLog(db, user.ownerId, user, "Numara eklendi", `${name || "Isimsiz"} ${gsm} numarasi eklendi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, numbers: getUserGsms(user), numberRecords: getUserNumberRecords(user) });
@@ -2369,7 +2403,7 @@ async function handleApi(req, res) {
     user.numberRecords = records;
     user.gsmMasked = records[0]?.number || "";
     user.gsmName = records[0]?.name || "";
-    user.gsmList = records.slice(1).map(record => record.name ? { number: record.number, name: record.name } : record.number);
+    user.gsmList = records.slice(1).map(record => record.name || record.createdAt ? { number: record.number, name: record.name, createdAt: record.createdAt } : record.number);
     addAuditLog(db, user.ownerId, user, "Numara silindi", `${gsm} numarasi silindi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, numbers: getUserGsms(user), numberRecords: getUserNumberRecords(user) });
