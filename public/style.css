@@ -44,6 +44,8 @@ body::after {
   position: absolute;
   display: block;
   object-fit: contain;
+  aspect-ratio: 1 / 1;
+  height: auto;
   filter: drop-shadow(0 24px 36px rgba(15, 23, 42, .18));
   user-select: none;
 }
@@ -52,6 +54,7 @@ body::after {
   right: 22px;
   bottom: 22px;
   width: min(520px, 58vw);
+  height: min(520px, 58vw);
   opacity: .24;
 }
 
@@ -59,6 +62,7 @@ body::after {
   left: -86px;
   top: 150px;
   width: min(300px, 42vw);
+  height: min(300px, 42vw);
   opacity: .1;
 }
 
@@ -112,6 +116,8 @@ button { border: 0; cursor: pointer; }
   position: absolute;
   display: block;
   object-fit: contain;
+  aspect-ratio: 1 / 1;
+  height: auto;
   filter: drop-shadow(0 24px 36px rgba(0, 0, 0, .38));
   user-select: none;
 }
@@ -120,6 +126,7 @@ button { border: 0; cursor: pointer; }
   right: 24px;
   bottom: 18px;
   width: min(360px, 46vw);
+  height: min(360px, 46vw);
   opacity: .45;
 }
 
@@ -127,6 +134,7 @@ button { border: 0; cursor: pointer; }
   left: -64px;
   top: 48px;
   width: min(250px, 34vw);
+  height: min(250px, 34vw);
   opacity: .2;
 }
 
@@ -1405,8 +1413,8 @@ td:last-child, th:last-child { text-align: right; }
 }
 
 @media (max-width: 900px) {
-  .page-watermark-main { right: -68px; bottom: -68px; width: min(430px, 90vw); opacity: .2; }
-  .page-watermark-soft { left: -120px; top: 260px; width: min(260px, 58vw); opacity: .07; }
+  .page-watermark-main { right: -68px; bottom: -68px; width: min(430px, 90vw); height: min(430px, 90vw); opacity: .2; }
+  .page-watermark-soft { left: -120px; top: 260px; width: min(260px, 58vw); height: min(260px, 58vw); opacity: .07; }
   .login-view { grid-template-columns: 1fr; }
   .cover { min-height: 380px; padding: 30px; }
   .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid, .payment-form { grid-template-columns: 1fr; }
@@ -1416,9 +1424,9 @@ td:last-child, th:last-child { text-align: right; }
 }
 
 @media (max-width: 560px) {
-  .page-watermark-main { right: -120px; bottom: -100px; width: min(360px, 112vw); opacity: .18; }
+  .page-watermark-main { right: -120px; bottom: -100px; width: min(360px, 112vw); height: min(360px, 112vw); opacity: .18; }
   .page-watermark-soft { display: none; }
-  .cover-watermark-main { right: -88px; bottom: -96px; width: min(330px, 96vw); opacity: .34; }
+  .cover-watermark-main { right: -88px; bottom: -96px; width: min(330px, 96vw); height: min(330px, 96vw); opacity: .34; }
   .cover-watermark-soft { display: none; }
   .cover { padding: 22px; }
   .cover h1 { font-size: 34px; }
