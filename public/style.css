@@ -66,6 +66,11 @@ body::after {
   opacity: .14;
 }
 
+body:has(#loginView:not(.hidden)) .page-watermarks,
+#loginView:not(.hidden) .cover-watermarks {
+  display: none;
+}
+
 .shell {
   position: relative;
   z-index: 1;
