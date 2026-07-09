@@ -147,10 +147,16 @@ function adminNumberRecordsToggleHtml(member, scope) {
   if (!records.length) return "-";
   const key = `${scope}:${member.id}`;
   const expanded = expandedAdminNumbers.has(key);
+  const hasPortalList = Boolean(currentDashboard?.currentPortalList);
+  const registeredCount = hasPortalList ? records.filter(record => record.portalRegistered).length : 0;
+  const unregisteredCount = hasPortalList ? records.length - registeredCount : 0;
+  const portalSummary = hasPortalList
+    ? ` - Kayitli ${registeredCount} / Kayitli degil ${unregisteredCount}`
+    : " - Bayi Portal listesi yok";
   return `
     <div class="admin-number-toggle">
       <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
-        ${expanded ? "Numaralari gizle" : `${records.length} numarayi goster`}
+        ${expanded ? `Numaralari gizle${portalSummary}` : `${records.length} numarayi goster${portalSummary}`}
       </button>
       <div class="admin-number-list ${expanded ? "" : "hidden"}">
         ${numberRecordsHtml(member)}
