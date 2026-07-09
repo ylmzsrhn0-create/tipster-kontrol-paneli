@@ -501,6 +501,38 @@ input:focus, select:focus, textarea:focus {
   line-height: 1.35;
 }
 
+.overview-card-good {
+  border-color: #b7e4c7;
+  background: #f0fdf4;
+}
+
+.overview-card-good strong {
+  color: #166534;
+}
+
+.overview-card-warn {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.overview-card-warn strong {
+  color: #92400e;
+}
+
+.overview-card-danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.overview-card-danger strong {
+  color: #991b1b;
+}
+
+.overview-card-info {
+  border-color: #c7d2fe;
+  background: #f8fafc;
+}
+
 .calculator-panel summary b {
   margin-left: auto;
   color: var(--brand-dark);

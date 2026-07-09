@@ -455,18 +455,23 @@ function formatFileSize(size) {
 
 function renderOverview(overview) {
   const cards = [
-    ["Aktif numara", overview.activeNumberCount || 0, "Secili Excelde oynayan benzersiz numara"],
-    ["Pasif numara", overview.passiveNumberCount || 0, "Tipsterda kayitli olup secili haftada gorunmeyen"],
-    ["Tipstersiz", overview.unmatchedNumberCount || 0, "Excelde var, tipsterda kayitli degil"],
-    ["Okunmamis mesaj", overview.unreadMessageCount || 0, "Tipsterlar tarafindan henuz okunmayan"],
-    ["Excel sayisi", overview.uploadCount || 0, "Bu admin hesabindaki yuklu dosya"],
-    ["Son yedek", overview.latestBackupAt ? formatDateTime(overview.latestBackupAt) : "-", "Veri koruma kaydi"]
+    ["Portal listesi", overview.portalListCount || 0, "Yuklenen Bayi Portal numarasi", "info"],
+    ["Tipster kaydi", overview.tipsterNumberCount || 0, "Tipsterlarda kayitli benzersiz numara", "info"],
+    ["Eslesen", overview.portalMatchedCount || 0, "Tipsterda olup Bayi Portalda bulunan", "good"],
+    ["Kayitli degil", overview.portalMissingCount || 0, "Tipsterda var, Bayi Portalda yok", overview.portalMissingCount ? "warn" : "good"],
+    ["Tipstersiz", overview.portalUnassignedCount || 0, "Bayi Portalda var, tipsterda yok", overview.portalUnassignedCount ? "warn" : "good"],
+    ["Aktif numara", overview.activeNumberCount || 0, "Secili Excelde oynayan benzersiz numara", "info"],
+    ["Pasif numara", overview.passiveNumberCount || 0, "Tipsterda kayitli olup secili haftada gorunmeyen", overview.passiveNumberCount ? "warn" : "good"],
+    ["Excel tipstersiz", overview.unmatchedNumberCount || 0, "Excelde var, tipsterda kayitli degil", overview.unmatchedNumberCount ? "danger" : "good"],
+    ["Okunmamis mesaj", overview.unreadMessageCount || 0, "Tipsterlar tarafindan henuz okunmayan", overview.unreadMessageCount ? "warn" : "info"],
+    ["Excel sayisi", overview.uploadCount || 0, "Bu admin hesabindaki yuklu dosya", "info"],
+    ["Son yedek", overview.latestBackupAt ? formatDateTime(overview.latestBackupAt) : "-", "Veri koruma kaydi", "info"]
   ];
   if (currentDashboard?.role === "owner") {
-    cards.splice(5, 0, ["Gelen talep", overview.feedbackCount || 0, "Oneri ve sikayet kutusu"]);
+    cards.splice(10, 0, ["Gelen talep", overview.feedbackCount || 0, "Oneri ve sikayet kutusu", overview.feedbackCount ? "warn" : "info"]);
   }
-  document.getElementById("overviewGrid").innerHTML = cards.map(([label, value, help]) => `
-    <div class="overview-card">
+  document.getElementById("overviewGrid").innerHTML = cards.map(([label, value, help, tone]) => `
+    <div class="overview-card ${tone ? `overview-card-${tone}` : ""}">
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(value)}</strong>
       <small>${escapeHtml(help)}</small>
