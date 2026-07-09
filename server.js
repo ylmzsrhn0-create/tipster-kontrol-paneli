@@ -1230,6 +1230,11 @@ function adminOverview(db, uploadId, ownerId, unmatchedUploadIds = [uploadId]) {
   const activeNumbers = new Set(rows.map(row => row.gsmMasked).filter(Boolean));
   const passiveNumbers = passiveNumberSummary(db, uploadId, ownerId);
   const unmatchedNumbers = combinedUnmatchedNumberSummary(db, unmatchedUploadIds, ownerId);
+  const portalNumbers = portalNumberSet(db, ownerId);
+  const tipsterNumbers = new Set(members.flatMap(member => getUserGsms(member)).filter(Boolean));
+  const portalMatchedCount = Array.from(tipsterNumbers).filter(number => portalNumbers.has(number)).length;
+  const portalMissingCount = Math.max(0, tipsterNumbers.size - portalMatchedCount);
+  const portalUnassignedCount = Array.from(portalNumbers).filter(number => !tipsterNumbers.has(number)).length;
   const unreadMessages = (db.messages || [])
     .filter(message => message.ownerId === ownerId)
     .reduce((sum, message) => {
@@ -1244,6 +1249,11 @@ function adminOverview(db, uploadId, ownerId, unmatchedUploadIds = [uploadId]) {
     activeNumberCount: activeNumbers.size,
     passiveNumberCount: passiveNumbers.length,
     unmatchedNumberCount: unmatchedNumbers.length,
+    portalListCount: portalNumbers.size,
+    tipsterNumberCount: tipsterNumbers.size,
+    portalMatchedCount,
+    portalMissingCount,
+    portalUnassignedCount,
     uploadCount: db.uploads.filter(upload => upload.ownerId === ownerId).length,
     unreadMessageCount: unreadMessages,
     feedbackCount: (db.feedbacks || []).filter(feedback => feedback.status === "new").length,
