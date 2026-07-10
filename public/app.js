@@ -898,7 +898,8 @@ function renderCommissionRows(rows) {
 }
 
 function renderDailyEarnings(rows) {
-  const visibleRows = selectedDailyUploadId ? rows.filter(row => row.uploadId === selectedDailyUploadId) : rows;
+  const activeDailyUploadId = document.getElementById("memberDailyUploadSelect")?.value || selectedDailyUploadId;
+  const visibleRows = activeDailyUploadId ? rows.filter(row => row.uploadId === activeDailyUploadId) : rows;
   document.getElementById("dailyEarningCount").textContent = visibleRows.length;
   document.getElementById("dailyEarningRows").innerHTML = visibleRows.map(row => `
     <tr>
@@ -908,6 +909,11 @@ function renderDailyEarnings(rows) {
       <td data-label="Kazanc"><strong>${money.format(row.calculated || 0)}</strong></td>
     </tr>
   `).join("") || `<tr><td colspan="4">Henuz gunluk Excel kazanci bulunmuyor.</td></tr>`;
+}
+
+function applyMemberDailyUploadSelection() {
+  selectedDailyUploadId = document.getElementById("memberDailyUploadSelect").value;
+  renderDailyEarnings(currentDashboard?.dailySummaries || []);
 }
 
 function renderNumbers(records) {
@@ -1691,15 +1697,14 @@ document.getElementById("memberUploadSelect").addEventListener("change", event =
 });
 document.getElementById("memberDailyUploadSelect").addEventListener("change", event => {
   selectedDailyUploadId = event.target.value;
-  loadDashboard(selectedUploadId, selectedDailyUploadId);
+  applyMemberDailyUploadSelection();
 });
 document.getElementById("memberUploadApplyBtn").addEventListener("click", () => {
   selectedUploadId = document.getElementById("memberUploadSelect").value;
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
 document.getElementById("memberDailyUploadApplyBtn").addEventListener("click", () => {
-  selectedDailyUploadId = document.getElementById("memberDailyUploadSelect").value;
-  loadDashboard(selectedUploadId, selectedDailyUploadId);
+  applyMemberDailyUploadSelection();
 });
 document.getElementById("detailUploadSelect").addEventListener("change", event => loadMemberDetail(detailMemberId, event.target.value));
 document.getElementById("search").addEventListener("input", () => {
