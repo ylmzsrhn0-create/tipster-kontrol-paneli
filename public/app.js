@@ -1666,8 +1666,14 @@ document.getElementById("memberMessageRows").addEventListener("click", async eve
   }
 });
 
-document.getElementById("adminUploadSelect").addEventListener("change", event => loadDashboard(event.target.value, selectedDailyUploadId));
-document.getElementById("adminDailyUploadSelect").addEventListener("change", event => loadDashboard(selectedUploadId, event.target.value));
+document.getElementById("adminUploadSelect").addEventListener("change", event => {
+  selectedUploadId = event.target.value;
+  loadDashboard(selectedUploadId, selectedDailyUploadId);
+});
+document.getElementById("adminDailyUploadSelect").addEventListener("change", event => {
+  selectedDailyUploadId = event.target.value;
+  loadDashboard(selectedUploadId, selectedDailyUploadId);
+});
 document.getElementById("memberUploadSelect").addEventListener("change", event => loadDashboard(event.target.value));
 document.getElementById("detailUploadSelect").addEventListener("change", event => loadMemberDetail(detailMemberId, event.target.value));
 document.getElementById("search").addEventListener("input", () => {
