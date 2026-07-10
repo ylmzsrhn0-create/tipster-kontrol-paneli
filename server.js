@@ -344,6 +344,18 @@ function excelDateHeader(value) {
   return match ? `${match[3]}.${match[2]}.${match[1]}` : "";
 }
 
+function uploadDateFromFilename(filename, fallback = "") {
+  const text = String(filename || "");
+  const match = text.match(/(\d{1,2})[.,_-](\d{1,2})(?:[.,_-](\d{2,4}))?/);
+  if (!match) return validDateOnly(fallback) ? fallback : "";
+  const day = match[1].padStart(2, "0");
+  const month = match[2].padStart(2, "0");
+  let year = match[3] || (validDateOnly(fallback) ? fallback.slice(0, 4) : String(new Date().getFullYear()));
+  if (year.length === 2) year = `20${year}`;
+  const date = `${year}-${month}-${day}`;
+  return validDateOnly(date) ? date : (validDateOnly(fallback) ? fallback : "");
+}
+
 function excelCellMatchesDate(value, uploadDate) {
   const wanted = excelDateHeader(uploadDate);
   if (!wanted) return true;
@@ -2603,18 +2615,19 @@ async function handleApi(req, res) {
       : dateOnly(new Date());
     const imported = files.map(file => {
       const uploadId = crypto.randomUUID();
-      const rows = parseExcel(file.data, { uploadType, uploadDate }).map(row => ({ ...row, uploadId, ownerId: session.userId }));
+      const fileUploadDate = uploadType === "daily" ? uploadDateFromFilename(file.filename, uploadDate) : uploadDate;
+      const rows = parseExcel(file.data, { uploadType, uploadDate: fileUploadDate }).map(row => ({ ...row, uploadId, ownerId: session.userId }));
       const fileBase = file.filename.replace(/\.xlsx$/i, "");
       const weekLabel = files.length === 1
-        ? (baseWeekLabel || (uploadType === "daily" ? `Gunluk ${uploadDate}` : fileBase))
-        : (baseWeekLabel ? baseWeekLabel + " - " + fileBase : (uploadType === "daily" ? `Gunluk ${uploadDate} - ${fileBase}` : fileBase));
+        ? (baseWeekLabel || (uploadType === "daily" ? `Gunluk ${fileUploadDate}` : fileBase))
+        : (baseWeekLabel ? baseWeekLabel + " - " + fileBase : (uploadType === "daily" ? `Gunluk ${fileUploadDate} - ${fileBase}` : fileBase));
       db.rows.push(...rows);
       const upload = {
         id: uploadId,
         filename: escapeHtml(file.filename),
         weekLabel: escapeHtml(weekLabel),
         uploadType,
-        uploadDate,
+        uploadDate: fileUploadDate,
         rowCount: rows.length,
         ownerId: session.userId,
         createdAt: new Date().toISOString()
