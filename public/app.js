@@ -1677,12 +1677,28 @@ document.getElementById("adminDailyUploadSelect").addEventListener("change", eve
   selectedDailyUploadId = event.target.value;
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
+document.getElementById("adminUploadApplyBtn").addEventListener("click", () => {
+  selectedUploadId = document.getElementById("adminUploadSelect").value;
+  loadDashboard(selectedUploadId, selectedDailyUploadId);
+});
+document.getElementById("adminDailyUploadApplyBtn").addEventListener("click", () => {
+  selectedDailyUploadId = document.getElementById("adminDailyUploadSelect").value;
+  loadDashboard(selectedUploadId, selectedDailyUploadId);
+});
 document.getElementById("memberUploadSelect").addEventListener("change", event => {
   selectedUploadId = event.target.value;
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
 document.getElementById("memberDailyUploadSelect").addEventListener("change", event => {
   selectedDailyUploadId = event.target.value;
+  loadDashboard(selectedUploadId, selectedDailyUploadId);
+});
+document.getElementById("memberUploadApplyBtn").addEventListener("click", () => {
+  selectedUploadId = document.getElementById("memberUploadSelect").value;
+  loadDashboard(selectedUploadId, selectedDailyUploadId);
+});
+document.getElementById("memberDailyUploadApplyBtn").addEventListener("click", () => {
+  selectedDailyUploadId = document.getElementById("memberDailyUploadSelect").value;
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
 document.getElementById("detailUploadSelect").addEventListener("change", event => loadMemberDetail(detailMemberId, event.target.value));
