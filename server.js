@@ -1004,10 +1004,21 @@ function parseExcel(buffer, options = {}) {
   const selectedDailyHeader = excelDateHeader(options.uploadDate);
   const parsedRows = [];
   const sheetErrors = [];
-  for (const { sheetName, target } of sheets) {
-    const rows = parseSheetRows(entries.get(target), sharedStrings);
+  const preparedSheets = sheets.map(sheet => {
+    const rows = parseSheetRows(entries.get(sheet.target), sharedStrings);
     const headers = rows.shift() || [];
     const normalizedHeaders = headers.map(normalizeSearchText);
+    return { ...sheet, rows, headers, normalizedHeaders };
+  });
+  const dailyDetailSheets = options.uploadType === "daily"
+    ? preparedSheets.filter(sheet =>
+      sheet.normalizedHeaders.includes("kupon tarihi") &&
+      sheet.normalizedHeaders.includes("oyuncu gsm") &&
+      sheet.normalizedHeaders.includes("tutar") &&
+      sheet.normalizedHeaders.includes("islem tipi"))
+    : [];
+  const sheetsToRead = dailyDetailSheets.length ? dailyDetailSheets : preparedSheets;
+  for (const { sheetName, rows, headers, normalizedHeaders } of sheetsToRead) {
     const gsmIndex = normalizedHeaders.findIndex(h => h === "oyuncu gsm");
     const totalIndex = normalizedHeaders.findIndex(h => h === "toplam tutar");
     const amountIndex = normalizedHeaders.findIndex(h => h === "tutar");
@@ -2042,7 +2053,8 @@ async function handleApi(req, res) {
       uploads,
       dailyUploads: dailyUploads.slice().reverse(),
       currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null,
-      selectedUploadId: uploadId
+      selectedUploadId: uploadId,
+      selectedDailyUploadId: dailyUploadId
     });
     return;
   }
