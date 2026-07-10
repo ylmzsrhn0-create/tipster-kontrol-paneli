@@ -743,7 +743,8 @@ function normalizeSearchText(value) {
 }
 
 function isBonusDisiKuponOynama(value) {
-  return normalizeSearchText(value) === "bonus disi kupon oynama";
+  const text = normalizeSearchText(value);
+  return text === "bonus disi kupon oynama" || text === "kupon oynama";
 }
 
 function normalizeGsm(value) {
@@ -976,17 +977,18 @@ function parseExcel(buffer, options = {}) {
   const normalizedHeaders = headers.map(normalizeSearchText);
   const gsmIndex = normalizedHeaders.findIndex(h => h === "oyuncu gsm");
   const totalIndex = normalizedHeaders.findIndex(h => h === "toplam tutar");
-  const typeIndex = normalizedHeaders.findIndex(h => h === "islem tipi");
+  const amountIndex = normalizedHeaders.findIndex(h => h === "tutar");
+  const typeIndex = normalizedHeaders.findIndex(h => h === "islem tipi" || h === "aciklama");
   if (gsmIndex === -1 || typeIndex === -1 || (options.uploadType !== "daily" && totalIndex === -1)) {
     throw new Error(options.uploadType === "daily"
-      ? "Gunluk Excel icinde OYUNCU GSM, ISLEM TIPI ve gunluk tarih sutunlari bulunmali."
+      ? "Gunluk Excel icinde OYUNCU GSM, ISLEM TIPI/ACIKLAMA ve TUTAR veya gunluk tarih sutunlari bulunmali."
       : "Excel icinde OYUNCU GSM, TOPLAM TUTAR ve ISLEM TIPI basliklari bulunmali.");
   }
   const dailyColumnKeys = headers
     .map((header, index) => ({ header, index }))
     .filter(item => /^\d{2}\.\d{2}\.\d{4}$/.test(String(item.header)));
-  if (options.uploadType === "daily" && !dailyColumnKeys.length) {
-    throw new Error("Gunluk Excel icinde 01.07.2026 gibi tarih baslikli tutar sutunlari bulunmali.");
+  if (options.uploadType === "daily" && !dailyColumnKeys.length && amountIndex === -1) {
+    throw new Error("Gunluk Excel icinde TUTAR veya 01.07.2026 gibi tarih baslikli tutar sutunlari bulunmali.");
   }
   const selectedDailyHeader = excelDateHeader(options.uploadDate);
   const hasDailyHeader = daily => selectedDailyHeader && Object.prototype.hasOwnProperty.call(daily, selectedDailyHeader);
@@ -1001,14 +1003,19 @@ function parseExcel(buffer, options = {}) {
         : Object.values(daily).reduce((sum, value) => sum + value, 0);
       const dailyCalculation = options.uploadType === "daily" && hasDailyColumns;
       const excelTotalAmount = totalIndex === -1 ? 0 : numberFrom(row[totalIndex]);
-      const totalAmount = dailyCalculation ? selectedDailyAmount : excelTotalAmount;
+      const directDailyAmount = amountIndex === -1 ? 0 : numberFrom(row[amountIndex]);
+      const totalAmount = options.uploadType === "daily"
+        ? (dailyCalculation ? selectedDailyAmount : directDailyAmount)
+        : excelTotalAmount;
       return {
         id: crypto.randomUUID(),
         gsmMasked: normalizeGsm(row[gsmIndex]),
         processType: row[typeIndex] || "",
         totalAmount,
         excelTotalAmount,
-        calculationSource: dailyCalculation ? (hasDailyHeader(daily) ? selectedDailyHeader : "gunluk tarih sutunlari") : "toplam tutar",
+        calculationSource: dailyCalculation
+          ? (hasDailyHeader(daily) ? selectedDailyHeader : "gunluk tarih sutunlari")
+          : (options.uploadType === "daily" ? "tutar" : "toplam tutar"),
         daily,
         sheetName,
         importedAt: new Date().toISOString()
