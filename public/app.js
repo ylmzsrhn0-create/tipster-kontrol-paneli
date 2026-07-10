@@ -808,10 +808,12 @@ function renderOwnerFeedbacks(feedbacks) {
 function renderMember(data) {
   currentDashboard = data;
   selectedUploadId = data.selectedUploadId;
+  selectedDailyUploadId = data.selectedDailyUploadId || data.dailyUploads?.[0]?.id || "";
   adminPanel.classList.add("hidden");
   memberPanel.classList.remove("hidden");
   const numbers = numberRecordsOf(data.member);
   renderUploadSelect("memberUploadSelect", data.uploads, data.selectedUploadId);
+  renderDailyUploadSelect("memberDailyUploadSelect", data.dailyUploads || [], selectedDailyUploadId);
   document.getElementById("myGsm").textContent = numbers.length;
   document.getElementById("myTotal").textContent = money.format(data.total);
   document.getElementById("myCalculated").textContent = money.format(data.calculated);
@@ -896,8 +898,9 @@ function renderCommissionRows(rows) {
 }
 
 function renderDailyEarnings(rows) {
-  document.getElementById("dailyEarningCount").textContent = rows.length;
-  document.getElementById("dailyEarningRows").innerHTML = rows.map(row => `
+  const visibleRows = selectedDailyUploadId ? rows.filter(row => row.uploadId === selectedDailyUploadId) : rows;
+  document.getElementById("dailyEarningCount").textContent = visibleRows.length;
+  document.getElementById("dailyEarningRows").innerHTML = visibleRows.map(row => `
     <tr>
       <td data-label="Gun"><strong>${escapeHtml(row.label || row.uploadDate || "-")}</strong><br><span class="muted">${escapeHtml(row.uploadDate || "-")}</span></td>
       <td data-label="Excel kayit">${row.rowCount}</td>
@@ -1674,7 +1677,14 @@ document.getElementById("adminDailyUploadSelect").addEventListener("change", eve
   selectedDailyUploadId = event.target.value;
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
-document.getElementById("memberUploadSelect").addEventListener("change", event => loadDashboard(event.target.value));
+document.getElementById("memberUploadSelect").addEventListener("change", event => {
+  selectedUploadId = event.target.value;
+  loadDashboard(selectedUploadId, selectedDailyUploadId);
+});
+document.getElementById("memberDailyUploadSelect").addEventListener("change", event => {
+  selectedDailyUploadId = event.target.value;
+  loadDashboard(selectedUploadId, selectedDailyUploadId);
+});
 document.getElementById("detailUploadSelect").addEventListener("change", event => loadMemberDetail(detailMemberId, event.target.value));
 document.getElementById("search").addEventListener("input", () => {
   renderMembers();
