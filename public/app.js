@@ -900,6 +900,18 @@ function renderCommissionRows(rows) {
 function renderDailyEarnings(rows) {
   const activeDailyUploadId = document.getElementById("memberDailyUploadSelect")?.value || selectedDailyUploadId;
   const visibleRows = activeDailyUploadId ? rows.filter(row => row.uploadId === activeDailyUploadId) : rows;
+  const selectedRow = visibleRows[0] || null;
+  document.getElementById("dailyEarningSummary").innerHTML = selectedRow
+    ? `
+      <span>Secili gun: ${escapeHtml(selectedRow.label || selectedRow.uploadDate || "-")}</span>
+      <span>Toplam oyun: ${money.format(selectedRow.total || 0)}</span>
+      <span>Kazanc: ${money.format(selectedRow.calculated || 0)}</span>
+    `
+    : `
+      <span>Secili gun: -</span>
+      <span>Toplam oyun: 0</span>
+      <span>Kazanc: 0</span>
+    `;
   document.getElementById("dailyEarningCount").textContent = visibleRows.length;
   document.getElementById("dailyEarningRows").innerHTML = visibleRows.map(row => `
     <tr>
