@@ -142,6 +142,56 @@ function numberRecordsHtml(member) {
   `).join("");
 }
 
+function filteredNumberRecords(member, query = "") {
+  const records = numberRecordsOf(member);
+  if (!query) return records;
+  return records.filter(record => searchMatches(`${record.name || ""} ${record.number || ""}`, query));
+}
+
+function numberMiniList(records, emptyText) {
+  return records.map(record => `
+    <div class="number-status-line">
+      <span>${escapeHtml(record.name ? `${record.name} (${record.number})` : record.number)}${numberDateHtml(record)}</span>
+    </div>
+  `).join("") || `<p class="muted mini-empty">${escapeHtml(emptyText)}</p>`;
+}
+
+function adminNumberSplitHtml(member, scope, query = "") {
+  const numberQuery = searchNumber(query) || searchDigits(query);
+  const records = numberQuery ? filteredNumberRecords(member, query) : numberRecordsOf(member);
+  if (!records.length) return query ? `<span class="muted">Aranan numara bu tipsterda yok.</span>` : "-";
+  const key = `${scope}:${member.id}`;
+  const expanded = expandedAdminNumbers.has(key) || Boolean(query);
+  const hasPortalList = Boolean(currentDashboard?.currentPortalList);
+  const registered = hasPortalList ? records.filter(record => record.portalRegistered) : [];
+  const unregistered = hasPortalList ? records.filter(record => !record.portalRegistered) : records;
+  const allRecords = numberRecordsOf(member);
+  const totalRegistered = hasPortalList ? allRecords.filter(record => record.portalRegistered).length : 0;
+  const totalUnregistered = hasPortalList ? allRecords.length - totalRegistered : allRecords.length;
+  const portalSummary = hasPortalList
+    ? `Kayitli ${totalRegistered} / Kayitsiz ${totalUnregistered}`
+    : "Bayi Portal listesi yok";
+  return `
+    <div class="admin-number-toggle">
+      <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
+        ${query ? `${records.length} eslesen numara` : `${allRecords.length} numarayi goster`} - ${portalSummary}
+      </button>
+      <div class="admin-number-list ${expanded ? "" : "hidden"}">
+        <div class="number-split">
+          <section>
+            <h4>Kayitli <span>${registered.length}</span></h4>
+            ${hasPortalList ? numberMiniList(registered, "Kayitli numara yok.") : `<p class="muted mini-empty">Liste yok.</p>`}
+          </section>
+          <section>
+            <h4>Kayitsiz <span>${unregistered.length}</span></h4>
+            ${numberMiniList(unregistered, hasPortalList ? "Kayitsiz numara yok." : "Liste yok.")}
+          </section>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function adminNumberRecordsToggleHtml(member, scope) {
   const records = numberRecordsOf(member);
   if (!records.length) return "-";
@@ -320,7 +370,6 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderMembers();
   renderDailyMembers();
   renderPaymentPanel();
-  renderPortalComparison("portal");
   renderSharedNumbers(data.sharedNumbers || []);
   renderUnmatchedNumbers(data.unmatchedNumbers || []);
   renderPassiveNumbers(data.passiveNumbers || []);
@@ -502,7 +551,7 @@ function renderMembers() {
   document.getElementById("memberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
-      <td data-label="Numara">${adminNumberRecordsToggleHtml(member, "weekly")}</td>
+      <td data-label="Numara">${adminNumberSplitHtml(member, "weekly", query)}</td>
       <td data-label="Uye"><strong>${member.numberCount ?? numberRecordsOf(member).length}</strong></td>
       <td data-label="Yuzde">%${money.format(member.percentage)}</td>
       <td data-label="Excel kayit">${member.rowCount}</td>
@@ -525,7 +574,7 @@ function renderDailyMembers() {
   document.getElementById("dailyMemberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
-      <td data-label="Numara">${adminNumberRecordsToggleHtml(member, "daily")}</td>
+      <td data-label="Numara">${adminNumberSplitHtml(member, "daily", query)}</td>
       <td data-label="Uye"><strong>${member.numberCount ?? numberRecordsOf(member).length}</strong></td>
       <td data-label="Yuzde">%${money.format(member.percentage)}</td>
       <td data-label="Gunluk kayit">${member.dailyRowCount || 0}</td>
@@ -875,7 +924,6 @@ function renderMember(data) {
   renderDailyEarnings(data.dailySummaries || []);
   renderMemberPassiveNumbers(data.passiveNumbers || []);
   renderNumbers(numbers);
-  renderPortalComparison("memberPortal");
   renderMyRows(data.rows || []);
   renderMemberMessages(data.messages || []);
 }
@@ -1805,18 +1853,6 @@ document.getElementById("sharedNumberClearBtn").addEventListener("click", () => 
   document.getElementById("sharedNumberSearch").value = "";
   renderSharedNumbers();
 });
-document.getElementById("portalComparisonSearch").addEventListener("input", () => renderPortalComparison("portal"));
-document.getElementById("portalComparisonSearch").addEventListener("keydown", event => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    renderPortalComparison("portal");
-  }
-});
-document.getElementById("portalComparisonSearchBtn").addEventListener("click", () => renderPortalComparison("portal"));
-document.getElementById("portalComparisonClearBtn").addEventListener("click", () => {
-  document.getElementById("portalComparisonSearch").value = "";
-  renderPortalComparison("portal");
-});
 document.getElementById("portalRegisteredExportBtn").addEventListener("click", () => {
   window.location.href = "/api/portal-comparison/export?status=registered";
 });
@@ -1838,18 +1874,6 @@ document.getElementById("numberSearchBtn").addEventListener("click", () => {
 document.getElementById("numberClearBtn").addEventListener("click", () => {
   document.getElementById("numberSearch").value = "";
   if (currentDashboard?.role === "member") renderNumbers(numberRecordsOf(currentDashboard.member));
-});
-document.getElementById("memberPortalComparisonSearch").addEventListener("input", () => renderPortalComparison("memberPortal"));
-document.getElementById("memberPortalComparisonSearch").addEventListener("keydown", event => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    renderPortalComparison("memberPortal");
-  }
-});
-document.getElementById("memberPortalComparisonSearchBtn").addEventListener("click", () => renderPortalComparison("memberPortal"));
-document.getElementById("memberPortalComparisonClearBtn").addEventListener("click", () => {
-  document.getElementById("memberPortalComparisonSearch").value = "";
-  renderPortalComparison("memberPortal");
 });
 document.getElementById("memberPortalRegisteredExportBtn").addEventListener("click", () => {
   window.location.href = "/api/portal-comparison/export?status=registered";
