@@ -226,7 +226,7 @@ function normalizeDb(db) {
   db.portalLists.forEach(list => {
     list.ownerId ||= ownerId;
     list.weekLabel ||= list.filename || "Bayi Portal listesi";
-    list.numbers = Array.from(new Set((list.numbers || []).map(normalizeGsm).filter(Boolean)));
+    list.numbers = Array.from(new Set((list.numbers || []).map(canonicalGsm).filter(Boolean)));
     list.rowCount = Number(list.rowCount) || list.numbers.length;
     list.createdAt ||= new Date().toISOString();
   });
