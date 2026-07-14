@@ -79,7 +79,12 @@ function readDb() {
     writeDb(db);
     return db;
   }
-  return normalizeDb(JSON.parse(fs.readFileSync(DB_FILE, "utf8").replace(/^\uFEFF/, "")));
+  const raw = JSON.parse(fs.readFileSync(DB_FILE, "utf8").replace(/^\uFEFF/, ""));
+  const normalized = normalizeDb(raw);
+  if (JSON.stringify(raw) !== JSON.stringify(normalized)) {
+    writeDb(normalized);
+  }
+  return normalized;
 }
 
 function writeDb(db) {
