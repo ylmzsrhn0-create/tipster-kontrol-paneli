@@ -233,59 +233,6 @@
         <details class="panel wide collapsible">
           <summary>
             <span>
-              <strong>Bayi Portal kayit kontrolu</strong>
-              <small>Tipster numaralarini Bayi Portal listesine gore kayitli ve kayitsiz ayirir</small>
-            </span>
-            <b id="portalComparisonCount">0</b>
-          </summary>
-          <div class="section-head collapsible-tools">
-            <div class="search-actions">
-              <input id="portalComparisonSearch" placeholder="Numara veya tipster ara">
-              <button class="primary small" id="portalComparisonSearchBtn" type="button">Ara</button>
-              <button class="ghost small" id="portalComparisonClearBtn" type="button">Temizle</button>
-            </div>
-            <div class="search-actions">
-              <button class="ghost small" id="portalRegisteredExportBtn" type="button">Kayitli Excel indir</button>
-              <button class="ghost small" id="portalUnregisteredExportBtn" type="button">Kayitsiz Excel indir</button>
-            </div>
-          </div>
-          <div class="split-report collapsible-body">
-            <section>
-              <h3>Kayitli <span id="portalRegisteredCount">0</span></h3>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Numara</th>
-                      <th>Tipster</th>
-                      <th>Kayit adi</th>
-                    </tr>
-                  </thead>
-                  <tbody id="portalRegisteredRows"></tbody>
-                </table>
-              </div>
-            </section>
-            <section>
-              <h3>Kayitsiz <span id="portalUnregisteredCount">0</span></h3>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Numara</th>
-                      <th>Tipster</th>
-                      <th>Kayit adi</th>
-                    </tr>
-                  </thead>
-                  <tbody id="portalUnregisteredRows"></tbody>
-                </table>
-              </div>
-            </section>
-          </div>
-        </details>
-
-        <details class="panel wide collapsible">
-          <summary>
-            <span>
               <strong>Ortak numaralar</strong>
               <small>Birden fazla tipsterda kayitli olan numaralar</small>
             </span>
@@ -611,6 +558,10 @@
               <button class="primary small" id="searchBtn" type="button">Ara</button>
               <button class="ghost small" id="searchClearBtn" type="button">Temizle</button>
             </div>
+            <div class="search-actions">
+              <button class="ghost small" id="portalRegisteredExportBtn" type="button">Kayitli Excel indir</button>
+              <button class="ghost small" id="portalUnregisteredExportBtn" type="button">Kayitsiz Excel indir</button>
+            </div>
           </div>
           <div class="table-wrap collapsible-table">
             <table>
@@ -901,6 +852,8 @@
                 <small>Kaydettigin isim ve numaralar</small>
               </span>
               <button class="ghost small summary-action" id="exportNumbersBtn" type="button">Excel indir</button>
+              <button class="ghost small summary-action" id="memberPortalRegisteredExportBtn" type="button">Kayitli Excel indir</button>
+              <button class="ghost small summary-action" id="memberPortalUnregisteredExportBtn" type="button">Kayitsiz Excel indir</button>
             </summary>
             <div class="section-head compact-body">
               <div class="search-actions">
@@ -911,37 +864,6 @@
             </div>
           <div class="number-list collapsible-body compact-body" id="numberList"></div>
         </details>
-
-          <details class="panel collapsible">
-            <summary>
-              <span>
-                <strong>Bayi Portal kayit kontrolu</strong>
-                <small>Kendi numaralarinin kayitli ve kayitsiz durumu</small>
-              </span>
-              <b id="memberPortalComparisonCount">0</b>
-            </summary>
-            <div class="section-head compact-body">
-              <div class="search-actions">
-                <input id="memberPortalComparisonSearch" placeholder="Numara ara">
-                <button class="primary small" id="memberPortalComparisonSearchBtn" type="button">Ara</button>
-                <button class="ghost small" id="memberPortalComparisonClearBtn" type="button">Temizle</button>
-              </div>
-              <div class="search-actions">
-                <button class="ghost small" id="memberPortalRegisteredExportBtn" type="button">Kayitli Excel indir</button>
-                <button class="ghost small" id="memberPortalUnregisteredExportBtn" type="button">Kayitsiz Excel indir</button>
-              </div>
-            </div>
-            <div class="split-report compact-body">
-              <section>
-                <h3>Kayitli <span id="memberPortalRegisteredCount">0</span></h3>
-                <div class="number-list" id="memberPortalRegisteredRows"></div>
-              </section>
-              <section>
-                <h3>Kayitsiz <span id="memberPortalUnregisteredCount">0</span></h3>
-                <div class="number-list" id="memberPortalUnregisteredRows"></div>
-              </section>
-            </div>
-          </details>
 
           <details class="panel collapsible">
             <summary>
@@ -1121,6 +1043,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=portal-comparison-20260714"></script>
+  <script src="/app.js?v=portal-inline-20260714"></script>
 </body>
 </html>
