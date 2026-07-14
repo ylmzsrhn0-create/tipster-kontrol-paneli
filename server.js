@@ -884,6 +884,50 @@ function withPortalStatus(records, portalSet) {
   });
 }
 
+function portalComparisonSummary(db, ownerId, memberId = "") {
+  const portalSet = portalNumberSet(db, ownerId);
+  const grouped = new Map();
+  db.users
+    .filter(user => user.role === "member" && user.ownerId === ownerId && (!memberId || user.id === memberId))
+    .forEach(member => {
+      getUserNumberRecords(member).forEach(record => {
+        const number = canonicalGsm(record.number);
+        if (!number) return;
+        const current = grouped.get(number) || {
+          number,
+          name: record.name || "",
+          members: [],
+          createdAt: record.createdAt || ""
+        };
+        current.members.push({
+          id: member.id,
+          name: member.name || member.username,
+          username: member.username,
+          percentage: Number(member.percentage) || 0
+        });
+        if (!current.name && record.name) current.name = record.name;
+        if (!current.createdAt || String(record.createdAt || "").localeCompare(current.createdAt) < 0) {
+          current.createdAt = record.createdAt || current.createdAt;
+        }
+        grouped.set(number, current);
+      });
+    });
+  const items = Array.from(grouped.values()).map(item => ({
+    ...item,
+    memberCount: item.members.length,
+    portalRegistered: portalSet.has(item.number),
+    portalStatusText: portalSet.has(item.number) ? "Kayitli" : "Kayitli degil"
+  })).sort((a, b) => {
+    if (a.portalRegistered !== b.portalRegistered) return a.portalRegistered ? -1 : 1;
+    return a.number.localeCompare(b.number);
+  });
+  return {
+    registered: items.filter(item => item.portalRegistered),
+    unregistered: items.filter(item => !item.portalRegistered),
+    all: items
+  };
+}
+
 function findNumberOwner(db, ownerId, gsm, exceptUserId = "") {
   return db.users.find(user =>
     user.role === "member" &&
@@ -1612,6 +1656,58 @@ function createNumbersXlsx(member, summaries) {
   ]);
 }
 
+function createSimpleXlsx(rows, sheetName = "Rapor") {
+  const safeSheet = String(sheetName || "Rapor").replace(/[\\/?*:[\]]/g, " ").slice(0, 31) || "Rapor";
+  const sheet = createSheetXml(rows);
+  return createZip([
+    {
+      name: "[Content_Types].xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`
+    },
+    {
+      name: "_rels/.rels",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>`
+    },
+    {
+      name: "docProps/app.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>Tipster Kontrol Paneli</Application></Properties>`
+    },
+    {
+      name: "docProps/core.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:creator>Tipster Kontrol Paneli</dc:creator><cp:lastModifiedBy>Tipster Kontrol Paneli</cp:lastModifiedBy></cp:coreProperties>`
+    },
+    {
+      name: "xl/workbook.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xmlEscape(safeSheet)}" sheetId="1" r:id="rId1"/></sheets></workbook>`
+    },
+    {
+      name: "xl/_rels/workbook.xml.rels",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`
+    },
+    {
+      name: "xl/styles.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>`
+    },
+    { name: "xl/worksheets/sheet1.xml", content: sheet }
+  ]);
+}
+
+function createPortalComparisonXlsx(items) {
+  const rows = [
+    ["Numara", "Durum", "Tipster", "Kullanici adi", "Kayit adi", "Tipster sayisi", "Kayit tarihi"],
+    ...items.map(item => [
+      item.number,
+      item.portalStatusText,
+      (item.members || []).map(member => member.name).join(", "),
+      (item.members || []).map(member => member.username).join(", "),
+      item.name || "",
+      item.memberCount || (item.members || []).length,
+      item.createdAt ? new Date(item.createdAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" }) : ""
+    ])
+  ];
+  return createSimpleXlsx(rows, "Bayi Portal");
+}
+
 function serveStatic(req, res) {
   const requestedPath = decodeURIComponent(req.url.split("?")[0]);
   const requested = requestedPath === "/" ? "/index.html" : requestedPath;
@@ -2033,6 +2129,7 @@ async function handleApi(req, res) {
       const unmatchedNumbers = combinedUnmatchedNumberSummary(db, [uploadId, dailyUploadId], user.id);
       const passiveNumbers = passiveNumberSummary(db, uploadId, user.id);
       const sharedNumbers = sharedNumberSummary(db, uploadId, user.id);
+      const portalComparison = portalComparisonSummary(db, user.id);
       const uploadReports = (db.uploadReports || [])
         .filter(report => report.ownerId === user.id)
         .slice()
@@ -2053,7 +2150,7 @@ async function handleApi(req, res) {
         .slice(0, 120)
         .map(payment => publicPayment(db, payment));
       const selectedPayments = ownerPayments.filter(payment => payment.uploadId === uploadId);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -2068,6 +2165,7 @@ async function handleApi(req, res) {
     const summary = memberPrivateSummary(memberSummary(db, user, uploadId));
     const publicMember = publicUser(user);
     publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalSet);
+    const portalComparison = portalComparisonSummary(db, user.ownerId, user.id);
     sendJson(res, 200, {
       role: "member",
       member: publicMember,
@@ -2087,6 +2185,7 @@ async function handleApi(req, res) {
       uploads,
       dailyUploads: dailyUploads.slice().reverse(),
       currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null,
+      portalComparison,
       selectedUploadId: uploadId,
       selectedDailyUploadId: dailyUploadId
     });
@@ -2523,6 +2622,29 @@ async function handleApi(req, res) {
     const summary = memberSummary(db, user, uploadId);
     const buffer = createNumbersXlsx(user, summary.numberSummaries);
     const filename = encodeURIComponent(`${user.username || "tipster"}-numaralar.xlsx`);
+    res.writeHead(200, {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "no-store"
+    });
+    res.end(buffer);
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/portal-comparison/export") {
+    const session = requireAuth(req, res);
+    if (!session) return;
+    const user = db.users.find(item => item.id === session.userId);
+    const requestedStatus = url.searchParams.get("status");
+    const status = requestedStatus === "registered" ? "registered" : requestedStatus === "unregistered" ? "unregistered" : "all";
+    const ownerId = isStaff(user) ? user.id : user.ownerId;
+    const memberId = user.role === "member" ? user.id : "";
+    const comparison = portalComparisonSummary(db, ownerId, memberId);
+    const items = comparison[status] || comparison.all;
+    const buffer = createPortalComparisonXlsx(items);
+    const namePart = status === "registered" ? "kayitli" : status === "unregistered" ? "kayitsiz" : "tum";
+    const filename = encodeURIComponent(`bayi-portal-${namePart}-numaralar.xlsx`);
     res.writeHead(200, {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
