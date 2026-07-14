@@ -798,6 +798,33 @@ input:focus, select:focus, textarea:focus {
 
 .table-wrap { overflow-x: auto; }
 
+.split-report {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.split-report section {
+  min-width: 0;
+}
+
+.split-report h3 {
+  align-items: center;
+  display: flex;
+  font-size: 15px;
+  gap: 8px;
+  justify-content: space-between;
+  margin: 0 0 10px;
+}
+
+.split-report h3 span {
+  background: #eef3f8;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
 .payment-form {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1488,6 +1515,7 @@ td:last-child, th:last-child { text-align: right; }
   .summary-action { width: 100%; margin-left: 0; }
   .search-actions { align-items: stretch; flex-direction: column; width: 100%; }
   .search-actions .small { width: 100%; }
+  .split-report { grid-template-columns: 1fr; }
   .upload-forms { grid-template-columns: 1fr; }
   .panel { padding: 18px; }
   .modal { padding: 10px; }
