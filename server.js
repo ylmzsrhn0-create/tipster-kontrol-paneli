@@ -788,14 +788,14 @@ function normalizeGsm(value) {
   return `${national.slice(0, 4)}***${national.slice(-4)}`;
 }
 
+function canonicalGsm(value) {
+  const normalized = normalizeGsm(value);
+  const masked = String(normalized || "").match(/05\d{2}\*{3}\d{4}/);
+  return masked ? masked[0] : "";
+}
+
 function portalNumberFromCell(value) {
-  const text = normalizeGsm(value);
-  const masked = text.match(/05\d{2}\*{3}\d{4}/);
-  if (masked) return masked[0];
-  const digits = text.replace(/\D/g, "");
-  if (/^05\d{9}$/.test(digits)) return digits;
-  if (/^5\d{9}$/.test(digits)) return `0${digits}`;
-  return "";
+  return canonicalGsm(value);
 }
 
 function normalizeNumberName(value) {
@@ -864,12 +864,12 @@ function latestPortalList(db, ownerId) {
 }
 
 function portalNumberSet(db, ownerId) {
-  return new Set((latestPortalList(db, ownerId)?.numbers || []).map(normalizeGsm).filter(Boolean));
+  return new Set((latestPortalList(db, ownerId)?.numbers || []).map(canonicalGsm).filter(Boolean));
 }
 
 function withPortalStatus(records, portalSet) {
   return (records || []).map(record => {
-    const registered = portalSet.has(record.number);
+    const registered = portalSet.has(canonicalGsm(record.number));
     return {
       ...record,
       portalRegistered: registered,
@@ -1093,8 +1093,8 @@ function parseExcel(buffer, options = {}) {
 function parsePortalNumberExcel(buffer) {
   const entries = zipEntries(buffer);
   const sharedStrings = parseSharedStrings(entries.get("xl/sharedStrings.xml"));
-  const { target } = parseWorkbook(entries);
-  const rows = parseSheetRows(entries.get(target), sharedStrings);
+  const sheets = parseWorkbookSheets(entries);
+  const rows = sheets.flatMap(sheet => parseSheetRows(entries.get(sheet.target), sharedStrings));
   const numbers = [];
   const seen = new Set();
   rows.flat().forEach(cell => {
@@ -1221,15 +1221,16 @@ function sharedRow(row, shareCounts) {
 function memberSummary(db, user, uploadId) {
   const ownerId = user.role === "member" ? user.ownerId : user.id;
   const numberRecords = getUserNumberRecords(user);
-  const numbers = numberRecords.map(record => record.number);
+  const numbers = numberRecords.map(record => canonicalGsm(record.number)).filter(Boolean);
   const gsmSet = new Set(numbers);
   const sourceRows = selectedRows(db, uploadId, ownerId);
   const shareCounts = numberShareCounts(db, ownerId);
   const portalSet = portalNumberSet(db, ownerId);
-  const rows = sourceRows.filter(row => gsmSet.has(row.gsmMasked)).map(row => {
+  const rows = sourceRows.filter(row => gsmSet.has(canonicalGsm(row.gsmMasked))).map(row => {
     const shared = sharedRow(row, shareCounts);
-    const record = numberRecords.find(item => item.number === shared.gsmMasked);
-    const registered = portalSet.has(shared.gsmMasked);
+    const sharedNumber = canonicalGsm(shared.gsmMasked);
+    const record = numberRecords.find(item => canonicalGsm(item.number) === sharedNumber);
+    const registered = portalSet.has(sharedNumber);
     return {
       ...shared,
       createdAt: record?.createdAt || "",
@@ -1240,16 +1241,17 @@ function memberSummary(db, user, uploadId) {
   const total = rows.reduce((sum, row) => sum + row.totalAmount, 0);
   const calculated = total * (Number(user.percentage) || 0) / 100;
   const numberSummaries = numberRecords.map(record => {
-    const numberRows = sourceRows.filter(row => row.gsmMasked === record.number).map(row => sharedRow(row, shareCounts));
+    const recordNumber = canonicalGsm(record.number);
+    const numberRows = sourceRows.filter(row => canonicalGsm(row.gsmMasked) === recordNumber).map(row => sharedRow(row, shareCounts));
     const numberTotal = numberRows.reduce((sum, row) => sum + row.totalAmount, 0);
-    const shareCount = Math.max(1, shareCounts.get(record.number) || 1);
+    const shareCount = Math.max(1, shareCounts.get(recordNumber) || 1);
     return {
       number: record.number,
       name: record.name,
       createdAt: record.createdAt,
       active: numberRows.length > 0,
-      portalRegistered: portalSet.has(record.number),
-      portalStatusText: portalSet.has(record.number) ? "Kayitli" : "Kayitli degil",
+      portalRegistered: portalSet.has(recordNumber),
+      portalStatusText: portalSet.has(recordNumber) ? "Kayitli" : "Kayitli degil",
       rowCount: numberRows.length,
       shareCount,
       total: numberTotal,
@@ -1304,7 +1306,7 @@ function adminOverview(db, uploadId, ownerId, unmatchedUploadIds = [uploadId]) {
   const passiveNumbers = passiveNumberSummary(db, uploadId, ownerId);
   const unmatchedNumbers = combinedUnmatchedNumberSummary(db, unmatchedUploadIds, ownerId);
   const portalNumbers = portalNumberSet(db, ownerId);
-  const tipsterNumbers = new Set(members.flatMap(member => getUserGsms(member)).filter(Boolean));
+  const tipsterNumbers = new Set(members.flatMap(member => getUserGsms(member).map(canonicalGsm)).filter(Boolean));
   const portalMatchedCount = Array.from(tipsterNumbers).filter(number => portalNumbers.has(number)).length;
   const portalMissingCount = Math.max(0, tipsterNumbers.size - portalMatchedCount);
   const portalUnassignedCount = Array.from(portalNumbers).filter(number => !tipsterNumbers.has(number)).length;
@@ -1340,14 +1342,15 @@ function unmatchedNumberSummary(db, uploadId, ownerId) {
   const registeredNumbers = new Set(
     db.users
       .filter(user => (user.role === "member" && user.ownerId === ownerId) || user.id === ownerId)
-      .flatMap(user => getUserNumberRecords(user).map(record => record.number))
+      .flatMap(user => getUserNumberRecords(user).map(record => canonicalGsm(record.number)).filter(Boolean))
   );
   const grouped = new Map();
   selectedRows(db, uploadId, ownerId)
-    .filter(row => row.gsmMasked && !registeredNumbers.has(row.gsmMasked))
+    .map(row => ({ ...row, compareNumber: canonicalGsm(row.gsmMasked) }))
+    .filter(row => row.compareNumber && !registeredNumbers.has(row.compareNumber))
     .forEach(row => {
-      const current = grouped.get(row.gsmMasked) || {
-        number: row.gsmMasked,
+      const current = grouped.get(row.compareNumber) || {
+        number: row.compareNumber,
         rowCount: 0,
         total: 0,
         uploads: new Set(),
@@ -1360,7 +1363,7 @@ function unmatchedNumberSummary(db, uploadId, ownerId) {
       if (!current.lastSeenAt || String(row.importedAt || "").localeCompare(current.lastSeenAt) > 0) {
         current.lastSeenAt = row.importedAt || "";
       }
-      grouped.set(row.gsmMasked, current);
+      grouped.set(row.compareNumber, current);
     });
   return Array.from(grouped.values())
     .map(item => ({ ...item, uploads: Array.from(item.uploads) }))
@@ -1402,7 +1405,7 @@ function uploadTypeLabel(upload) {
 
 function passiveNumberSummary(db, uploadId, ownerId) {
   const selected = selectedRows(db, uploadId, ownerId);
-  const selectedNumbers = new Set(selected.map(row => row.gsmMasked).filter(Boolean));
+  const selectedNumbers = new Set(selected.map(row => canonicalGsm(row.gsmMasked)).filter(Boolean));
   const allRows = selectedRows(db, "all", ownerId);
   const uploadMap = new Map(db.uploads.map(upload => [upload.id, upload]));
   const selectedUpload = uploadId && uploadId !== "all" ? uploadMap.get(uploadId) : null;
@@ -1411,9 +1414,10 @@ function passiveNumberSummary(db, uploadId, ownerId) {
   return db.users
     .filter(user => user.role === "member" && user.ownerId === ownerId)
     .flatMap(user => getUserNumberRecords(user).map(record => {
-      if (!record.number || selectedNumbers.has(record.number)) return null;
+      const recordNumber = canonicalGsm(record.number);
+      if (!recordNumber || selectedNumbers.has(recordNumber)) return null;
       const numberRows = allRows
-        .filter(row => row.gsmMasked === record.number)
+        .filter(row => canonicalGsm(row.gsmMasked) === recordNumber)
         .sort((a, b) => String(b.importedAt || "").localeCompare(String(a.importedAt || "")));
       if (uploadId === "all" && numberRows.length) return null;
       const lastRow = numberRows[0];
@@ -1422,7 +1426,7 @@ function passiveNumberSummary(db, uploadId, ownerId) {
         memberId: user.id,
         memberName: user.name || user.username,
         memberUsername: user.username,
-        number: record.number,
+        number: recordNumber,
         name: record.name,
         passiveSince,
         lastActive: lastUpload ? uploadDisplayLabel(lastUpload) : "",
