@@ -80,8 +80,9 @@ function readDb() {
     return db;
   }
   const raw = JSON.parse(fs.readFileSync(DB_FILE, "utf8").replace(/^\uFEFF/, ""));
+  const beforeNormalize = JSON.stringify(raw);
   const normalized = normalizeDb(raw);
-  if (JSON.stringify(raw) !== JSON.stringify(normalized)) {
+  if (beforeNormalize !== JSON.stringify(normalized)) {
     writeDb(normalized);
   }
   return normalized;
