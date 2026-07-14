@@ -825,6 +825,38 @@ input:focus, select:focus, textarea:focus {
   padding: 4px 8px;
 }
 
+.number-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.number-split section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.number-split h4 {
+  align-items: center;
+  display: flex;
+  font-size: 13px;
+  justify-content: space-between;
+  margin: 0 0 8px;
+}
+
+.number-split h4 span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mini-empty {
+  font-size: 12px;
+  margin: 0;
+}
+
 .payment-form {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1516,6 +1548,7 @@ td:last-child, th:last-child { text-align: right; }
   .search-actions { align-items: stretch; flex-direction: column; width: 100%; }
   .search-actions .small { width: 100%; }
   .split-report { grid-template-columns: 1fr; }
+  .number-split { grid-template-columns: 1fr; }
   .upload-forms { grid-template-columns: 1fr; }
   .panel { padding: 18px; }
   .modal { padding: 10px; }
