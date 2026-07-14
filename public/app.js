@@ -320,6 +320,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderMembers();
   renderDailyMembers();
   renderPaymentPanel();
+  renderPortalComparison("portal");
   renderSharedNumbers(data.sharedNumbers || []);
   renderUnmatchedNumbers(data.unmatchedNumbers || []);
   renderPassiveNumbers(data.passiveNumbers || []);
@@ -544,6 +545,58 @@ function renderUnmatchedNumbers(numbers) {
       <td data-label="Excel / dosya">${escapeHtml((item.uploads || []).join(", ") || "-")}</td>
     </tr>
   `).join("") || `<tr><td colspan="4">Secili haftalik ve gunluk Excelde tipstersiz numara yok.</td></tr>`;
+}
+
+function portalComparisonMemberText(item) {
+  return (item.members || []).map(member => member.name || member.username).join(", ") || "-";
+}
+
+function portalComparisonFilter(items, query) {
+  return (items || []).filter(item => {
+    const memberText = (item.members || []).map(member => `${member.name} ${member.username}`).join(" ");
+    return searchMatches(`${item.number} ${item.name || ""} ${memberText}`, query);
+  });
+}
+
+function portalComparisonTableRows(items, emptyText) {
+  return items.map(item => `
+    <tr>
+      <td data-label="Numara"><strong>${escapeHtml(item.number)}</strong></td>
+      <td data-label="Tipster">${escapeHtml(portalComparisonMemberText(item))}</td>
+      <td data-label="Kayit adi">${escapeHtml(item.name || "-")}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="3">${escapeHtml(emptyText)}</td></tr>`;
+}
+
+function portalComparisonCards(items, emptyText) {
+  return items.map(item => `
+    <div class="number-item">
+      <div>
+        <strong>${escapeHtml(item.number)}</strong>
+        <span>${escapeHtml(item.name || portalComparisonMemberText(item))}</span>
+      </div>
+      ${portalStatusPill(item)}
+    </div>
+  `).join("") || `<p class="muted">${escapeHtml(emptyText)}</p>`;
+}
+
+function renderPortalComparison(prefix = "portal") {
+  const comparison = currentDashboard?.portalComparison || { registered: [], unregistered: [] };
+  const isMember = prefix === "memberPortal";
+  const query = document.getElementById(`${prefix}ComparisonSearch`)?.value || "";
+  const registered = portalComparisonFilter(comparison.registered || [], query);
+  const unregistered = portalComparisonFilter(comparison.unregistered || [], query);
+  const total = (comparison.registered || []).length + (comparison.unregistered || []).length;
+  document.getElementById(`${prefix}ComparisonCount`).textContent = total;
+  document.getElementById(`${prefix}RegisteredCount`).textContent = registered.length;
+  document.getElementById(`${prefix}UnregisteredCount`).textContent = unregistered.length;
+  if (isMember) {
+    document.getElementById(`${prefix}RegisteredRows`).innerHTML = portalComparisonCards(registered, "Kayitli numara yok.");
+    document.getElementById(`${prefix}UnregisteredRows`).innerHTML = portalComparisonCards(unregistered, "Kayitsiz numara yok.");
+  } else {
+    document.getElementById(`${prefix}RegisteredRows`).innerHTML = portalComparisonTableRows(registered, "Kayitli numara yok.");
+    document.getElementById(`${prefix}UnregisteredRows`).innerHTML = portalComparisonTableRows(unregistered, "Kayitsiz numara yok.");
+  }
 }
 
 function renderSharedNumbers(numbers = currentDashboard?.sharedNumbers || []) {
@@ -822,6 +875,7 @@ function renderMember(data) {
   renderDailyEarnings(data.dailySummaries || []);
   renderMemberPassiveNumbers(data.passiveNumbers || []);
   renderNumbers(numbers);
+  renderPortalComparison("memberPortal");
   renderMyRows(data.rows || []);
   renderMemberMessages(data.messages || []);
 }
@@ -1751,6 +1805,24 @@ document.getElementById("sharedNumberClearBtn").addEventListener("click", () => 
   document.getElementById("sharedNumberSearch").value = "";
   renderSharedNumbers();
 });
+document.getElementById("portalComparisonSearch").addEventListener("input", () => renderPortalComparison("portal"));
+document.getElementById("portalComparisonSearch").addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    renderPortalComparison("portal");
+  }
+});
+document.getElementById("portalComparisonSearchBtn").addEventListener("click", () => renderPortalComparison("portal"));
+document.getElementById("portalComparisonClearBtn").addEventListener("click", () => {
+  document.getElementById("portalComparisonSearch").value = "";
+  renderPortalComparison("portal");
+});
+document.getElementById("portalRegisteredExportBtn").addEventListener("click", () => {
+  window.location.href = "/api/portal-comparison/export?status=registered";
+});
+document.getElementById("portalUnregisteredExportBtn").addEventListener("click", () => {
+  window.location.href = "/api/portal-comparison/export?status=unregistered";
+});
 document.getElementById("numberSearch").addEventListener("input", () => {
   if (currentDashboard?.role === "member") renderNumbers(numberRecordsOf(currentDashboard.member));
 });
@@ -1766,6 +1838,24 @@ document.getElementById("numberSearchBtn").addEventListener("click", () => {
 document.getElementById("numberClearBtn").addEventListener("click", () => {
   document.getElementById("numberSearch").value = "";
   if (currentDashboard?.role === "member") renderNumbers(numberRecordsOf(currentDashboard.member));
+});
+document.getElementById("memberPortalComparisonSearch").addEventListener("input", () => renderPortalComparison("memberPortal"));
+document.getElementById("memberPortalComparisonSearch").addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    renderPortalComparison("memberPortal");
+  }
+});
+document.getElementById("memberPortalComparisonSearchBtn").addEventListener("click", () => renderPortalComparison("memberPortal"));
+document.getElementById("memberPortalComparisonClearBtn").addEventListener("click", () => {
+  document.getElementById("memberPortalComparisonSearch").value = "";
+  renderPortalComparison("memberPortal");
+});
+document.getElementById("memberPortalRegisteredExportBtn").addEventListener("click", () => {
+  window.location.href = "/api/portal-comparison/export?status=registered";
+});
+document.getElementById("memberPortalUnregisteredExportBtn").addEventListener("click", () => {
+  window.location.href = "/api/portal-comparison/export?status=unregistered";
 });
 document.getElementById("myRowsSort").addEventListener("change", () => {
   if (currentDashboard?.role === "member") renderMyRows(currentDashboard.rows || []);
