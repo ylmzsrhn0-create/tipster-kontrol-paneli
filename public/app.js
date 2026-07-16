@@ -15,6 +15,7 @@ let normalCalcFresh = true;
 let mobileSelectTarget = null;
 let mobileSelectHistoryOpen = false;
 const expandedAdminNumbers = new Set();
+const mobileSelectIds = ["adminUploadSelect", "adminDailyUploadSelect", "memberUploadSelect", "memberDailyUploadSelect", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -340,6 +341,7 @@ function renderUploadSelect(selectId, uploads, selected) {
     ? `<option value="all">Tum haftalar</option>` + uploads.map(upload => `<option value="${upload.id}">${escapeHtml(uploadLabel(upload))}</option>`).join("")
     : `<option value="all">Excel yuklenmedi</option>`;
   select.value = selected || uploads[0]?.id || "all";
+  updateMobileSelectTrigger(select);
 }
 
 function renderDailyUploadSelect(selectId, uploads, selected) {
@@ -348,6 +350,7 @@ function renderDailyUploadSelect(selectId, uploads, selected) {
     ? uploads.map(upload => `<option value="${upload.id}">${escapeHtml(uploadLabel(upload))}</option>`).join("")
     : `<option value="">Gunluk Excel yuklenmedi</option>`;
   select.value = selected || uploads[0]?.id || "";
+  updateMobileSelectTrigger(select);
 }
 
 function isMobileSelectMode() {
@@ -396,6 +399,26 @@ function renderMobileSelectOptions() {
       ${option.selected ? "<b>Secili</b>" : ""}
     </button>
   `).join("") || `<p class="muted mobile-select-empty">Sonuc bulunamadi.</p>`;
+}
+
+function updateMobileSelectTrigger(select) {
+  if (!select || !mobileSelectIds.includes(select.id)) return;
+  select.classList.add("mobile-select-native");
+  let trigger = document.querySelector(`[data-mobile-select-trigger="${select.id}"]`);
+  if (!trigger) {
+    trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "mobile-select-trigger";
+    trigger.dataset.mobileSelectTrigger = select.id;
+    select.insertAdjacentElement("afterend", trigger);
+  }
+  const selectedText = select.selectedOptions[0]?.textContent?.trim() || "Secim yap";
+  trigger.innerHTML = `<span>${escapeHtml(selectedText)}</span><b>Sec</b>`;
+  trigger.disabled = select.disabled || select.options.length <= 1;
+}
+
+function refreshMobileSelectTriggers() {
+  mobileSelectIds.forEach(selectId => updateMobileSelectTrigger(document.getElementById(selectId)));
 }
 
 function openMobileSelect(select) {
@@ -522,6 +545,7 @@ function renderPaymentPanel() {
   memberSelect.innerHTML = members.length
     ? members.map(member => `<option value="${escapeHtml(member.id)}">${escapeHtml(member.name)} - hesap: ${money.format(member.calculated || 0)}</option>`).join("")
     : `<option value="">Tipster yok</option>`;
+  updateMobileSelectTrigger(memberSelect);
   document.getElementById("paymentWeekLabel").value = selectedWeeklyUploadLabel();
   document.getElementById("paymentCount").textContent = summary.count || 0;
   document.getElementById("paymentCalculatedTotal").textContent = money.format(summary.totalCalculated || 0);
@@ -1870,7 +1894,7 @@ document.getElementById("memberMessageRows").addEventListener("click", async eve
   }
 });
 
-["adminUploadSelect", "adminDailyUploadSelect", "memberUploadSelect", "memberDailyUploadSelect", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"].forEach(selectId => {
+mobileSelectIds.forEach(selectId => {
   const select = document.getElementById(selectId);
   if (!select) return;
   select.addEventListener("pointerdown", event => {
@@ -1883,6 +1907,7 @@ document.getElementById("memberMessageRows").addEventListener("click", async eve
     event.preventDefault();
     openMobileSelect(select);
   });
+  updateMobileSelectTrigger(select);
 });
 
 document.getElementById("mobileSelectSearch").addEventListener("input", renderMobileSelectOptions);
@@ -1891,11 +1916,18 @@ document.getElementById("mobileSelectModal").addEventListener("click", event => 
   const option = event.target.closest("[data-mobile-select-value]");
   if (option && mobileSelectTarget) {
     mobileSelectTarget.value = option.dataset.mobileSelectValue;
+    updateMobileSelectTrigger(mobileSelectTarget);
     mobileSelectTarget.dispatchEvent(new Event("change", { bubbles: true }));
     closeMobileSelect();
     return;
   }
   if (event.target.id === "mobileSelectModal") closeMobileSelect();
+});
+document.addEventListener("click", event => {
+  const trigger = event.target.closest("[data-mobile-select-trigger]");
+  if (!trigger) return;
+  const select = document.getElementById(trigger.dataset.mobileSelectTrigger);
+  if (openMobileSelect(select)) event.preventDefault();
 });
 window.addEventListener("popstate", () => {
   if (!mobileSelectModal.classList.contains("hidden")) closeMobileSelect(true);
@@ -1903,10 +1935,12 @@ window.addEventListener("popstate", () => {
 
 document.getElementById("adminUploadSelect").addEventListener("change", event => {
   selectedUploadId = event.target.value;
+  updateMobileSelectTrigger(event.target);
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
 document.getElementById("adminDailyUploadSelect").addEventListener("change", event => {
   selectedDailyUploadId = event.target.value;
+  updateMobileSelectTrigger(event.target);
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
 document.getElementById("adminUploadApplyBtn").addEventListener("click", () => {
@@ -1919,10 +1953,12 @@ document.getElementById("adminDailyUploadApplyBtn").addEventListener("click", ()
 });
 document.getElementById("memberUploadSelect").addEventListener("change", event => {
   selectedUploadId = event.target.value;
+  updateMobileSelectTrigger(event.target);
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
 document.getElementById("memberDailyUploadSelect").addEventListener("change", event => {
   selectedDailyUploadId = event.target.value;
+  updateMobileSelectTrigger(event.target);
   applyMemberDailyUploadSelection();
 });
 document.getElementById("memberUploadApplyBtn").addEventListener("click", () => {
@@ -1932,7 +1968,10 @@ document.getElementById("memberUploadApplyBtn").addEventListener("click", () => 
 document.getElementById("memberDailyUploadApplyBtn").addEventListener("click", () => {
   applyMemberDailyUploadSelection();
 });
-document.getElementById("detailUploadSelect").addEventListener("change", event => loadMemberDetail(detailMemberId, event.target.value));
+document.getElementById("detailUploadSelect").addEventListener("change", event => {
+  updateMobileSelectTrigger(event.target);
+  loadMemberDetail(detailMemberId, event.target.value);
+});
 document.getElementById("search").addEventListener("input", () => {
   renderMembers();
   renderDailyMembers();
