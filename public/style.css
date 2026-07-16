@@ -1482,6 +1482,85 @@ td:last-child, th:last-child { text-align: right; }
   font-weight: 800;
 }
 
+.mobile-select-modal {
+  display: none;
+}
+
+.mobile-select-page {
+  width: min(100%, 560px);
+  max-height: calc(100vh - 20px);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.mobile-select-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.mobile-select-head .ghost {
+  width: auto;
+  min-width: 78px;
+}
+
+.mobile-select-head h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.mobile-select-list {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding-bottom: 6px;
+}
+
+.mobile-select-option {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  text-align: left;
+}
+
+.mobile-select-option span {
+  overflow-wrap: anywhere;
+}
+
+.mobile-select-option.active {
+  border-color: var(--brand);
+  background: #eef7ff;
+}
+
+.mobile-select-option b {
+  flex: 0 0 auto;
+  color: var(--brand-dark);
+  font-size: 12px;
+}
+
+.mobile-select-empty {
+  padding: 14px 4px;
+}
+
+body.mobile-select-open {
+  overflow: hidden;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
@@ -1524,6 +1603,33 @@ td:last-child, th:last-child { text-align: right; }
   .payment-form .wide-field { grid-column: auto; }
   .section-head { align-items: stretch; flex-direction: column; }
   .section-head input { width: 100%; }
+}
+
+@media (max-width: 760px) {
+  .mobile-select-modal {
+    display: grid;
+    place-items: stretch;
+    padding: 10px;
+    background: rgba(15, 23, 42, .42);
+  }
+
+  .mobile-select-modal.hidden {
+    display: none !important;
+  }
+
+  .mobile-select-page {
+    width: 100%;
+    max-height: calc(100vh - 20px);
+    border-radius: 8px;
+  }
+
+  .mobile-select-head {
+    align-items: flex-start;
+  }
+
+  .mobile-select-head .ghost {
+    min-height: 42px;
+  }
 }
 
 @media (max-width: 560px) {
