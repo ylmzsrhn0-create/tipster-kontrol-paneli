@@ -12,6 +12,8 @@ let normalCalcValue = "0";
 let normalCalcStored = null;
 let normalCalcOperator = "";
 let normalCalcFresh = true;
+let mobileSelectTarget = null;
+let mobileSelectHistoryOpen = false;
 const expandedAdminNumbers = new Set();
 
 if ("serviceWorker" in navigator) {
@@ -28,6 +30,7 @@ const memberPanel = document.getElementById("memberPanel");
 const loginHint = document.getElementById("loginHint");
 const detailModal = document.getElementById("memberDetailModal");
 const kvkkModal = document.getElementById("kvkkModal");
+const mobileSelectModal = document.getElementById("mobileSelectModal");
 const notificationBadge = document.getElementById("notificationBadge");
 
 const money = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
@@ -345,6 +348,84 @@ function renderDailyUploadSelect(selectId, uploads, selected) {
     ? uploads.map(upload => `<option value="${upload.id}">${escapeHtml(uploadLabel(upload))}</option>`).join("")
     : `<option value="">Gunluk Excel yuklenmedi</option>`;
   select.value = selected || uploads[0]?.id || "";
+}
+
+function isMobileSelectMode() {
+  return window.matchMedia("(max-width: 760px)").matches;
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("tr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function selectLabel(select) {
+  const label = select.closest("label");
+  const text = Array.from(label?.childNodes || [])
+    .filter(node => node.nodeType === Node.TEXT_NODE)
+    .map(node => node.textContent.trim())
+    .filter(Boolean)
+    .join(" ");
+  return text || select.getAttribute("aria-label") || "Secim yap";
+}
+
+function mobileSelectOptions(query = "") {
+  if (!mobileSelectTarget) return [];
+  const normalizedQuery = normalizeSearchText(query);
+  return Array.from(mobileSelectTarget.options)
+    .map(option => ({
+      value: option.value,
+      text: option.textContent.trim(),
+      selected: option.value === mobileSelectTarget.value,
+      disabled: option.disabled
+    }))
+    .filter(option => !normalizedQuery || normalizeSearchText(option.text).includes(normalizedQuery));
+}
+
+function renderMobileSelectOptions() {
+  const list = document.getElementById("mobileSelectList");
+  const search = document.getElementById("mobileSelectSearch");
+  const options = mobileSelectOptions(search.value);
+  list.innerHTML = options.map(option => `
+    <button class="mobile-select-option ${option.selected ? "active" : ""}" type="button" data-mobile-select-value="${escapeHtml(option.value)}" ${option.disabled ? "disabled" : ""}>
+      <span>${escapeHtml(option.text)}</span>
+      ${option.selected ? "<b>Secili</b>" : ""}
+    </button>
+  `).join("") || `<p class="muted mobile-select-empty">Sonuc bulunamadi.</p>`;
+}
+
+function openMobileSelect(select) {
+  if (!isMobileSelectMode() || !select || select.options.length <= 1) return false;
+  mobileSelectTarget = select;
+  document.getElementById("mobileSelectTitle").textContent = selectLabel(select);
+  document.getElementById("mobileSelectSubtitle").textContent = select.selectedOptions[0]?.textContent?.trim() || "Listeden bir kayit sec.";
+  document.getElementById("mobileSelectSearch").value = "";
+  renderMobileSelectOptions();
+  mobileSelectModal.classList.remove("hidden");
+  document.body.classList.add("mobile-select-open");
+  if (!mobileSelectHistoryOpen) {
+    history.pushState({ mobileSelect: true }, "");
+    mobileSelectHistoryOpen = true;
+  }
+  setTimeout(() => document.getElementById("mobileSelectSearch").focus(), 50);
+  return true;
+}
+
+function closeMobileSelect(fromHistory = false) {
+  if (mobileSelectModal.classList.contains("hidden")) return;
+  mobileSelectModal.classList.add("hidden");
+  document.body.classList.remove("mobile-select-open");
+  mobileSelectTarget = null;
+  if (!fromHistory && mobileSelectHistoryOpen) {
+    mobileSelectHistoryOpen = false;
+    history.back();
+    return;
+  }
+  mobileSelectHistoryOpen = false;
 }
 
 function renderAdmin(data, keepOwnerPanel = false) {
@@ -1787,6 +1868,37 @@ document.getElementById("memberMessageRows").addEventListener("click", async eve
   } catch (error) {
     setMessage("memberPasswordMessage", error.message);
   }
+});
+
+["adminUploadSelect", "adminDailyUploadSelect", "memberUploadSelect", "memberDailyUploadSelect", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"].forEach(selectId => {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  select.addEventListener("pointerdown", event => {
+    if (!isMobileSelectMode()) return;
+    event.preventDefault();
+    openMobileSelect(select);
+  });
+  select.addEventListener("keydown", event => {
+    if (!isMobileSelectMode() || !["Enter", " "].includes(event.key)) return;
+    event.preventDefault();
+    openMobileSelect(select);
+  });
+});
+
+document.getElementById("mobileSelectSearch").addEventListener("input", renderMobileSelectOptions);
+document.getElementById("mobileSelectBackBtn").addEventListener("click", () => closeMobileSelect());
+document.getElementById("mobileSelectModal").addEventListener("click", event => {
+  const option = event.target.closest("[data-mobile-select-value]");
+  if (option && mobileSelectTarget) {
+    mobileSelectTarget.value = option.dataset.mobileSelectValue;
+    mobileSelectTarget.dispatchEvent(new Event("change", { bubbles: true }));
+    closeMobileSelect();
+    return;
+  }
+  if (event.target.id === "mobileSelectModal") closeMobileSelect();
+});
+window.addEventListener("popstate", () => {
+  if (!mobileSelectModal.classList.contains("hidden")) closeMobileSelect(true);
 });
 
 document.getElementById("adminUploadSelect").addEventListener("change", event => {
