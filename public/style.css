@@ -1486,6 +1486,10 @@ td:last-child, th:last-child { text-align: right; }
   display: none;
 }
 
+.mobile-select-trigger {
+  display: none;
+}
+
 .mobile-select-page {
   width: min(100%, 560px);
   max-height: calc(100vh - 20px);
@@ -1606,6 +1610,47 @@ body.mobile-select-open {
 }
 
 @media (max-width: 760px) {
+  select + .mobile-select-trigger {
+    width: 100%;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+    text-align: left;
+  }
+
+  select + .mobile-select-trigger span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  select + .mobile-select-trigger b {
+    flex: 0 0 auto;
+    color: var(--brand-dark);
+    font-size: 12px;
+  }
+
+  select + .mobile-select-trigger:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+  }
+
+  select.mobile-select-native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
+    padding: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .mobile-select-modal {
     display: grid;
     place-items: stretch;
