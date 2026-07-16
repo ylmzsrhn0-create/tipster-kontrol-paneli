@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v8-mobile-select";
+const CACHE_NAME = "tipster-panel-v9-mobile-select-trigger";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=mobile-select-20260716b",
-  "/app.js?v=mobile-select-20260716b",
+  "/style.css?v=mobile-select-20260716c",
+  "/app.js?v=mobile-select-20260716c",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
