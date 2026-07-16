@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=20260709-logo2">
+  <link rel="stylesheet" href="/style.css?v=mobile-select-20260716">
 </head>
 <body class="login-mode">
   <main class="shell">
@@ -962,6 +962,20 @@
       </div>
     </section>
 
+    <section class="modal mobile-select-modal hidden" id="mobileSelectModal" aria-modal="true" role="dialog">
+      <div class="mobile-select-page">
+        <div class="mobile-select-head">
+          <button class="ghost" id="mobileSelectBackBtn" type="button">Geri</button>
+          <div>
+            <h2 id="mobileSelectTitle">Secim yap</h2>
+            <p class="muted" id="mobileSelectSubtitle">Listeden bir kayit sec.</p>
+          </div>
+        </div>
+        <input id="mobileSelectSearch" placeholder="Ara">
+        <div class="mobile-select-list" id="mobileSelectList"></div>
+      </div>
+    </section>
+
     <section class="modal hidden" id="memberDetailModal" aria-modal="true" role="dialog">
       <div class="modal-panel">
         <div class="section-head">
@@ -1043,6 +1057,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=portal-inline-20260714"></script>
+  <script src="/app.js?v=mobile-select-20260716"></script>
 </body>
 </html>
