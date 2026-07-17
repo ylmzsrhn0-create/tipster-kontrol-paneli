@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=mobile-panels-20260717a">
+  <link rel="stylesheet" href="/style.css?v=excel-tabs-20260717a">
 </head>
 <body class="login-mode">
   <main class="shell">
@@ -387,49 +387,70 @@
             <div class="collapsible-body">
               <p class="muted">Haftalik ve gunluk Excel yuklemeleri ayri saklanir. Her ikisinde de sadece Bonus Disi Kupon Oynama satirlari hesaba alinir.</p>
               <div class="upload-forms">
-                <form class="upload-box" id="weeklyUploadForm">
-                  <strong>Haftalik Excel yukle</strong>
-                  <label>
-                    Hafta adi
-                    <input id="weeklyWeekLabel" placeholder="Bos kalirsa dosya adi kullanilir">
-                  </label>
-                  <label>
-                    Haftalik Excel dosyalari
-                    <input id="weeklyExcelFile" name="excel" type="file" accept=".xlsx" multiple required>
-                  </label>
-                  <p class="muted" id="weeklyFileHelp">Bir veya birden fazla haftalik .xlsx dosyasi secebilirsin.</p>
-                  <button class="primary" type="submit">Haftalik Excel aktar</button>
-                </form>
-                <form class="upload-box" id="dailyUploadForm">
-                  <strong>Gunluk Excel yukle</strong>
-                  <label>
-                    Gunluk tarih
-                    <input id="dailyUploadDate" type="date">
-                  </label>
-                  <label>
-                    Gun adi
-                    <input id="dailyWeekLabel" placeholder="Orn. Pazartesi veya 06.07.2026">
-                  </label>
-                  <label>
-                    Gunluk Excel dosyalari
-                    <input id="dailyExcelFile" name="excel" type="file" accept=".xlsx" multiple required>
-                  </label>
-                  <p class="muted" id="dailyFileHelp">Bir veya birden fazla gunluk .xlsx dosyasi secebilirsin.</p>
-                  <button class="primary" type="submit">Gunluk Excel aktar</button>
-                </form>
-                <form class="upload-box" id="portalListForm">
-                  <strong>Bayi Portal haftalik liste</strong>
-                  <label>
-                    Hafta adi
-                    <input id="portalWeekLabel" placeholder="Orn. 08.07.2026 haftasi">
-                  </label>
-                  <label>
-                    Telefon listesi Excel
-                    <input id="portalExcelFile" name="excel" type="file" accept=".xlsx" required>
-                  </label>
-                  <p class="muted" id="portalFileHelp">Bayi Portaldan aldigin telefon numaralari Excelini sec.</p>
-                  <button class="primary" type="submit">Bayi Portal listesini aktar</button>
-                </form>
+                <details class="upload-box upload-collapsible collapsible">
+                  <summary>
+                    <span>
+                      <strong>Haftalik Excel yukle</strong>
+                      <small>Haftalik dosyalari aktar</small>
+                    </span>
+                  </summary>
+                  <form class="upload-inner collapsible-body" id="weeklyUploadForm">
+                    <label>
+                      Hafta adi
+                      <input id="weeklyWeekLabel" placeholder="Bos kalirsa dosya adi kullanilir">
+                    </label>
+                    <label>
+                      Haftalik Excel dosyalari
+                      <input id="weeklyExcelFile" name="excel" type="file" accept=".xlsx" multiple required>
+                    </label>
+                    <p class="muted" id="weeklyFileHelp">Bir veya birden fazla haftalik .xlsx dosyasi secebilirsin.</p>
+                    <button class="primary" type="submit">Haftalik Excel aktar</button>
+                  </form>
+                </details>
+                <details class="upload-box upload-collapsible collapsible">
+                  <summary>
+                    <span>
+                      <strong>Gunluk Excel yukle</strong>
+                      <small>Gunluk dosyalari aktar</small>
+                    </span>
+                  </summary>
+                  <form class="upload-inner collapsible-body" id="dailyUploadForm">
+                    <label>
+                      Gunluk tarih
+                      <input id="dailyUploadDate" type="date">
+                    </label>
+                    <label>
+                      Gun adi
+                      <input id="dailyWeekLabel" placeholder="Orn. Pazartesi veya 06.07.2026">
+                    </label>
+                    <label>
+                      Gunluk Excel dosyalari
+                      <input id="dailyExcelFile" name="excel" type="file" accept=".xlsx" multiple required>
+                    </label>
+                    <p class="muted" id="dailyFileHelp">Bir veya birden fazla gunluk .xlsx dosyasi secebilirsin.</p>
+                    <button class="primary" type="submit">Gunluk Excel aktar</button>
+                  </form>
+                </details>
+                <details class="upload-box upload-collapsible collapsible">
+                  <summary>
+                    <span>
+                      <strong>Bayi Portal haftalik liste</strong>
+                      <small>Portal telefon listesini aktar</small>
+                    </span>
+                  </summary>
+                  <form class="upload-inner collapsible-body" id="portalListForm">
+                    <label>
+                      Hafta adi
+                      <input id="portalWeekLabel" placeholder="Orn. 08.07.2026 haftasi">
+                    </label>
+                    <label>
+                      Telefon listesi Excel
+                      <input id="portalExcelFile" name="excel" type="file" accept=".xlsx" required>
+                    </label>
+                    <p class="muted" id="portalFileHelp">Bayi Portaldan aldigin telefon numaralari Excelini sec.</p>
+                    <button class="primary" type="submit">Bayi Portal listesini aktar</button>
+                  </form>
+                </details>
               </div>
               <button class="danger" id="clearUploadsBtn" type="button">Tum haftalik ve gunluk Excel kayitlarini temizle</button>
               <div class="message" id="uploadMessage"></div>
@@ -1057,6 +1078,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=mobile-panels-20260717a"></script>
+  <script src="/app.js?v=excel-tabs-20260717a"></script>
 </body>
 </html>
