@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=loaded-excel-lists-20260717a">
+  <link rel="stylesheet" href="/style.css?v=amount-sort-20260717a">
 </head>
 <body class="login-mode">
   <main class="shell">
@@ -579,6 +579,14 @@
               <button class="primary small" id="searchBtn" type="button">Ara</button>
               <button class="ghost small" id="searchClearBtn" type="button">Temizle</button>
             </div>
+            <label>
+              Siralama
+              <select id="adminMemberSort">
+                <option value="default">Varsayilan</option>
+                <option value="desc">Toplam oyun: yuksekten dusuge</option>
+                <option value="asc">Toplam oyun: dusukten yuksege</option>
+              </select>
+            </label>
             <div class="search-actions">
               <button class="ghost small" id="portalRegisteredExportBtn" type="button">Kayitli Excel indir</button>
               <button class="ghost small" id="portalUnregisteredExportBtn" type="button">Kayitsiz Excel indir</button>
@@ -617,6 +625,14 @@
             </label>
             <button class="primary small" id="adminDailyUploadApplyBtn" type="button">Sec</button>
             <button class="danger small" id="deleteSelectedDailyUploadBtn" type="button">Secili gunluk Exceli sil</button>
+            <label>
+              Siralama
+              <select id="adminDailyMemberSort">
+                <option value="default">Varsayilan</option>
+                <option value="desc">Gunluk toplam: yuksekten dusuge</option>
+                <option value="asc">Gunluk toplam: dusukten yuksege</option>
+              </select>
+            </label>
           </div>
           <div class="table-wrap collapsible-table">
             <table>
@@ -781,6 +797,16 @@
             </span>
             <b id="myRate">%-</b>
           </summary>
+          <div class="toolbar-panel compact-body">
+            <label>
+              Siralama
+              <select id="commissionRowsSort">
+                <option value="default">Varsayilan</option>
+                <option value="desc">Toplam oyun: yuksekten dusuge</option>
+                <option value="asc">Toplam oyun: dusukten yuksege</option>
+              </select>
+            </label>
+          </div>
           <div class="table-wrap collapsible-table">
             <table>
               <thead>
@@ -1078,6 +1104,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=loaded-excel-lists-20260717a"></script>
+  <script src="/app.js?v=amount-sort-20260717a"></script>
 </body>
 </html>
