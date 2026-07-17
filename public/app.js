@@ -451,6 +451,33 @@ function closeMobileSelect(fromHistory = false) {
   mobileSelectHistoryOpen = false;
 }
 
+function isMobilePanelMode() {
+  return window.matchMedia("(max-width: 760px)").matches;
+}
+
+function refreshMobilePanelState() {
+  const activePanel = document.querySelector("details.collapsible.mobile-panel-page[open]");
+  document.body.classList.toggle("mobile-panel-open", Boolean(activePanel));
+}
+
+function activateMobilePanel(details) {
+  if (!details || !details.classList.contains("collapsible") || !details.open || !isMobilePanelMode()) return;
+  document.querySelectorAll("details.collapsible.mobile-panel-page[open]").forEach(panel => {
+    if (panel !== details) {
+      panel.classList.remove("mobile-panel-page");
+      panel.open = false;
+    }
+  });
+  details.classList.add("mobile-panel-page");
+  document.body.classList.add("mobile-panel-open");
+  details.scrollTop = 0;
+}
+
+function deactivateMobilePanel(details) {
+  details?.classList.remove("mobile-panel-page");
+  refreshMobilePanelState();
+}
+
 function renderAdmin(data, keepOwnerPanel = false) {
   currentDashboard = data;
   selectedUploadId = data.selectedUploadId;
@@ -1928,6 +1955,36 @@ document.addEventListener("click", event => {
   if (!trigger) return;
   const select = document.getElementById(trigger.dataset.mobileSelectTrigger);
   if (openMobileSelect(select)) event.preventDefault();
+});
+
+document.addEventListener("toggle", event => {
+  const details = event.target;
+  if (!(details instanceof HTMLDetailsElement) || !details.classList.contains("collapsible")) return;
+  if (details.open) {
+    activateMobilePanel(details);
+  } else {
+    deactivateMobilePanel(details);
+  }
+}, true);
+
+document.addEventListener("click", event => {
+  const activePanel = event.target.closest("details.collapsible.mobile-panel-page");
+  if (!activePanel || !isMobilePanelMode()) return;
+  const summary = event.target.closest("summary");
+  if (summary && activePanel.contains(summary) && activePanel.open) {
+    event.preventDefault();
+    activePanel.open = false;
+    deactivateMobilePanel(activePanel);
+  }
+});
+
+window.addEventListener("resize", () => {
+  if (isMobilePanelMode()) {
+    refreshMobilePanelState();
+    return;
+  }
+  document.querySelectorAll("details.collapsible.mobile-panel-page").forEach(panel => panel.classList.remove("mobile-panel-page"));
+  document.body.classList.remove("mobile-panel-open");
 });
 window.addEventListener("popstate", () => {
   if (!mobileSelectModal.classList.contains("hidden")) closeMobileSelect(true);
