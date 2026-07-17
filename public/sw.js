@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v16-all-weekly-total-direct";
+const CACHE_NAME = "tipster-panel-v17-numbers-card-total";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=all-weekly-total-direct-20260717a",
-  "/app.js?v=all-weekly-total-direct-20260717a",
+  "/style.css?v=numbers-card-total-20260717a",
+  "/app.js?v=numbers-card-total-20260717a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
