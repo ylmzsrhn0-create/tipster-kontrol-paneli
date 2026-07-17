@@ -15,7 +15,7 @@ let normalCalcFresh = true;
 let mobileSelectTarget = null;
 let mobileSelectHistoryOpen = false;
 const expandedAdminNumbers = new Set();
-const mobileSelectIds = ["adminUploadSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
+const mobileSelectIds = ["adminUploadSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "numberListSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -1227,7 +1227,9 @@ function applyMemberDailyUploadSelection() {
 
 function renderNumbers(records) {
   const query = document.getElementById("numberSearch")?.value || "";
-  const rows = records.filter(record => searchMatches(`${record.name || ""} ${record.number || ""}`, query));
+  const sort = document.getElementById("numberListSort")?.value || "default";
+  const rows = sortByAmount(withAllWeeklyTotals(records), sort, "allWeeklyTotal")
+    .filter(record => searchMatches(`${record.name || ""} ${record.number || ""}`, query));
   document.getElementById("numberList").innerHTML = rows.map(record => `
     <div class="number-item">
       <div>
@@ -1235,6 +1237,11 @@ function renderNumbers(records) {
         <span>${escapeHtml(record.number)}</span>
         ${numberDateHtml(record)}
         ${portalStatusPill(record)}
+        <div class="number-total-box">
+          <span>Yuklu haftalar toplam</span>
+          <strong>${money.format(record.allWeeklyTotal || 0)}</strong>
+          <small>${record.allWeeklyRowCount || 0} Excel kaydi</small>
+        </div>
       </div>
       <button class="danger small" type="button" data-number-delete="${encodeURIComponent(record.number)}">Sil</button>
     </div>
@@ -2144,6 +2151,9 @@ document.getElementById("numberSearchBtn").addEventListener("click", () => {
 });
 document.getElementById("numberClearBtn").addEventListener("click", () => {
   document.getElementById("numberSearch").value = "";
+  if (currentDashboard?.role === "member") renderNumbers(numberRecordsOf(currentDashboard.member));
+});
+document.getElementById("numberListSort").addEventListener("change", () => {
   if (currentDashboard?.role === "member") renderNumbers(numberRecordsOf(currentDashboard.member));
 });
 document.getElementById("memberPortalRegisteredExportBtn").addEventListener("click", () => {
