@@ -1346,6 +1346,22 @@ function memberPrivateSummary(summary) {
   };
 }
 
+function mergeAllWeeklyNumberTotals(summary, allWeeklySummary) {
+  const totalsByNumber = new Map((allWeeklySummary.numberSummaries || []).map(item => [canonicalGsm(item.number), item]));
+  return {
+    ...summary,
+    numberSummaries: (summary.numberSummaries || []).map(item => {
+      const allWeekly = totalsByNumber.get(canonicalGsm(item.number)) || {};
+      return {
+        ...item,
+        allWeeklyTotal: Number(allWeekly.total || 0),
+        allWeeklyRowCount: Number(allWeekly.rowCount || 0),
+        allWeeklyCalculated: Number(allWeekly.calculated || 0)
+      };
+    })
+  };
+}
+
 function memberDailySummaries(db, user, ownerId) {
   const uploads = uploadsByType(db, ownerId, "daily").slice().reverse();
   return uploads.map(upload => {
@@ -2193,8 +2209,8 @@ async function handleApi(req, res) {
       sendJson(res, 200, payload);
       return;
     }
-    const summary = memberPrivateSummary(memberSummary(db, user, uploadId));
     const allWeeklySummary = memberPrivateSummary(memberAllWeeklySummary(db, user));
+    const summary = mergeAllWeeklyNumberTotals(memberPrivateSummary(memberSummary(db, user, uploadId)), allWeeklySummary);
     const publicMember = publicUser(user);
     publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalSet);
     const portalComparison = portalComparisonSummary(db, user.ownerId, user.id);
