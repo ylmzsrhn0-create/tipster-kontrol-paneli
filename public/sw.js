@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v11-excel-tabs";
+const CACHE_NAME = "tipster-panel-v12-loaded-excel-lists";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=excel-tabs-20260717a",
-  "/app.js?v=excel-tabs-20260717a",
+  "/style.css?v=loaded-excel-lists-20260717a",
+  "/app.js?v=loaded-excel-lists-20260717a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
