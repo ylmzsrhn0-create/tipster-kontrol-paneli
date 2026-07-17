@@ -1138,9 +1138,9 @@ function withAllWeeklyTotals(rows) {
     const allRow = totalsByNumber.get(canonicalGsm(row.number)) || {};
     return {
       ...row,
-      allWeeklyTotal: Number(allRow.total || 0),
-      allWeeklyRowCount: Number(allRow.rowCount || 0),
-      allWeeklyCalculated: Number(allRow.calculated || 0)
+      allWeeklyTotal: Number(row.allWeeklyTotal ?? allRow.total ?? 0),
+      allWeeklyRowCount: Number(row.allWeeklyRowCount ?? allRow.rowCount ?? 0),
+      allWeeklyCalculated: Number(row.allWeeklyCalculated ?? allRow.calculated ?? 0)
     };
   });
 }
