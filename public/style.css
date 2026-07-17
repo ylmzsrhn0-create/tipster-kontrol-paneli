@@ -943,6 +943,30 @@ td:last-child, th:last-child { text-align: right; }
   font-size: 13px;
 }
 
+.upload-list-collapsible {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.upload-list-collapsible summary {
+  min-height: 56px;
+  padding: 13px 14px;
+}
+
+.upload-list-collapsible summary strong {
+  font-size: 15px;
+}
+
+.upload-list-collapsible .upload-list-body {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: #f9fbfd;
+}
+
 .upload-forms {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
