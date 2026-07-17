@@ -1675,6 +1675,76 @@ body.mobile-select-open {
   .mobile-select-head .ghost {
     min-height: 42px;
   }
+
+  body.mobile-panel-open {
+    overflow: hidden;
+  }
+
+  details.collapsible.mobile-panel-page {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    width: 100%;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    border: 0;
+    border-radius: 0;
+    background: #f5f7fb;
+    box-shadow: none;
+  }
+
+  details.collapsible.mobile-panel-page > summary {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    min-height: 64px;
+    padding: 14px 16px;
+    flex: 0 0 auto;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+  }
+
+  details.collapsible.mobile-panel-page > summary::after {
+    content: "Geri";
+    width: auto;
+    min-width: 58px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 8px;
+    background: var(--brand);
+    color: #fff;
+    font-size: 12px;
+  }
+
+  details.collapsible.mobile-panel-page > summary strong {
+    font-size: 16px;
+  }
+
+  details.collapsible.mobile-panel-page > summary small {
+    font-size: 11px;
+  }
+
+  details.collapsible.mobile-panel-page > .collapsible-body,
+  details.collapsible.mobile-panel-page > .collapsible-tools,
+  details.collapsible.mobile-panel-page > .collapsible-table,
+  details.collapsible.mobile-panel-page > .table-wrap,
+  details.collapsible.mobile-panel-page > form,
+  details.collapsible.mobile-panel-page > div:not(.section-head),
+  details.collapsible.mobile-panel-page > section {
+    margin: 12px;
+  }
+
+  details.collapsible.mobile-panel-page .summary-action {
+    width: auto;
+    min-height: 34px;
+    margin-left: 0;
+  }
 }
 
 @media (max-width: 560px) {
