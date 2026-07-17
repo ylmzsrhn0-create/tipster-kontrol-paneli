@@ -15,7 +15,7 @@ let normalCalcFresh = true;
 let mobileSelectTarget = null;
 let mobileSelectHistoryOpen = false;
 const expandedAdminNumbers = new Set();
-const mobileSelectIds = ["adminUploadSelect", "adminDailyUploadSelect", "memberUploadSelect", "memberDailyUploadSelect", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
+const mobileSelectIds = ["adminUploadSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -257,6 +257,13 @@ function searchMatches(haystack, query) {
     || (numberQuery && numberHaystack.includes(numberQuery))
     || (digitQuery && digitHaystack.includes(digitQuery))
     || maskedNumberMatches(haystack, query);
+}
+
+function sortByAmount(rows, sort, amountKey) {
+  const sorted = [...(rows || [])];
+  if (sort === "desc") sorted.sort((a, b) => Number(b[amountKey] || 0) - Number(a[amountKey] || 0));
+  if (sort === "asc") sorted.sort((a, b) => Number(a[amountKey] || 0) - Number(b[amountKey] || 0));
+  return sorted;
 }
 
 function dateInputValue(date) {
@@ -697,10 +704,12 @@ function renderBackups(backups) {
 
 function renderMembers() {
   const query = document.getElementById("search").value;
-  const rows = currentDashboard.members.filter(member => {
+  const sort = document.getElementById("adminMemberSort")?.value || "default";
+  const filteredRows = currentDashboard.members.filter(member => {
     const text = `${member.name} ${member.username} ${numberRecordText(member)}`;
     return searchMatches(text, query);
   });
+  const rows = sortByAmount(filteredRows, sort, "total");
   document.getElementById("memberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
@@ -720,10 +729,12 @@ function renderMembers() {
 
 function renderDailyMembers() {
   const query = document.getElementById("search").value;
-  const rows = (currentDashboard.dailyMembers || []).filter(member => {
+  const sort = document.getElementById("adminDailyMemberSort")?.value || "default";
+  const filteredRows = (currentDashboard.dailyMembers || []).filter(member => {
     const text = `${member.name} ${member.username} ${numberRecordText(member)}`;
     return searchMatches(text, query);
   });
+  const rows = sortByAmount(filteredRows, sort, "dailyTotal");
   document.getElementById("dailyMemberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
@@ -1139,7 +1150,9 @@ function renderMyRows(rows) {
 }
 
 function renderCommissionRows(rows) {
-  document.getElementById("commissionRows").innerHTML = rows.map(row => `
+  const sort = document.getElementById("commissionRowsSort")?.value || "default";
+  const visibleRows = sortByAmount(rows, sort, "total");
+  document.getElementById("commissionRows").innerHTML = visibleRows.map(row => `
     <tr>
       <td data-label="Isim">${escapeHtml(row.name || "-")}</td>
       <td data-label="Numara"><strong>${escapeHtml(row.number)}</strong>${numberDateHtml(row)}</td>
@@ -2112,6 +2125,15 @@ document.getElementById("memberPortalUnregisteredExportBtn").addEventListener("c
 });
 document.getElementById("myRowsSort").addEventListener("change", () => {
   if (currentDashboard?.role === "member") renderMyRows(currentDashboard.rows || []);
+});
+document.getElementById("commissionRowsSort").addEventListener("change", () => {
+  if (currentDashboard?.role === "member") renderCommissionRows(currentDashboard.numberSummaries || []);
+});
+document.getElementById("adminMemberSort").addEventListener("change", () => {
+  if (currentDashboard?.role !== "member") renderMembers();
+});
+document.getElementById("adminDailyMemberSort").addEventListener("change", () => {
+  if (currentDashboard?.role !== "member") renderDailyMembers();
 });
 
 function toggleAdminNumberList(button) {
