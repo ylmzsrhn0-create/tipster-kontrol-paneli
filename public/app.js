@@ -513,8 +513,14 @@ function renderAdmin(data, keepOwnerPanel = false) {
   const dailyUploads = data.dailyUploads || [];
   const portalLists = data.portalLists || [];
   document.getElementById("uploads").innerHTML = `
-    <div class="upload-group">
-      <strong>Haftalik Excel dosyalari</strong>
+    <details class="upload-group upload-list-collapsible collapsible">
+      <summary>
+        <span>
+          <strong>Haftalik Excel dosyalari</strong>
+          <small>${weeklyUploads.length} yuklu dosya</small>
+        </span>
+      </summary>
+      <div class="upload-list-body collapsible-body">
       ${weeklyUploads.map(upload => `
         <div class="upload-item">
           <div>
@@ -524,9 +530,16 @@ function renderAdmin(data, keepOwnerPanel = false) {
           <button class="danger small" type="button" data-upload-delete="${escapeHtml(upload.id)}" data-upload-name="${escapeHtml(upload.weekLabel || upload.filename)}">Sil</button>
         </div>
       `).join("") || `<p class="muted">Henuz haftalik Excel yuklenmedi.</p>`}
-    </div>
-    <div class="upload-group">
-      <strong>Gunluk Excel dosyalari</strong>
+      </div>
+    </details>
+    <details class="upload-group upload-list-collapsible collapsible">
+      <summary>
+        <span>
+          <strong>Gunluk Excel dosyalari</strong>
+          <small>${dailyUploads.length} yuklu dosya</small>
+        </span>
+      </summary>
+      <div class="upload-list-body collapsible-body">
       ${dailyUploads.map(upload => `
         <div class="upload-item">
           <div>
@@ -536,9 +549,16 @@ function renderAdmin(data, keepOwnerPanel = false) {
           <button class="danger small" type="button" data-upload-delete="${escapeHtml(upload.id)}" data-upload-name="${escapeHtml(upload.weekLabel || upload.filename)}">Sil</button>
         </div>
       `).join("") || `<p class="muted">Henuz gunluk Excel yuklenmedi.</p>`}
-    </div>
-    <div class="upload-group">
-      <strong>Bayi Portal haftalik listeleri</strong>
+      </div>
+    </details>
+    <details class="upload-group upload-list-collapsible collapsible">
+      <summary>
+        <span>
+          <strong>Bayi Portal haftalik listeleri</strong>
+          <small>${portalLists.length} yuklu liste</small>
+        </span>
+      </summary>
+      <div class="upload-list-body collapsible-body">
       ${portalLists.map(list => `
         <div class="upload-item">
           <div>
@@ -548,7 +568,8 @@ function renderAdmin(data, keepOwnerPanel = false) {
           <button class="danger small" type="button" data-portal-delete="${escapeHtml(list.id)}" data-portal-name="${escapeHtml(list.weekLabel || list.filename)}">Sil</button>
         </div>
       `).join("") || `<p class="muted">Henuz Bayi Portal listesi yuklenmedi.</p>`}
-    </div>
+      </div>
+    </details>
   `;
   calculateAdminTool();
 }
