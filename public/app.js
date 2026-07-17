@@ -263,6 +263,8 @@ function sortByAmount(rows, sort, amountKey) {
   const sorted = [...(rows || [])];
   if (sort === "desc") sorted.sort((a, b) => Number(b[amountKey] || 0) - Number(a[amountKey] || 0));
   if (sort === "asc") sorted.sort((a, b) => Number(a[amountKey] || 0) - Number(b[amountKey] || 0));
+  if (sort === "allWeeklyDesc") sorted.sort((a, b) => Number(b.allWeeklyTotal || 0) - Number(a.allWeeklyTotal || 0));
+  if (sort === "allWeeklyAsc") sorted.sort((a, b) => Number(a.allWeeklyTotal || 0) - Number(b.allWeeklyTotal || 0));
   return sorted;
 }
 
@@ -718,13 +720,14 @@ function renderMembers() {
       <td data-label="Yuzde">%${money.format(member.percentage)}</td>
       <td data-label="Excel kayit">${member.rowCount}</td>
       <td data-label="Toplam">${money.format(member.total)}</td>
+      <td data-label="Yuklu haftalar toplam">${money.format(member.allWeeklyTotal || 0)}<br><span class="muted">${member.allWeeklyRowCount || 0} kayit</span></td>
       <td data-label="Hesap"><strong>${money.format(member.calculated)}</strong></td>
       <td data-label="Islem" class="action-cell">
         <button class="ghost small" data-detail="${member.id}" type="button">Detay</button>
         <button class="danger small" data-delete="${member.id}" type="button">Sil</button>
       </td>
     </tr>
-  `).join("") || `<tr><td colspan="8">Tipster bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="9">Tipster bulunamadi.</td></tr>`;
 }
 
 function renderDailyMembers() {
@@ -1117,6 +1120,20 @@ function renderMemberMessages(messages) {
   `).join("") || `<p class="muted">Henuz mesaj yok.</p>`;
 }
 
+function withAllWeeklyTotals(rows) {
+  const allWeekly = currentDashboard?.allWeeklyNumberSummaries || [];
+  const totalsByNumber = new Map(allWeekly.map(row => [canonicalGsm(row.number), row]));
+  return (rows || []).map(row => {
+    const allRow = totalsByNumber.get(canonicalGsm(row.number)) || {};
+    return {
+      ...row,
+      allWeeklyTotal: Number(allRow.total || 0),
+      allWeeklyRowCount: Number(allRow.rowCount || 0),
+      allWeeklyCalculated: Number(allRow.calculated || 0)
+    };
+  });
+}
+
 function renderMyRows(rows) {
   const sort = document.getElementById("myRowsSort").value;
   const visibleRows = [...rows];
@@ -1151,7 +1168,7 @@ function renderMyRows(rows) {
 
 function renderCommissionRows(rows) {
   const sort = document.getElementById("commissionRowsSort")?.value || "default";
-  const visibleRows = sortByAmount(rows, sort, "total");
+  const visibleRows = sortByAmount(withAllWeeklyTotals(rows), sort, "total");
   document.getElementById("commissionRows").innerHTML = visibleRows.map(row => `
     <tr>
       <td data-label="Isim">${escapeHtml(row.name || "-")}</td>
@@ -1160,9 +1177,10 @@ function renderCommissionRows(rows) {
       <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Kayit">${row.rowCount}</td>
       <td data-label="Toplam oyun">${money.format(row.total)}</td>
+      <td data-label="Yuklu haftalar toplam">${money.format(row.allWeeklyTotal || 0)}<br><span class="muted">${row.allWeeklyRowCount || 0} kayit</span></td>
       <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="7">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="8">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
 }
 
 function renderDailyEarnings(rows) {
