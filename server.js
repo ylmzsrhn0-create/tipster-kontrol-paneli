@@ -1311,6 +1311,33 @@ function memberSummary(db, user, uploadId) {
   return { rows, total, calculated, numberSummaries };
 }
 
+function memberAllWeeklySummary(db, user) {
+  const ownerId = user.role === "member" ? user.ownerId : user.id;
+  const weeklyIds = new Set(uploadsByType(db, ownerId, "weekly").map(upload => upload.id));
+  const numberRecords = getUserNumberRecords(user);
+  const numbers = numberRecords.map(record => canonicalGsm(record.number)).filter(Boolean);
+  const gsmSet = new Set(numbers);
+  const sourceRows = selectedRows(db, "all", ownerId).filter(row => weeklyIds.has(row.uploadId));
+  const shareCounts = numberShareCounts(db, ownerId);
+  const rows = sourceRows.filter(row => gsmSet.has(canonicalGsm(row.gsmMasked))).map(row => sharedRow(row, shareCounts));
+  const total = rows.reduce((sum, row) => sum + row.totalAmount, 0);
+  const calculated = total * (Number(user.percentage) || 0) / 100;
+  const numberSummaries = numberRecords.map(record => {
+    const recordNumber = canonicalGsm(record.number);
+    const numberRows = sourceRows.filter(row => canonicalGsm(row.gsmMasked) === recordNumber).map(row => sharedRow(row, shareCounts));
+    const numberTotal = numberRows.reduce((sum, row) => sum + row.totalAmount, 0);
+    return {
+      number: record.number,
+      name: record.name,
+      createdAt: record.createdAt,
+      rowCount: numberRows.length,
+      total: numberTotal,
+      calculated: numberTotal * (Number(user.percentage) || 0) / 100
+    };
+  });
+  return { rows, total, calculated, numberSummaries };
+}
+
 function memberPrivateSummary(summary) {
   return {
     ...summary,
@@ -2098,6 +2125,7 @@ async function handleApi(req, res) {
     if (isStaff(user)) {
       const members = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
         const summary = memberSummary(db, member, uploadId);
+        const allWeeklySummary = memberAllWeeklySummary(db, member);
         const publicMember = publicUser(member);
         publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalSet);
         return {
@@ -2105,6 +2133,9 @@ async function handleApi(req, res) {
           numberCount: publicMember.numberRecords.length,
           total: summary.total,
           calculated: summary.calculated,
+          allWeeklyTotal: allWeeklySummary.total,
+          allWeeklyCalculated: allWeeklySummary.calculated,
+          allWeeklyRowCount: allWeeklySummary.rows.length,
           rowCount: summary.rows.length
         };
       });
@@ -2163,6 +2194,7 @@ async function handleApi(req, res) {
       return;
     }
     const summary = memberPrivateSummary(memberSummary(db, user, uploadId));
+    const allWeeklySummary = memberPrivateSummary(memberAllWeeklySummary(db, user));
     const publicMember = publicUser(user);
     publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalSet);
     const portalComparison = portalComparisonSummary(db, user.ownerId, user.id);
@@ -2171,9 +2203,12 @@ async function handleApi(req, res) {
       member: publicMember,
       total: summary.total,
       calculated: summary.calculated,
+      allWeeklyTotal: allWeeklySummary.total,
+      allWeeklyCalculated: allWeeklySummary.calculated,
       percentage: Number(user.percentage) || 0,
       rows: summary.rows,
       numberSummaries: summary.numberSummaries,
+      allWeeklyNumberSummaries: allWeeklySummary.numberSummaries,
       dailySummaries: memberDailySummaries(db, user, user.ownerId),
       passiveNumbers: passiveNumberSummary(db, uploadId, user.ownerId).filter(item => item.memberId === user.id),
       messages: db.messages
