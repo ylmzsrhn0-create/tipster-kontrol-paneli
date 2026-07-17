@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v10-mobile-panels";
+const CACHE_NAME = "tipster-panel-v11-excel-tabs";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=mobile-panels-20260717a",
-  "/app.js?v=mobile-panels-20260717a",
+  "/style.css?v=excel-tabs-20260717a",
+  "/app.js?v=excel-tabs-20260717a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
