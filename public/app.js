@@ -231,6 +231,17 @@ function searchDigits(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function canonicalGsm(value) {
+  const raw = String(value || "").trim();
+  const masked = raw.match(/05\d{2}\*{3}\d{4}/);
+  if (masked) return masked[0];
+  const digits = searchDigits(raw);
+  const national = digits.startsWith("90") && digits.length === 12 ? digits.slice(2) : digits;
+  if (/^5\d{9}$/.test(national)) return `0${national.slice(0, 3)}***${national.slice(-4)}`;
+  if (/^05\d{9}$/.test(national)) return `${national.slice(0, 4)}***${national.slice(-4)}`;
+  return raw.includes("*") ? searchNumber(raw) : "";
+}
+
 function maskedNumberMatches(haystack, query) {
   const haystackNumber = searchNumber(haystack);
   const queryNumber = searchNumber(query);
