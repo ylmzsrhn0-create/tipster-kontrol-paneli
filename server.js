@@ -16,6 +16,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
 const TRUST_PROXY = process.env.TRUST_PROXY === "1";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 const OTP_TTL_MS = 1000 * 60 * 5;
+const OTP_RESEND_COOLDOWN_MS = 1000 * 60;
 const LOGIN_LOCK_MS = 1000 * 60 * 10;
 const LOGIN_MAX_ATTEMPTS = 5;
 const OTP_ENABLED = process.env.EMAIL_OTP_ENABLED === "1";
@@ -397,15 +398,34 @@ function maskEmail(email) {
 }
 
 function createOtpLogin(user) {
+  for (const [token, otp] of pendingOtps.entries()) {
+    if (otp.userId === user.id) pendingOtps.delete(token);
+  }
   const loginToken = crypto.randomBytes(32).toString("hex");
   const code = String(crypto.randomInt(100000, 1000000));
   pendingOtps.set(loginToken, {
     userId: user.id,
     codeHash: hashPassword(code),
     expiresAt: Date.now() + OTP_TTL_MS,
+    sentAt: Date.now(),
     attempts: 0
   });
   return { loginToken, code };
+}
+
+function reusableOtpLogin(user) {
+  const now = Date.now();
+  for (const [token, otp] of pendingOtps.entries()) {
+    if (otp.userId !== user.id) continue;
+    if (otp.expiresAt <= now) {
+      pendingOtps.delete(token);
+      continue;
+    }
+    if (now - Number(otp.sentAt || 0) <= OTP_RESEND_COOLDOWN_MS) {
+      return { loginToken: token, secondsLeft: Math.ceil((OTP_RESEND_COOLDOWN_MS - (now - Number(otp.sentAt || 0))) / 1000) };
+    }
+  }
+  return null;
 }
 
 function cleanupOtps() {
@@ -1844,6 +1864,16 @@ async function handleApi(req, res) {
         return;
       }
       cleanupOtps();
+      const reusable = reusableOtpLogin(user);
+      if (reusable) {
+        sendJson(res, 200, {
+          requiresOtp: true,
+          loginToken: reusable.loginToken,
+          email: maskEmail(otpEmail),
+          message: `Giris kodu zaten gonderildi. Yeni kod icin ${reusable.secondsLeft} saniye bekleyin.`
+        });
+        return;
+      }
       const { loginToken, code } = createOtpLogin(user);
       try {
         await sendOtpEmail(otpEmail, code);
