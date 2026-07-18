@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v18-otp-duplicate-guard";
+const CACHE_NAME = "tipster-panel-v19-floating-calculator-panels";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=otp-duplicate-guard-20260719a",
-  "/app.js?v=otp-duplicate-guard-20260719a",
+  "/style.css?v=floating-calculator-panels-20260719a",
+  "/app.js?v=floating-calculator-panels-20260719a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
