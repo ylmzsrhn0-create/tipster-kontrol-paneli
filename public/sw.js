@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v17-numbers-card-total";
+const CACHE_NAME = "tipster-panel-v18-otp-duplicate-guard";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=numbers-card-total-20260717a",
-  "/app.js?v=numbers-card-total-20260717a",
+  "/style.css?v=otp-duplicate-guard-20260719a",
+  "/app.js?v=otp-duplicate-guard-20260719a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
