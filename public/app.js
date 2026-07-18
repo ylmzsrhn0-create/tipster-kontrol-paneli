@@ -473,7 +473,7 @@ function closeMobileSelect(fromHistory = false) {
 }
 
 function isMobilePanelMode() {
-  return window.matchMedia("(max-width: 760px)").matches;
+  return true;
 }
 
 function refreshMobilePanelState() {
@@ -482,6 +482,7 @@ function refreshMobilePanelState() {
 }
 
 function activateMobilePanel(details) {
+  if (details?.classList.contains("calculator-panel")) return;
   if (!details || !details.classList.contains("collapsible") || !details.open || !isMobilePanelMode()) return;
   document.querySelectorAll("details.collapsible.mobile-panel-page[open]").forEach(panel => {
     if (panel !== details) {
