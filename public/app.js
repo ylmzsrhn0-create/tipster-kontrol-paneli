@@ -484,6 +484,8 @@ function refreshMobilePanelState() {
 function activateMobilePanel(details) {
   if (details?.classList.contains("calculator-panel")) return;
   if (!details || !details.classList.contains("collapsible") || !details.open || !isMobilePanelMode()) return;
+  const parentPanel = details.parentElement?.closest("details.collapsible.mobile-panel-page");
+  if (parentPanel) return;
   document.querySelectorAll("details.collapsible.mobile-panel-page[open]").forEach(panel => {
     if (panel !== details) {
       panel.classList.remove("mobile-panel-page");
@@ -2053,7 +2055,7 @@ document.addEventListener("click", event => {
   const activePanel = event.target.closest("details.collapsible.mobile-panel-page");
   if (!activePanel || !isMobilePanelMode()) return;
   const summary = event.target.closest("summary");
-  if (summary && activePanel.contains(summary) && activePanel.open) {
+  if (summary && summary.parentElement === activePanel && activePanel.open) {
     event.preventDefault();
     activePanel.open = false;
     deactivateMobilePanel(activePanel);
