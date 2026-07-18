@@ -14,6 +14,7 @@ let normalCalcOperator = "";
 let normalCalcFresh = true;
 let mobileSelectTarget = null;
 let mobileSelectHistoryOpen = false;
+let loginSubmitting = false;
 const expandedAdminNumbers = new Set();
 const mobileSelectIds = ["adminUploadSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "numberListSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
@@ -1418,6 +1419,12 @@ document.querySelectorAll("[data-login-type]").forEach(button => {
 
 document.getElementById("loginForm").addEventListener("submit", async event => {
   event.preventDefault();
+  if (loginSubmitting) return;
+  loginSubmitting = true;
+  const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+  const loginSubmitText = loginSubmitBtn.textContent;
+  loginSubmitBtn.disabled = true;
+  loginSubmitBtn.textContent = pendingLoginToken ? "Kod kontrol ediliyor..." : "Giris kontrol ediliyor...";
   setMessage("loginMessage", "");
   try {
     if (pendingLoginToken) {
@@ -1483,6 +1490,10 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
     await loadDashboard("");
   } catch (error) {
     setMessage("loginMessage", error.message);
+  } finally {
+    loginSubmitting = false;
+    loginSubmitBtn.disabled = false;
+    loginSubmitBtn.textContent = loginSubmitText;
   }
 });
 
