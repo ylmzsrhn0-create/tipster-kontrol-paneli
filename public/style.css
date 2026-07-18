@@ -539,6 +539,57 @@ input:focus, select:focus, textarea:focus {
   font-size: 18px;
 }
 
+.calculator-panel {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 85;
+  width: min(620px, calc(100vw - 44px));
+  max-height: calc(100dvh - 44px);
+  overflow: auto;
+  border: 1px solid #d7e3ef;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, .2);
+}
+
+.calculator-panel:not([open]) {
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--brand);
+  box-shadow: 0 16px 36px rgba(15, 76, 129, .28);
+}
+
+.calculator-panel:not([open]) summary {
+  min-height: 58px;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+}
+
+.calculator-panel:not([open]) summary span,
+.calculator-panel:not([open]) summary b {
+  display: none;
+}
+
+.calculator-panel:not([open]) summary::after {
+  content: "%";
+  width: 58px;
+  height: 58px;
+  flex-basis: 58px;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-size: 24px;
+}
+
+.calculator-panel[open] summary::after {
+  content: "x";
+}
+
 .calculator-shell {
   display: grid;
   gap: 14px;
@@ -737,6 +788,79 @@ input:focus, select:focus, textarea:focus {
   padding: 22px;
   display: grid;
   gap: 15px;
+}
+
+body.mobile-panel-open {
+  overflow: hidden;
+}
+
+details.collapsible.mobile-panel-page {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  width: 100%;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0;
+  background: #f5f7fb;
+  box-shadow: none;
+}
+
+details.collapsible.mobile-panel-page > summary {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: 64px;
+  padding: 14px 18px;
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+}
+
+details.collapsible.mobile-panel-page > summary::before {
+  content: "<";
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+details.collapsible.mobile-panel-page > summary::after {
+  display: none;
+}
+
+details.collapsible.mobile-panel-page > summary span {
+  min-width: 0;
+}
+
+details.collapsible.mobile-panel-page > summary b {
+  margin-left: auto;
+}
+
+details.collapsible.mobile-panel-page > .collapsible-body,
+details.collapsible.mobile-panel-page > .collapsible-tools,
+details.collapsible.mobile-panel-page > .collapsible-table,
+details.collapsible.mobile-panel-page > .table-wrap,
+details.collapsible.mobile-panel-page > form,
+details.collapsible.mobile-panel-page > div:not(.section-head),
+details.collapsible.mobile-panel-page > section {
+  width: min(1180px, calc(100% - 32px));
+  margin: 16px auto;
 }
 
 .compact-body {
@@ -1781,15 +1905,7 @@ body.mobile-select-open {
   }
 
   details.collapsible.mobile-panel-page > summary::after {
-    content: "Geri";
-    width: auto;
-    min-width: 58px;
-    height: 34px;
-    padding: 0 10px;
-    border-radius: 8px;
-    background: var(--brand);
-    color: #fff;
-    font-size: 12px;
+    display: none;
   }
 
   details.collapsible.mobile-panel-page > summary strong {
@@ -1831,6 +1947,32 @@ body.mobile-select-open {
   .admin-panel, .member-panel, .owner-panel { width: min(100% - 20px, 1200px); }
   .section-inline { align-items: stretch; flex-direction: column; }
   .period-banner { align-items: flex-start; flex-direction: column; }
+  .calculator-panel {
+    right: 10px;
+    bottom: 10px;
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+  .calculator-panel:not([open]) {
+    width: 56px;
+    height: 56px;
+  }
+  .calculator-panel:not([open]) summary,
+  .calculator-panel:not([open]) summary::after {
+    width: 56px;
+    height: 56px;
+    flex-basis: 56px;
+  }
+  .calculator-panel[open] summary {
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+  .calculator-panel[open] summary span {
+    min-width: 0;
+  }
+  .calculator-panel[open] summary b {
+    display: none;
+  }
   .calculator-shell { padding: 14px; }
   .message-card-head { flex-direction: column; }
   .message-counts { justify-content: flex-start; }
