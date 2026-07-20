@@ -1027,6 +1027,40 @@ function portalNumbersFromCell(value) {
   return found;
 }
 
+function normalizePortalImportNumber(value) {
+  const text = String(value ?? "").trim().replace(/\s+/g, "");
+  const masked = text.match(GSM_MASKED_RE);
+  if (masked) {
+    const cleanMasked = masked[0].replace(GSM_MASK_REPLACE_RE, "***");
+    const normalized = cleanMasked.startsWith("0") ? cleanMasked : `0${cleanMasked}`;
+    return canonicalGsm(normalized);
+  }
+  const digits = text.replace(/\D/g, "");
+  let national = "";
+  if (/^05\d{9}$/.test(digits)) national = digits;
+  if (/^5\d{9}$/.test(digits)) national = `0${digits}`;
+  if (/^905\d{9}$/.test(digits)) national = `0${digits.slice(2)}`;
+  return national || canonicalGsm(value);
+}
+
+function portalNumberFromCell(value) {
+  return portalNumbersFromCell(value)[0] || "";
+}
+
+function portalNumbersFromCell(value) {
+  const raw = String(value ?? "");
+  const compact = raw.replace(/\s+/g, "");
+  const found = [];
+  const add = number => {
+    const normalized = normalizePortalImportNumber(number);
+    if (normalized && !found.includes(normalized)) found.push(normalized);
+  };
+  for (const match of compact.matchAll(GSM_MASKED_GLOBAL_RE)) add(match[0]);
+  for (const match of compact.matchAll(/(?:\+?90)?0?5\d{9}/g)) add(match[0]);
+  if (!found.length) add(raw);
+  return found;
+}
+
 function normalizeNumberName(value) {
   return String(value ?? "").trim().slice(0, 80);
 }
@@ -1089,7 +1123,11 @@ function latestPortalList(db, ownerId) {
   return (db.portalLists || [])
     .filter(list => list.ownerId === ownerId)
     .slice()
-    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0] || null;
+    .sort((a, b) => {
+      const countDiff = Number(b.rowCount || b.numbers?.length || 0) - Number(a.rowCount || a.numbers?.length || 0);
+      if (countDiff) return countDiff;
+      return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+    })[0] || null;
 }
 
 function portalNumberSet(db, ownerId) {
@@ -1630,6 +1668,7 @@ function adminOverview(db, uploadId, ownerId, unmatchedUploadIds = [uploadId]) {
   const activeNumbers = new Set(rows.map(row => row.gsmMasked).filter(Boolean));
   const passiveNumbers = passiveNumberSummary(db, uploadId, ownerId);
   const unmatchedNumbers = combinedUnmatchedNumberSummary(db, unmatchedUploadIds, ownerId);
+  const activePortalList = latestPortalList(db, ownerId);
   const portalNumbers = portalNumberSet(db, ownerId);
   const portalKeys = portalNumberMatchSet(db, ownerId);
   const tipsterNumbers = new Set(members.flatMap(member => getUserGsms(member).map(canonicalGsm)).filter(Boolean));
@@ -1651,7 +1690,7 @@ function adminOverview(db, uploadId, ownerId, unmatchedUploadIds = [uploadId]) {
     activeNumberCount: activeNumbers.size,
     passiveNumberCount: passiveNumbers.length,
     unmatchedNumberCount: unmatchedNumbers.length,
-    portalListCount: portalNumbers.size,
+    portalListCount: Number(activePortalList?.rowCount || activePortalList?.numbers?.length || portalNumbers.size),
     tipsterNumberCount: tipsterNumbers.size,
     portalMatchedCount,
     portalMissingCount,
@@ -3116,6 +3155,14 @@ async function handleApi(req, res) {
       return;
     }
     const numbers = parsePortalNumberExcel(file.data);
+    const previousBest = latestPortalList(db, session.userId);
+    const previousCount = Number(previousBest?.rowCount || previousBest?.numbers?.length || 0);
+    if (previousCount && numbers.length < previousCount) {
+      sendJson(res, 400, {
+        error: `Bu Bayi Portal listesi onceki kayittan daha az numara iceriyor (${numbers.length}/${previousCount}). Eksik liste yuklenmedi. Botu yeniden calistirip en dolu dosyayi yukle.`
+      });
+      return;
+    }
     const fileBase = file.filename.replace(/\.xlsx$/i, "");
     const weekLabel = String(weekPart?.data?.toString("utf8") || "").trim() || fileBase;
     const portalList = {
