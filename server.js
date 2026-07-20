@@ -221,6 +221,7 @@ function normalizeDb(db) {
   db.messages.forEach(message => {
     message.recipientIds ||= [];
     message.readBy ||= {};
+    message.deletedBy ||= {};
   });
   db.feedbacks.forEach(feedback => {
     feedback.type ||= "suggestion";
@@ -2478,7 +2479,7 @@ async function handleApi(req, res) {
       dailySummaries: memberDailySummaries(db, user, user.ownerId),
       passiveNumbers: passiveNumberSummary(db, uploadId, user.ownerId).filter(item => item.memberId === user.id),
       messages: db.messages
-        .filter(message => message.ownerId === user.ownerId && message.recipientIds.includes(user.id))
+        .filter(message => message.ownerId === user.ownerId && message.recipientIds.includes(user.id) && !message.deletedBy?.[user.id])
         .slice()
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 30)
@@ -2764,6 +2765,27 @@ async function handleApi(req, res) {
     if (!message.readBy[session.userId]) message.readBy[session.userId] = new Date().toISOString();
     writeDb(db);
     sendJson(res, 200, { ok: true, message: publicMessageForMember(message, session.userId) });
+    return;
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/messages/")) {
+    const session = requireAuth(req, res, "member");
+    if (!session) return;
+    const id = url.pathname.split("/")[3];
+    const user = db.users.find(item => item.id === session.userId && item.role === "member");
+    const message = db.messages.find(item => item.id === id && item.ownerId === user?.ownerId && item.recipientIds.includes(session.userId));
+    if (!message) {
+      sendJson(res, 404, { error: "Mesaj bulunamadi." });
+      return;
+    }
+    if (!message.readBy?.[session.userId]) {
+      sendJson(res, 400, { error: "Mesaji silmek icin once okundu olarak isaretleyin." });
+      return;
+    }
+    message.deletedBy ||= {};
+    message.deletedBy[session.userId] = new Date().toISOString();
+    writeDb(db);
+    sendJson(res, 200, { ok: true });
     return;
   }
 
