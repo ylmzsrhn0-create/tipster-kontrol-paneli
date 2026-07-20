@@ -1425,9 +1425,10 @@ function renderDailyEarnings(rows) {
   `).join("") || `<tr><td colspan="4">Henuz gunluk Excel kazanci bulunmuyor.</td></tr>`;
 }
 
-function applyMemberDailyUploadSelection() {
+async function applyMemberDailyUploadSelection() {
   selectedDailyUploadId = document.getElementById("memberDailyUploadSelect").value;
   renderDailyEarnings(currentDashboard?.dailySummaries || []);
+  await loadDashboard(selectedUploadId, selectedDailyUploadId);
 }
 
 function renderNumbers(records) {
@@ -2345,14 +2346,14 @@ document.getElementById("memberUploadSelect").addEventListener("change", event =
 document.getElementById("memberDailyUploadSelect").addEventListener("change", event => {
   selectedDailyUploadId = event.target.value;
   updateMobileSelectTrigger(event.target);
-  applyMemberDailyUploadSelection();
+  applyMemberDailyUploadSelection().catch(error => setMessage("memberPasswordMessage", error.message));
 });
 document.getElementById("memberUploadApplyBtn").addEventListener("click", () => {
   selectedUploadId = document.getElementById("memberUploadSelect").value;
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
 document.getElementById("memberDailyUploadApplyBtn").addEventListener("click", () => {
-  applyMemberDailyUploadSelection();
+  applyMemberDailyUploadSelection().catch(error => setMessage("memberPasswordMessage", error.message));
 });
 document.getElementById("detailUploadSelect").addEventListener("change", event => {
   updateMobileSelectTrigger(event.target);
@@ -2522,5 +2523,5 @@ api("/api/me").then(async data => {
 
 setInterval(() => {
   if (currentDashboard?.role !== "member" || document.hidden) return;
-  loadDashboard(selectedUploadId).catch(() => {});
+  loadDashboard(selectedUploadId, selectedDailyUploadId).catch(() => {});
 }, 60000);
