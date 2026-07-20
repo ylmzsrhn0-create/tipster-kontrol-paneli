@@ -1081,6 +1081,13 @@ details.collapsible.mobile-panel-page > section {
 
 .table-wrap { overflow-x: auto; }
 
+.table-total-row td {
+  border-top: 2px solid var(--line);
+  background: #f1f6fb;
+  color: var(--ink);
+  font-weight: 900;
+}
+
 .split-report {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

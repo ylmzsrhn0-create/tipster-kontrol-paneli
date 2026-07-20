@@ -1445,6 +1445,11 @@ function renderDailyEarnings(rows) {
   const activeDailyUploadId = document.getElementById("memberDailyUploadSelect")?.value || selectedDailyUploadId;
   const visibleRows = activeDailyUploadId ? rows.filter(row => row.uploadId === activeDailyUploadId) : rows;
   const selectedRow = visibleRows[0] || null;
+  const totals = visibleRows.reduce((sum, row) => ({
+    rowCount: sum.rowCount + Number(row.rowCount || 0),
+    total: sum.total + Number(row.total || 0),
+    calculated: sum.calculated + Number(row.calculated || 0)
+  }), { rowCount: 0, total: 0, calculated: 0 });
   document.getElementById("dailyEarningSummary").innerHTML = selectedRow
     ? `
       <span>Secili gun: ${escapeHtml(selectedRow.label || selectedRow.uploadDate || "-")}</span>
@@ -1465,6 +1470,9 @@ function renderDailyEarnings(rows) {
       <td data-label="Kazanc"><strong>${money.format(row.calculated || 0)}</strong></td>
     </tr>
   `).join("") || `<tr><td colspan="4">Henuz gunluk Excel kazanci bulunmuyor.</td></tr>`;
+  document.getElementById("dailyEarningTotalCount").textContent = totals.rowCount;
+  document.getElementById("dailyEarningTotalAmount").textContent = money.format(totals.total);
+  document.getElementById("dailyEarningTotalCommission").textContent = money.format(totals.calculated);
 }
 
 async function applyMemberDailyUploadSelection() {
