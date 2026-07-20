@@ -1251,6 +1251,7 @@ function renderAdminMessages(messages) {
         <div class="message-counts">
           <b>${message.readCount} okundu</b>
           <b class="${message.unreadCount ? "unread" : ""}">${message.unreadCount} okunmadi</b>
+          <button class="danger small" data-admin-message-delete="${message.id}" type="button">Sil</button>
         </div>
       </div>
       <p>${escapeHtml(message.body)}</p>
@@ -1325,7 +1326,12 @@ function renderMemberMessages(messages) {
         <span class="status-pill ${message.unread ? "passive" : "active"}">${message.unread ? "Okunmadi" : "Okundu"}</span>
       </div>
       <p>${escapeHtml(message.body)}</p>
-      ${message.unread ? `<button class="primary small" data-message-read="${message.id}" type="button">Okudum</button>` : `<span class="muted">Okuma zamani: ${new Date(message.readAt).toLocaleString("tr-TR")}</span>`}
+      ${message.unread ? `<button class="primary small" data-message-read="${message.id}" type="button">Okudum</button>` : `
+        <div class="message-actions">
+          <span class="muted">Okuma zamani: ${new Date(message.readAt).toLocaleString("tr-TR")}</span>
+          <button class="danger small" data-message-delete="${message.id}" type="button">Sil</button>
+        </div>
+      `}
     </article>
   `).join("") || `<p class="muted">Henuz mesaj yok.</p>`;
 }
@@ -2141,6 +2147,19 @@ document.getElementById("messageForm").addEventListener("submit", async event =>
   }
 });
 
+document.getElementById("adminMessageRows").addEventListener("click", async event => {
+  const deleteButton = event.target.closest("button[data-admin-message-delete]");
+  if (!deleteButton) return;
+  if (!confirm("Bu mesaj silinsin mi? Tipster ekranindan da kaldirilir.")) return;
+  try {
+    await api(`/api/messages/${encodeURIComponent(deleteButton.dataset.adminMessageDelete)}`, { method: "DELETE" });
+    setMessage("messageSendMessage", "Mesaj silindi.", true);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+  } catch (error) {
+    setMessage("messageSendMessage", error.message);
+  }
+});
+
 document.getElementById("assignUnmatchedAdminBtn").addEventListener("click", async () => {
   setMessage("unmatchedNumberMessage", "");
   try {
@@ -2214,10 +2233,15 @@ document.getElementById("exportNumbersBtn").addEventListener("click", event => {
 });
 
 document.getElementById("memberMessageRows").addEventListener("click", async event => {
-  const button = event.target.closest("button[data-message-read]");
-  if (!button) return;
+  const readButton = event.target.closest("button[data-message-read]");
+  const deleteButton = event.target.closest("button[data-message-delete]");
+  if (!readButton && !deleteButton) return;
   try {
-    await api(`/api/messages/${encodeURIComponent(button.dataset.messageRead)}/read`, { method: "POST" });
+    if (readButton) {
+      await api(`/api/messages/${encodeURIComponent(readButton.dataset.messageRead)}/read`, { method: "POST" });
+    } else if (deleteButton) {
+      await api(`/api/messages/${encodeURIComponent(deleteButton.dataset.messageDelete)}`, { method: "DELETE" });
+    }
     await loadDashboard(selectedUploadId);
   } catch (error) {
     setMessage("memberPasswordMessage", error.message);

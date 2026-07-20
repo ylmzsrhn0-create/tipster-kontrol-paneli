@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v26-push-diagnostics";
+const CACHE_NAME = "tipster-panel-v28-message-delete-admin";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=push-diagnostics-20260720a",
-  "/app.js?v=push-diagnostics-20260720a",
+  "/style.css?v=message-delete-admin-20260720a",
+  "/app.js?v=message-delete-admin-20260720a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",

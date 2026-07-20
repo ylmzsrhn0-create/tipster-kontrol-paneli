@@ -1245,6 +1245,14 @@ td:last-child, th:last-child { text-align: right; }
   gap: 12px;
 }
 
+.message-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .grouped-list {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   align-items: start;
