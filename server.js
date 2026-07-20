@@ -17,6 +17,7 @@ const PUBLIC = path.join(ROOT, "public");
 const DATA = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, "data");
 const DB_FILE = path.join(DATA, "database.json");
 const BACKUP_DIR = path.join(DATA, "backups");
+const BRANDING_DIR = path.join(DATA, "branding");
 const PORT = Number(process.env.PORT || 3000);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
 const TRUST_PROXY = process.env.TRUST_PROXY === "1";
@@ -37,6 +38,7 @@ const PUSH_SUBJECT = String(process.env.PUSH_SUBJECT || SMTP_FROM || "mailto:adm
 
 fs.mkdirSync(DATA, { recursive: true });
 fs.mkdirSync(BACKUP_DIR, { recursive: true });
+fs.mkdirSync(BRANDING_DIR, { recursive: true });
 
 function safeEqual(a, b) {
   const left = Buffer.from(String(a));
@@ -211,6 +213,7 @@ function normalizeDb(db) {
   db.uploads = db.uploads.filter(upload => rowUploadIds.has(upload.id));
   db.users.forEach(user => {
     if (isStaff(user)) user.email = normalizeEmail(user.email);
+    if (!isStaff(user)) user.brandingLogoFile = "";
     if (user.role === "member" && !user.ownerId) user.ownerId = ownerId;
     if (user.role === "admin" && !user.createdBy) user.createdBy = ownerId;
     const records = backfillNumberRecordDates(db, user);
@@ -251,7 +254,7 @@ function normalizeDb(db) {
   db.portalLists.forEach(list => {
     list.ownerId ||= ownerId;
     list.weekLabel ||= list.filename || "Bayi Portal listesi";
-    list.numbers = Array.from(new Set((list.numbers || []).map(canonicalGsm).filter(Boolean)));
+    list.numbers = Array.from(new Set((list.numbers || []).map(normalizePortalImportNumber).filter(Boolean)));
     list.rowCount = Number(list.rowCount) || list.numbers.length;
     list.createdAt ||= new Date().toISOString();
   });
@@ -354,6 +357,36 @@ function validEmail(value) {
 
 function normalizePhone(value) {
   return String(value || "").trim().replace(/[^\d+]/g, "");
+}
+
+function brandingFileName(userId, ext) {
+  const safeId = String(userId || "").replace(/[^a-zA-Z0-9-]/g, "");
+  const safeExt = String(ext || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  return safeId && safeExt ? `${safeId}.${safeExt}` : "";
+}
+
+function logoExtForUpload(file) {
+  const name = String(file?.filename || "").toLowerCase();
+  const contentType = String(file?.contentType || "").toLowerCase();
+  if (contentType === "image/png" || name.endsWith(".png")) return "png";
+  if (contentType === "image/jpeg" || name.endsWith(".jpg") || name.endsWith(".jpeg")) return "jpg";
+  if (contentType === "image/webp" || name.endsWith(".webp")) return "webp";
+  return "";
+}
+
+function logoUrlFor(user) {
+  return user?.brandingLogoFile ? `/branding/${encodeURIComponent(user.brandingLogoFile)}` : "/logo-watermark.png";
+}
+
+function brandingForUser(db, user) {
+  const owner = user?.role === "member"
+    ? db.users.find(item => item.id === user.ownerId && isStaff(item))
+    : user;
+  return {
+    logoUrl: logoUrlFor(owner),
+    hasCustomLogo: Boolean(owner?.brandingLogoFile),
+    ownerName: owner?.name || owner?.username || ""
+  };
 }
 
 function validPhone(value) {
@@ -703,6 +736,8 @@ function publicUser(user) {
     accessStartsAt: isStaff(user) ? defaultAccessStartsAt(user) : "",
     accessEndsAt: isStaff(user) ? defaultAccessEndsAt(user) : "",
     sharedNumbersEnabled: isStaff(user) ? Boolean(user.sharedNumbersEnabled) : false
+    , brandingLogoUrl: isStaff(user) ? logoUrlFor(user) : ""
+    , hasCustomLogo: isStaff(user) ? Boolean(user.brandingLogoFile) : false
   };
 }
 
@@ -715,6 +750,8 @@ function publicAdmin(user) {
     phone: user.phone || "",
     role: user.role,
     sharedNumbersEnabled: Boolean(user.sharedNumbersEnabled),
+    brandingLogoUrl: logoUrlFor(user),
+    hasCustomLogo: Boolean(user.brandingLogoFile),
     createdAt: user.createdAt,
     accessStartsAt: defaultAccessStartsAt(user),
     accessEndsAt: defaultAccessEndsAt(user)
@@ -1445,7 +1482,8 @@ function parseMultipart(buffer, contentType) {
       const data = part.slice(split + 4);
       const name = (header.match(/name="([^"]+)"/) || [])[1];
       const filename = (header.match(/filename="([^"]*)"/) || [])[1];
-      parts.push({ name, filename, data });
+      const contentType = (header.match(/content-type:\s*([^\r\n]+)/i) || [])[1] || "";
+      parts.push({ name, filename, contentType, data });
     }
     start = next + boundary.length + 2;
   }
@@ -2024,6 +2062,41 @@ function createPortalComparisonXlsx(items) {
   return createSimpleXlsx(rows, "Bayi Portal");
 }
 
+function serveBrandingLogo(req, res) {
+  const requested = decodeURIComponent(req.url.split("?")[0].replace(/^\/branding\//, ""));
+  const safeName = path.basename(requested);
+  if (!/^[a-zA-Z0-9-]+\.(png|jpg|webp)$/.test(safeName)) {
+    res.writeHead(404);
+    res.end("Not found");
+    return;
+  }
+  const filePath = path.join(BRANDING_DIR, safeName);
+  if (!filePath.startsWith(BRANDING_DIR)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    const types = {
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".webp": "image/webp"
+    };
+    res.writeHead(200, {
+      "Content-Type": types[ext] || "application/octet-stream",
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "public, max-age=3600"
+    });
+    res.end(data);
+  });
+}
+
 function serveStatic(req, res) {
   const requestedPath = decodeURIComponent(req.url.split("?")[0]);
   const requested = requestedPath === "/" ? "/index.html" : requestedPath;
@@ -2308,6 +2381,61 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/branding/logo") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const user = db.users.find(item => item.id === session.userId && isStaff(item));
+    if (!user) {
+      sendJson(res, 404, { error: "Admin bulunamadi." });
+      return;
+    }
+    const parts = parseMultipart(await readBody(req, 4 * 1024 * 1024), req.headers["content-type"]);
+    const file = parts.find(part => part.name === "logo" && part.filename);
+    if (!file) {
+      sendJson(res, 400, { error: "Logo dosyasi secilmeli." });
+      return;
+    }
+    const ext = logoExtForUpload(file);
+    if (!ext) {
+      sendJson(res, 400, { error: "Logo PNG, JPG veya WEBP olmali." });
+      return;
+    }
+    if (!file.data?.length || file.data.length > 3 * 1024 * 1024) {
+      sendJson(res, 400, { error: "Logo dosyasi 3 MB'dan kucuk olmali." });
+      return;
+    }
+    if (user.brandingLogoFile) {
+      const oldPath = path.join(BRANDING_DIR, path.basename(user.brandingLogoFile));
+      if (oldPath.startsWith(BRANDING_DIR)) fs.rmSync(oldPath, { force: true });
+    }
+    const filename = brandingFileName(user.id, ext);
+    fs.writeFileSync(path.join(BRANDING_DIR, filename), file.data);
+    user.brandingLogoFile = filename;
+    addAuditLog(db, session.userId, user, "Panel logosu guncellendi", "Admin panel arka plan logosu guncellendi");
+    writeDb(db);
+    sendJson(res, 200, { ok: true, branding: brandingForUser(db, user), user: publicUser(user) });
+    return;
+  }
+
+  if (req.method === "DELETE" && url.pathname === "/api/branding/logo") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const user = db.users.find(item => item.id === session.userId && isStaff(item));
+    if (!user) {
+      sendJson(res, 404, { error: "Admin bulunamadi." });
+      return;
+    }
+    if (user.brandingLogoFile) {
+      const filePath = path.join(BRANDING_DIR, path.basename(user.brandingLogoFile));
+      if (filePath.startsWith(BRANDING_DIR)) fs.rmSync(filePath, { force: true });
+    }
+    user.brandingLogoFile = "";
+    addAuditLog(db, session.userId, user, "Panel logosu kaldirildi", "Admin panel arka plan logosu kaldirildi");
+    writeDb(db);
+    sendJson(res, 200, { ok: true, branding: brandingForUser(db, user), user: publicUser(user) });
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/member/password") {
     const session = requireAuth(req, res, "member");
     if (!session) return;
@@ -2560,7 +2688,7 @@ async function handleApi(req, res) {
         .slice(0, 120)
         .map(payment => publicPayment(db, payment));
       const selectedPayments = ownerPayments.filter(payment => payment.uploadId === uploadId);
-      const payload = { role: user.role, currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -2579,6 +2707,7 @@ async function handleApi(req, res) {
     const portalComparison = portalComparisonSummary(db, user.ownerId, user.id);
     sendJson(res, 200, {
       role: "member",
+      branding: brandingForUser(db, user),
       member: publicMember,
       total: summary.total,
       calculated: summary.calculated,
@@ -3298,6 +3427,10 @@ async function handleApi(req, res) {
 }
 
 const server = http.createServer((req, res) => {
+  if (req.url.startsWith("/branding/")) {
+    serveBrandingLogo(req, res);
+    return;
+  }
   if (req.url.startsWith("/api/")) {
     handleApi(req, res).catch(error => sendJson(res, 500, { error: error.message || "Bir hata oluştu." }));
     return;
