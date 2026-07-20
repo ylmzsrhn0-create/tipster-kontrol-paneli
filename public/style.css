@@ -2053,6 +2053,24 @@ body.mobile-select-open {
   .topbar { align-items: flex-start; flex-direction: row; padding: 18px 16px; }
   .topbar > div:first-child { min-width: 0; }
   .top-actions { align-items: center; flex: 0 0 auto; }
+  .top-actions > #openKvkkPanelBtn,
+  .top-actions > #logoutBtn {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 999px;
+    overflow: hidden;
+    font-size: 0;
+  }
+  .top-actions > #openKvkkPanelBtn::before {
+    content: "KV";
+    font-size: 12px;
+  }
+  .top-actions > #logoutBtn::before {
+    content: "C";
+    font-size: 14px;
+  }
   .notification-badge {
     max-width: 126px;
     min-height: 34px;

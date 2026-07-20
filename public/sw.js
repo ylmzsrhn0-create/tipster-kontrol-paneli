@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v29-account-menu";
+const CACHE_NAME = "tipster-panel-v30-mobile-menu-cache-fix";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=account-menu-20260720a",
-  "/app.js?v=account-menu-20260720a",
+  "/style.css?v=mobile-menu-cache-fix-20260720a",
+  "/app.js?v=mobile-menu-cache-fix-20260720a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
@@ -24,6 +24,8 @@ self.addEventListener("activate", event => {
     caches.keys()
       .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: "window", includeUncontrolled: true }))
+      .then(clients => Promise.all(clients.map(client => client.navigate(client.url))))
   );
 });
 
@@ -31,6 +33,14 @@ self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.pathname.startsWith("/api/")) return;
   const isNavigation = event.request.mode === "navigate" || event.request.headers.get("accept")?.includes("text/html");
+  const isFreshAsset = isNavigation || ["/", "/index.html", "/app.js", "/style.css", "/sw.js"].includes(url.pathname);
+  if (isFreshAsset) {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => isNavigation ? caches.match("/maintenance.html") : caches.match(event.request))
+    );
+    return;
+  }
   event.respondWith(
     fetch(event.request)
       .then(response => {
