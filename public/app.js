@@ -74,6 +74,20 @@ function api(path, options = {}) {
   });
 }
 
+function cssUrl(value) {
+  const url = String(value || "/logo-watermark.png").replace(/["\\\n\r]/g, "");
+  return `url("${url}")`;
+}
+
+function applyBranding(branding) {
+  const logoUrl = branding?.logoUrl || "/logo-watermark.png";
+  document.documentElement.style.setProperty("--panel-logo-url", cssUrl(logoUrl));
+  const preview = document.getElementById("brandPreviewPattern");
+  if (preview) preview.style.setProperty("--panel-logo-url", cssUrl(logoUrl));
+  const status = document.getElementById("brandLogoStatus");
+  if (status) status.textContent = branding?.hasCustomLogo ? "Ozel logo kullaniliyor" : "Varsayilan amblem kullaniliyor";
+}
+
 function setPushMessage(text, ok = false) {
   setMessage("pushMessage", text, ok);
   setMessage("pushPromptMessage", text, ok);
@@ -244,6 +258,7 @@ function showLogin() {
   loginView.classList.remove("hidden");
   document.body.classList.remove("app-mode");
   document.body.classList.add("login-mode");
+  applyBranding({ logoUrl: "/logo-watermark.png", hasCustomLogo: false });
   ownerPanel.classList.add("hidden");
   adminPanel.classList.add("hidden");
   memberPanel.classList.add("hidden");
@@ -734,6 +749,8 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderDailyUploadSelect("adminDailyUploadSelect", data.dailyUploads || [], data.selectedDailyUploadId);
   document.getElementById("deleteSelectedDailyUploadBtn").disabled = !(data.dailyUploads || []).length || !data.selectedDailyUploadId;
   document.getElementById("adminEmail").value = data.currentAdmin?.email || "";
+  const brandStatus = document.getElementById("brandLogoStatus");
+  if (brandStatus) brandStatus.textContent = data.branding?.hasCustomLogo ? "Ozel logo kullaniliyor" : "Varsayilan amblem kullaniliyor";
   document.getElementById("memberCount").textContent = data.summary.memberCount;
   document.getElementById("rowCount").textContent = data.summary.rowCount;
   document.getElementById("totalAmount").textContent = money.format(data.summary.totalAmount);
@@ -1568,6 +1585,7 @@ async function loadDashboard(uploadId = selectedUploadId, dailyUploadId = select
   if (dailyUploadId) params.set("dailyUploadId", dailyUploadId);
   const query = params.toString() ? `?${params.toString()}` : "";
   const data = await api(`/api/dashboard${query}`);
+  applyBranding(data.branding);
   if (data.role === "owner") renderOwner(data);
   else if (data.role === "admin") renderAdmin(data);
   else renderMember(data);
@@ -2130,6 +2148,38 @@ document.getElementById("adminEmailForm").addEventListener("submit", async event
     await loadDashboard(selectedUploadId);
   } catch (error) {
     setMessage("emailMessage", error.message);
+  }
+});
+
+document.getElementById("brandingLogoForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const fileInput = document.getElementById("brandingLogoFile");
+  const file = fileInput.files?.[0];
+  if (!file) {
+    setMessage("brandingLogoMessage", "Logo dosyasi secilmeli.");
+    return;
+  }
+  try {
+    const form = new FormData();
+    form.append("logo", file);
+    const data = await api("/api/branding/logo", { method: "POST", body: form });
+    applyBranding(data.branding);
+    if (currentDashboard) currentDashboard.branding = data.branding;
+    fileInput.value = "";
+    setMessage("brandingLogoMessage", "Logo kaydedildi. Bu adminin tipsterlarinda da gorunecek.", true);
+  } catch (error) {
+    setMessage("brandingLogoMessage", error.message);
+  }
+});
+
+document.getElementById("brandingLogoRemoveBtn").addEventListener("click", async () => {
+  try {
+    const data = await api("/api/branding/logo", { method: "DELETE" });
+    applyBranding(data.branding);
+    if (currentDashboard) currentDashboard.branding = data.branding;
+    setMessage("brandingLogoMessage", "Varsayilan ambleme donuldu.", true);
+  } catch (error) {
+    setMessage("brandingLogoMessage", error.message);
   }
 });
 

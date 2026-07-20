@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=portal-match-fix-20260720a">
+  <link rel="stylesheet" href="/style.css?v=brand-pattern-preview-20260720a">
 </head>
 <body class="login-mode">
   <main class="shell">
@@ -512,6 +512,33 @@
               <button class="primary" type="submit">E-postayi kaydet</button>
             </form>
             <div class="message" id="emailMessage"></div>
+          </div>
+        </details>
+
+        <details class="panel collapsible" id="brandingPanel">
+          <summary>
+            <span>
+              <strong>Panel logosu</strong>
+              <small>Bu adminin panel ve tipster arka plani</small>
+            </span>
+          </summary>
+          <div class="collapsible-body branding-settings">
+            <div class="brand-preview-card">
+              <div class="brand-preview-pattern" id="brandPreviewPattern"></div>
+              <div>
+                <strong id="brandLogoStatus">Varsayilan amblem kullaniliyor</strong>
+                <span>Yukledigin logo arka planda soluk desen olarak gorunur.</span>
+              </div>
+            </div>
+            <form class="inline-form" id="brandingLogoForm">
+              <label>
+                Logo dosyasi
+                <input id="brandingLogoFile" name="logo" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" required>
+              </label>
+              <button class="primary" type="submit">Logoyu yukle</button>
+              <button class="ghost" id="brandingLogoRemoveBtn" type="button">Varsayilana don</button>
+            </form>
+            <div class="message" id="brandingLogoMessage"></div>
           </div>
         </details>
 
@@ -1159,6 +1186,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=portal-match-fix-20260720a"></script>
+  <script src="/app.js?v=brand-pattern-preview-20260720a"></script>
 </body>
 </html>

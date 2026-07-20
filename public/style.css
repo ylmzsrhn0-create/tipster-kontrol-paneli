@@ -39,36 +39,38 @@ body::after {
   pointer-events: none;
   z-index: 0;
   display: none;
+  opacity: 1;
 }
 
 body.app-mode .page-watermarks {
   display: block;
 }
 
-.page-watermark {
+.page-watermarks::before {
+  content: "";
   position: absolute;
-  display: block;
-  object-fit: contain;
-  aspect-ratio: 1 / 1;
-  height: auto;
-  filter: drop-shadow(0 24px 36px rgba(15, 23, 42, .18));
-  user-select: none;
+  inset: -80px;
+  background-image: var(--panel-logo-url, url("/logo-watermark.png"));
+  background-repeat: repeat;
+  background-size: 176px 176px;
+  background-position: 0 0;
+  opacity: .11;
+  filter: grayscale(1) brightness(1.18) contrast(.58);
+  mix-blend-mode: multiply;
+  transform: rotate(-8deg);
 }
 
-.page-watermark-main {
-  right: 34px;
-  bottom: 34px;
-  width: min(620px, 66vw);
-  height: min(620px, 66vw);
-  opacity: .34;
+.page-watermarks::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(248,250,252,.34), rgba(244,246,248,.56)),
+    radial-gradient(circle at 82% 18%, rgba(23,105,170,.045), transparent 32%);
 }
 
-.page-watermark-soft {
-  left: -86px;
-  top: 150px;
-  width: min(300px, 42vw);
-  height: min(300px, 42vw);
-  opacity: .14;
+.page-watermark {
+  display: none;
 }
 
 body:has(#loginView:not(.hidden)) .page-watermarks,
@@ -420,6 +422,49 @@ input:focus, select:focus, textarea:focus {
   color: #8a4b00 !important;
   font-size: 12px !important;
   font-weight: 900;
+}
+
+.branding-settings {
+  display: grid;
+  gap: 14px;
+}
+
+.brand-preview-card {
+  min-height: 132px;
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.brand-preview-pattern {
+  min-height: 104px;
+  border: 1px solid #e3eaf2;
+  border-radius: 8px;
+  background-color: #fff;
+  background-image:
+    linear-gradient(rgba(255,255,255,.72), rgba(255,255,255,.72)),
+    var(--panel-logo-url, url("/logo-watermark.png"));
+  background-repeat: repeat;
+  background-size: auto, 74px 74px;
+  background-position: 0 0, 0 0;
+  filter: grayscale(.35);
+}
+
+.brand-preview-card strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+
+.brand-preview-card span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .admin-panel, .member-panel, .owner-panel {
@@ -1902,11 +1947,11 @@ body.mobile-select-open {
 }
 
 @media (max-width: 900px) {
-  .page-watermark-main { right: -62px; bottom: -62px; width: min(480px, 94vw); height: min(480px, 94vw); opacity: .28; }
-  .page-watermark-soft { left: -120px; top: 260px; width: min(260px, 58vw); height: min(260px, 58vw); opacity: .09; }
+  .page-watermarks::before { background-size: 138px 138px; opacity: .075; }
   .login-view { grid-template-columns: 1fr; }
   .cover { min-height: 380px; padding: 30px; }
-  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid, .payment-form { grid-template-columns: 1fr; }
+  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid, .payment-form, .brand-preview-card { grid-template-columns: 1fr; }
+  .brand-preview-pattern { min-height: 96px; }
   .payment-form .wide-field { grid-column: auto; }
   .section-head { align-items: stretch; flex-direction: column; }
   .section-head input { width: 100%; }
