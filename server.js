@@ -5,6 +5,12 @@ const crypto = require("crypto");
 const zlib = require("zlib");
 const net = require("net");
 const tls = require("tls");
+let webPush = null;
+try {
+  webPush = require("web-push");
+} catch (error) {
+  webPush = null;
+}
 
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
@@ -27,6 +33,7 @@ const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_USER = String(process.env.SMTP_USER || "").trim();
 const SMTP_PASS = String(process.env.SMTP_PASS || "");
 const SMTP_FROM = String(process.env.SMTP_FROM || SMTP_USER || "").trim();
+const PUSH_SUBJECT = String(process.env.PUSH_SUBJECT || SMTP_FROM || "mailto:admin@tipsterkontrolpaneli.com").trim();
 
 fs.mkdirSync(DATA, { recursive: true });
 fs.mkdirSync(BACKUP_DIR, { recursive: true });
@@ -71,7 +78,9 @@ function defaultDb() {
     auditLogs: [],
     uploadReports: [],
     payments: [],
-    portalLists: []
+    portalLists: [],
+    pushSubscriptions: [],
+    pushSettings: {}
   };
 }
 
@@ -165,6 +174,13 @@ function normalizeDb(db) {
   db.uploadReports ||= [];
   db.payments ||= [];
   db.portalLists ||= [];
+  db.pushSubscriptions ||= [];
+  db.pushSettings ||= {};
+  if (webPush && (!db.pushSettings.publicKey || !db.pushSettings.privateKey)) {
+    db.pushSettings.vapidKeys ||= webPush.generateVAPIDKeys();
+    db.pushSettings.publicKey = db.pushSettings.vapidKeys.publicKey;
+    db.pushSettings.privateKey = db.pushSettings.vapidKeys.privateKey;
+  }
   let owner = db.users.find(user => user.role === "owner");
   if (!owner) {
     owner = db.users.find(user => user.role === "admin" && user.username === "admin") || db.users.find(user => user.role === "admin");
@@ -238,6 +254,18 @@ function normalizeDb(db) {
     list.rowCount = Number(list.rowCount) || list.numbers.length;
     list.createdAt ||= new Date().toISOString();
   });
+  db.pushSubscriptions = db.pushSubscriptions
+    .filter(item => item && item.endpoint && item.keys && item.userId)
+    .map(item => ({
+      id: item.id || crypto.randomUUID(),
+      userId: item.userId,
+      ownerId: item.ownerId || ownerId,
+      role: item.role || "member",
+      endpoint: item.endpoint,
+      keys: item.keys,
+      createdAt: item.createdAt || new Date().toISOString(),
+      lastSeenAt: item.lastSeenAt || new Date().toISOString()
+    }));
   return db;
 }
 
@@ -539,6 +567,55 @@ function sendJson(res, status, body) {
     "Cache-Control": "no-store"
   });
   res.end(JSON.stringify(body));
+}
+
+function pushConfigured(db) {
+  return Boolean(webPush && db.pushSettings?.publicKey && db.pushSettings?.privateKey);
+}
+
+function configurePush(db) {
+  if (!pushConfigured(db)) return false;
+  webPush.setVapidDetails(
+    PUSH_SUBJECT.startsWith("mailto:") ? PUSH_SUBJECT : `mailto:${PUSH_SUBJECT}`,
+    db.pushSettings.publicKey,
+    db.pushSettings.privateKey
+  );
+  return true;
+}
+
+function publicPushKey(db) {
+  return pushConfigured(db) ? db.pushSettings.publicKey : "";
+}
+
+function notificationPayload(title, body, url = "/") {
+  return JSON.stringify({
+    title,
+    body,
+    url,
+    icon: "/icon.svg",
+    badge: "/icon.svg"
+  });
+}
+
+async function sendPushToUsers(db, userIds, payload) {
+  if (!configurePush(db)) return { sent: 0, removed: 0 };
+  const allowed = new Set((userIds || []).filter(Boolean));
+  const subscriptions = (db.pushSubscriptions || []).filter(item => allowed.has(item.userId));
+  let sent = 0;
+  let removed = 0;
+  for (const item of subscriptions) {
+    try {
+      await webPush.sendNotification({ endpoint: item.endpoint, keys: item.keys }, payload);
+      sent += 1;
+    } catch (error) {
+      const statusCode = Number(error.statusCode || error.status);
+      if (statusCode === 404 || statusCode === 410) {
+        db.pushSubscriptions = (db.pushSubscriptions || []).filter(sub => sub.endpoint !== item.endpoint);
+        removed += 1;
+      }
+    }
+  }
+  return { sent, removed };
 }
 
 function escapeHtml(value) {
@@ -2015,6 +2092,50 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/push/public-key") {
+    const session = requireAuth(req, res);
+    if (!session) return;
+    sendJson(res, 200, {
+      enabled: pushConfigured(db),
+      publicKey: publicPushKey(db)
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/push/subscribe") {
+    const session = requireAuth(req, res);
+    if (!session) return;
+    if (!pushConfigured(db)) {
+      sendJson(res, 400, { error: "Bildirim sistemi hazir degil." });
+      return;
+    }
+    const body = JSON.parse((await readBody(req, 1024 * 80)).toString("utf8"));
+    const subscription = body.subscription || body;
+    if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+      sendJson(res, 400, { error: "Bildirim izni kaydi okunamadi." });
+      return;
+    }
+    const user = db.users.find(item => item.id === session.userId);
+    const ownerId = user?.role === "member" ? user.ownerId : user?.id;
+    db.pushSubscriptions = (db.pushSubscriptions || []).filter(item => item.endpoint !== subscription.endpoint);
+    db.pushSubscriptions.push({
+      id: crypto.randomUUID(),
+      userId: session.userId,
+      ownerId,
+      role: user?.role || session.role,
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth
+      },
+      createdAt: new Date().toISOString(),
+      lastSeenAt: new Date().toISOString()
+    });
+    writeDb(db);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/admin/password") {
     const session = requireStaff(req, res);
     if (!session) return;
@@ -2449,6 +2570,7 @@ async function handleApi(req, res) {
     };
     db.messages.push(message);
     addAuditLog(db, session.userId, user, "Tipsterlara mesaj gonderildi", `${recipientIds.length} tipstera mesaj gonderildi: ${title}`);
+    await sendPushToUsers(db, recipientIds, notificationPayload(title, messageBody, "/"));
     writeDb(db);
     sendJson(res, 200, { ok: true, message: publicMessageForAdmin(db, message) });
     return;
@@ -2924,6 +3046,14 @@ async function handleApi(req, res) {
       return { uploadId, rowCount: rows.length, filename: file.filename, weekLabel };
     });
     addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), uploadType === "daily" ? "Gunluk Excel yuklendi" : "Haftalik Excel yuklendi", `${imported.length} Excel aktarildi, ${imported.reduce((sum, item) => sum + item.rowCount, 0)} Bonus Disi Kupon Oynama satiri islendi`);
+    if (uploadType === "weekly") {
+      const memberIds = db.users
+        .filter(user => user.role === "member" && user.ownerId === session.userId)
+        .map(user => user.id);
+      const title = "Haftalik Excel yuklendi";
+      const body = "Haftalik kazanciniz hazir. Tipster panelinden kontrol edebilirsiniz.";
+      await sendPushToUsers(db, memberIds, notificationPayload(title, body, "/"));
+    }
     writeDb(db);
     const last = imported[imported.length - 1];
     sendJson(res, 200, {
