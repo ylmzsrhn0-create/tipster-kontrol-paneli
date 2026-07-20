@@ -603,6 +603,7 @@ async function sendPushToUsers(db, userIds, payload) {
   const subscriptions = (db.pushSubscriptions || []).filter(item => allowed.has(item.userId));
   let sent = 0;
   let removed = 0;
+  let failed = 0;
   for (const item of subscriptions) {
     try {
       await webPush.sendNotification({ endpoint: item.endpoint, keys: item.keys }, payload);
@@ -612,10 +613,17 @@ async function sendPushToUsers(db, userIds, payload) {
       if (statusCode === 404 || statusCode === 410) {
         db.pushSubscriptions = (db.pushSubscriptions || []).filter(sub => sub.endpoint !== item.endpoint);
         removed += 1;
+      } else {
+        failed += 1;
+        console.error("Push notification failed", {
+          userId: item.userId,
+          statusCode,
+          message: error.message
+        });
       }
     }
   }
-  return { sent, removed };
+  return { sent, removed, failed, total: subscriptions.length };
 }
 
 function escapeHtml(value) {
@@ -2194,6 +2202,24 @@ async function handleApi(req, res) {
     addAuditLog(db, user.ownerId, user, "Tipster sifresi degisti", `${user.name || user.username} kendi sifresini guncelledi`);
     writeDb(db);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/push/test") {
+    const session = requireAuth(req, res, "member");
+    if (!session) return;
+    const dbUser = db.users.find(item => item.id === session.userId && item.role === "member");
+    if (!dbUser) {
+      sendJson(res, 404, { error: "Tipster bulunamadi." });
+      return;
+    }
+    const result = await sendPushToUsers(
+      db,
+      [session.userId],
+      notificationPayload("Test bildirimi", "Tipster Kontrol Paneli bildirimleri calisiyor.", "/")
+    );
+    writeDb(db);
+    sendJson(res, 200, { ok: true, ...result });
     return;
   }
 
