@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v21-portal-match-remember";
+const CACHE_NAME = "tipster-panel-v22-portal-match-exact";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=portal-match-remember-20260720a",
-  "/app.js?v=portal-match-remember-20260720a",
+  "/style.css?v=portal-match-exact-20260720b",
+  "/app.js?v=portal-match-exact-20260720b",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
