@@ -802,9 +802,9 @@ function isBonusDisiKuponOynama(value) {
 
 function normalizeGsm(value) {
   const text = String(value ?? "").trim().replace(/\s+/g, "");
-  const masked = text.match(/0?5\d{2}\*{3}\d{4}/);
+  const masked = text.match(/0?5\d{2}[*xX•]{2,}\d{4}/);
   if (masked) {
-    const value = masked[0];
+    const value = masked[0].replace(/[*xX•]+/, "***");
     return value.startsWith("0") ? value : `0${value}`;
   }
 
@@ -826,9 +826,10 @@ function canonicalGsm(value) {
 
 function gsmEdgeKey(value) {
   const text = String(value ?? "").trim().replace(/\s+/g, "");
-  const masked = text.match(/0?5\d{2}\*{3}\d{4}/);
+  const masked = text.match(/0?5\d{2}[*xX•]{2,}\d{4}/);
   if (masked) {
-    const normalized = masked[0].startsWith("0") ? masked[0] : `0${masked[0]}`;
+    const cleanMasked = masked[0].replace(/[*xX•]+/, "***");
+    const normalized = cleanMasked.startsWith("0") ? cleanMasked : `0${cleanMasked}`;
     return `${normalized.slice(0, 4)}:${normalized.slice(-4)}`;
   }
   const digits = text.replace(/\D/g, "");
@@ -849,7 +850,22 @@ function gsmMatchKeys(value) {
 }
 
 function portalNumberFromCell(value) {
-  return canonicalGsm(value);
+  return portalNumbersFromCell(value)[0] || "";
+}
+
+function portalNumbersFromCell(value) {
+  const raw = String(value ?? "");
+  const compact = raw.replace(/\s+/g, "");
+  const found = [];
+  const add = number => {
+    const normalized = normalizeGsm(number);
+    const canonical = canonicalGsm(normalized);
+    if (canonical && !found.includes(canonical)) found.push(canonical);
+  };
+  for (const match of compact.matchAll(/(?:\+?90)?0?5\d{2}[*xX•]{2,}\d{4}/g)) add(match[0]);
+  for (const match of compact.matchAll(/(?:\+?90)?0?5\d{9}/g)) add(match[0]);
+  if (!found.length) add(raw);
+  return found;
 }
 
 function normalizeNumberName(value) {
@@ -1204,10 +1220,11 @@ function parsePortalNumberExcel(buffer) {
   const numbers = [];
   const seen = new Set();
   rows.flat().forEach(cell => {
-    const number = portalNumberFromCell(cell);
-    if (!number || seen.has(number)) return;
-    seen.add(number);
-    numbers.push(number);
+    portalNumbersFromCell(cell).forEach(number => {
+      if (!number || seen.has(number)) return;
+      seen.add(number);
+      numbers.push(number);
+    });
   });
   if (!numbers.length) {
     throw new Error("Bayi Portal Excel icinde telefon numarasi bulunamadi.");
