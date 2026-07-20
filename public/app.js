@@ -464,6 +464,31 @@ function searchMatches(haystack, query) {
     || maskedNumberMatches(haystack, query);
 }
 
+const CLIENT_GSM_MASK_CHARS = "*xX\u2022\u2023\u2027\u2219\u2217\u25CF\u25E6\u00B7";
+const CLIENT_GSM_MASKED_RE = new RegExp(`0?5\\d{2}[${CLIENT_GSM_MASK_CHARS}]{2,}\\d{4}`);
+const CLIENT_GSM_MASK_REPLACE_RE = new RegExp(`[${CLIENT_GSM_MASK_CHARS}]+`);
+
+function searchNumber(value) {
+  return String(value || "")
+    .toLocaleLowerCase("tr")
+    .replace(CLIENT_GSM_MASK_REPLACE_RE, "***")
+    .replace(/[^0-9*]/g, "");
+}
+
+function canonicalGsm(value) {
+  const raw = String(value || "").trim().replace(/\s+/g, "");
+  const masked = raw.match(CLIENT_GSM_MASKED_RE);
+  if (masked) {
+    const normalized = masked[0].replace(CLIENT_GSM_MASK_REPLACE_RE, "***");
+    return normalized.startsWith("0") ? normalized : `0${normalized}`;
+  }
+  const digits = searchDigits(raw);
+  const national = digits.startsWith("90") && digits.length === 12 ? digits.slice(2) : digits;
+  if (/^5\d{9}$/.test(national)) return `0${national.slice(0, 3)}***${national.slice(-4)}`;
+  if (/^05\d{9}$/.test(national)) return `${national.slice(0, 4)}***${national.slice(-4)}`;
+  return raw.includes("*") ? searchNumber(raw) : "";
+}
+
 function sortByAmount(rows, sort, amountKey) {
   const sorted = [...(rows || [])];
   if (sort === "desc") sorted.sort((a, b) => Number(b[amountKey] || 0) - Number(a[amountKey] || 0));
