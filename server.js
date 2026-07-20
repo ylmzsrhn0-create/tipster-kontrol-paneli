@@ -15,6 +15,7 @@ const PORT = Number(process.env.PORT || 3000);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
 const TRUST_PROXY = process.env.TRUST_PROXY === "1";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
+const REMEMBER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const OTP_TTL_MS = 1000 * 60 * 5;
 const OTP_RESEND_COOLDOWN_MS = 1000 * 60;
 const LOGIN_LOCK_MS = 1000 * 60 * 10;
@@ -294,21 +295,23 @@ function currentSession(req) {
     sessions.delete(sid);
     return null;
   }
-  session.expiresAt = Date.now() + SESSION_TTL_MS;
+  session.expiresAt = Date.now() + (session.ttlMs || SESSION_TTL_MS);
   return session;
 }
 
-function setSession(res, user) {
+function setSession(res, user, rememberMe = false) {
   const sid = crypto.randomBytes(32).toString("hex");
   const csrf = crypto.randomBytes(24).toString("hex");
+  const ttlMs = rememberMe ? REMEMBER_SESSION_TTL_MS : SESSION_TTL_MS;
   sessions.set(sid, {
     userId: user.id,
     role: user.role,
     csrf,
-    expiresAt: Date.now() + SESSION_TTL_MS
+    ttlMs,
+    expiresAt: Date.now() + ttlMs
   });
   const secure = TRUST_PROXY ? "; Secure" : "";
-  res.setHeader("Set-Cookie", `sid=${sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${secure}`);
+  res.setHeader("Set-Cookie", `sid=${sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(ttlMs / 1000)}${secure}`);
   return csrf;
 }
 
@@ -408,6 +411,7 @@ function createOtpLogin(user) {
     codeHash: hashPassword(code),
     expiresAt: Date.now() + OTP_TTL_MS,
     sentAt: Date.now(),
+    rememberMe: false,
     attempts: 0
   });
   return { loginToken, code };
@@ -820,6 +824,30 @@ function canonicalGsm(value) {
   return masked ? masked[0] : "";
 }
 
+function gsmEdgeKey(value) {
+  const text = String(value ?? "").trim().replace(/\s+/g, "");
+  const masked = text.match(/0?5\d{2}\*{3}\d{4}/);
+  if (masked) {
+    const normalized = masked[0].startsWith("0") ? masked[0] : `0${masked[0]}`;
+    return `${normalized.slice(0, 4)}:${normalized.slice(-4)}`;
+  }
+  const digits = text.replace(/\D/g, "");
+  let national = "";
+  if (/^05\d{9}$/.test(digits)) national = digits;
+  if (/^5\d{9}$/.test(digits)) national = `0${digits}`;
+  if (/^905\d{9}$/.test(digits)) national = `0${digits.slice(2)}`;
+  return national ? `${national.slice(0, 4)}:${national.slice(-4)}` : "";
+}
+
+function gsmMatchKeys(value) {
+  const keys = new Set();
+  const canonical = canonicalGsm(value);
+  const edge = gsmEdgeKey(value);
+  if (canonical) keys.add(`canon:${canonical}`);
+  if (edge) keys.add(`edge:${edge}`);
+  return Array.from(keys);
+}
+
 function portalNumberFromCell(value) {
   return canonicalGsm(value);
 }
@@ -893,9 +921,17 @@ function portalNumberSet(db, ownerId) {
   return new Set((latestPortalList(db, ownerId)?.numbers || []).map(canonicalGsm).filter(Boolean));
 }
 
-function withPortalStatus(records, portalSet) {
+function portalNumberMatchSet(db, ownerId) {
+  return new Set((latestPortalList(db, ownerId)?.numbers || []).flatMap(gsmMatchKeys));
+}
+
+function portalHasNumber(portalKeys, number) {
+  return gsmMatchKeys(number).some(key => portalKeys.has(key));
+}
+
+function withPortalStatus(records, portalKeys) {
   return (records || []).map(record => {
-    const registered = portalSet.has(canonicalGsm(record.number));
+    const registered = portalHasNumber(portalKeys, record.number);
     return {
       ...record,
       portalRegistered: registered,
@@ -905,7 +941,7 @@ function withPortalStatus(records, portalSet) {
 }
 
 function portalComparisonSummary(db, ownerId, memberId = "") {
-  const portalSet = portalNumberSet(db, ownerId);
+  const portalKeys = portalNumberMatchSet(db, ownerId);
   const grouped = new Map();
   db.users
     .filter(user => user.role === "member" && user.ownerId === ownerId && (!memberId || user.id === memberId))
@@ -935,8 +971,8 @@ function portalComparisonSummary(db, ownerId, memberId = "") {
   const items = Array.from(grouped.values()).map(item => ({
     ...item,
     memberCount: item.members.length,
-    portalRegistered: portalSet.has(item.number),
-    portalStatusText: portalSet.has(item.number) ? "Kayitli" : "Kayitli degil"
+    portalRegistered: portalHasNumber(portalKeys, item.number),
+    portalStatusText: portalHasNumber(portalKeys, item.number) ? "Kayitli" : "Kayitli degil"
   })).sort((a, b) => {
     if (a.portalRegistered !== b.portalRegistered) return a.portalRegistered ? -1 : 1;
     return a.number.localeCompare(b.number);
@@ -1295,12 +1331,12 @@ function memberSummary(db, user, uploadId) {
   const gsmSet = new Set(numbers);
   const sourceRows = selectedRows(db, uploadId, ownerId);
   const shareCounts = numberShareCounts(db, ownerId);
-  const portalSet = portalNumberSet(db, ownerId);
+  const portalKeys = portalNumberMatchSet(db, ownerId);
   const rows = sourceRows.filter(row => gsmSet.has(canonicalGsm(row.gsmMasked))).map(row => {
     const shared = sharedRow(row, shareCounts);
     const sharedNumber = canonicalGsm(shared.gsmMasked);
     const record = numberRecords.find(item => canonicalGsm(item.number) === sharedNumber);
-    const registered = portalSet.has(sharedNumber);
+    const registered = portalHasNumber(portalKeys, sharedNumber);
     return {
       ...shared,
       createdAt: record?.createdAt || "",
@@ -1320,8 +1356,8 @@ function memberSummary(db, user, uploadId) {
       name: record.name,
       createdAt: record.createdAt,
       active: numberRows.length > 0,
-      portalRegistered: portalSet.has(recordNumber),
-      portalStatusText: portalSet.has(recordNumber) ? "Kayitli" : "Kayitli degil",
+      portalRegistered: portalHasNumber(portalKeys, recordNumber),
+      portalStatusText: portalHasNumber(portalKeys, recordNumber) ? "Kayitli" : "Kayitli degil",
       rowCount: numberRows.length,
       shareCount,
       total: numberTotal,
@@ -1419,10 +1455,12 @@ function adminOverview(db, uploadId, ownerId, unmatchedUploadIds = [uploadId]) {
   const passiveNumbers = passiveNumberSummary(db, uploadId, ownerId);
   const unmatchedNumbers = combinedUnmatchedNumberSummary(db, unmatchedUploadIds, ownerId);
   const portalNumbers = portalNumberSet(db, ownerId);
+  const portalKeys = portalNumberMatchSet(db, ownerId);
   const tipsterNumbers = new Set(members.flatMap(member => getUserGsms(member).map(canonicalGsm)).filter(Boolean));
-  const portalMatchedCount = Array.from(tipsterNumbers).filter(number => portalNumbers.has(number)).length;
+  const tipsterKeys = new Set(members.flatMap(member => getUserGsms(member).flatMap(gsmMatchKeys)));
+  const portalMatchedCount = Array.from(tipsterNumbers).filter(number => portalHasNumber(portalKeys, number)).length;
   const portalMissingCount = Math.max(0, tipsterNumbers.size - portalMatchedCount);
-  const portalUnassignedCount = Array.from(portalNumbers).filter(number => !tipsterNumbers.has(number)).length;
+  const portalUnassignedCount = Array.from(portalNumbers).filter(number => !gsmMatchKeys(number).some(key => tipsterKeys.has(key))).length;
   const unreadMessages = (db.messages || [])
     .filter(message => message.ownerId === ownerId)
     .reduce((sum, message) => {
@@ -1833,6 +1871,7 @@ async function handleApi(req, res) {
     const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
     const username = String(body.username || "").trim();
     const loginType = String(body.loginType || "");
+    const rememberMe = Boolean(body.rememberMe);
     const attemptKey = loginAttemptKey(req, username, loginType);
     const locked = loginLockInfo(attemptKey);
     if (locked) {
@@ -1866,6 +1905,8 @@ async function handleApi(req, res) {
       cleanupOtps();
       const reusable = reusableOtpLogin(user);
       if (reusable) {
+        const pending = pendingOtps.get(reusable.loginToken);
+        if (pending) pending.rememberMe = rememberMe;
         sendJson(res, 200, {
           requiresOtp: true,
           loginToken: reusable.loginToken,
@@ -1875,6 +1916,8 @@ async function handleApi(req, res) {
         return;
       }
       const { loginToken, code } = createOtpLogin(user);
+      const pending = pendingOtps.get(loginToken);
+      if (pending) pending.rememberMe = rememberMe;
       try {
         await sendOtpEmail(otpEmail, code);
       } catch (error) {
@@ -1890,7 +1933,7 @@ async function handleApi(req, res) {
       });
       return;
     }
-    const csrf = setSession(res, user);
+    const csrf = setSession(res, user, rememberMe);
     addAuditLog(db, user.role === "member" ? user.ownerId : user.id, user, "Giris yapildi", user.role === "member" ? "Tipster girisi" : "Admin girisi");
     writeDb(db);
     sendJson(res, 200, { csrf, user: publicUser(user) });
@@ -1935,8 +1978,9 @@ async function handleApi(req, res) {
       sendJson(res, 400, { error: "Giris gecersiz." });
       return;
     }
+    const rememberMe = Boolean(pending.rememberMe);
     pendingOtps.delete(token);
-    const csrf = setSession(res, user);
+    const csrf = setSession(res, user, rememberMe);
     addAuditLog(db, user.id, user, "Giris yapildi", "E-posta onay kodu ile admin girisi");
     writeDb(db);
     sendJson(res, 200, { csrf, user: publicUser(user) });
@@ -2162,7 +2206,7 @@ async function handleApi(req, res) {
     const dailyUploads = uploadsByType(db, staffOwnerId, "daily");
     const portalLists = (db.portalLists || []).filter(list => list.ownerId === staffOwnerId);
     const currentPortalList = latestPortalList(db, staffOwnerId);
-    const currentPortalSet = portalNumberSet(db, staffOwnerId);
+    const currentPortalKeys = portalNumberMatchSet(db, staffOwnerId);
     const latestUpload = visibleUploads[visibleUploads.length - 1];
     const latestDailyUpload = dailyUploads[dailyUploads.length - 1];
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
@@ -2173,7 +2217,7 @@ async function handleApi(req, res) {
         const summary = memberSummary(db, member, uploadId);
         const allWeeklySummary = memberAllWeeklySummary(db, member);
         const publicMember = publicUser(member);
-        publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalSet);
+        publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalKeys);
         return {
           ...publicMember,
           numberCount: publicMember.numberRecords.length,
@@ -2188,7 +2232,7 @@ async function handleApi(req, res) {
       const dailyMembers = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
         const summary = dailyUploadId ? memberSummary(db, member, dailyUploadId) : { total: 0, calculated: 0, rows: [] };
         const publicMember = publicUser(member);
-        publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalSet);
+        publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalKeys);
         return {
           ...publicMember,
           numberCount: publicMember.numberRecords.length,
@@ -2242,7 +2286,7 @@ async function handleApi(req, res) {
     const allWeeklySummary = memberPrivateSummary(memberAllWeeklySummary(db, user));
     const summary = mergeAllWeeklyNumberTotals(memberPrivateSummary(memberSummary(db, user, uploadId)), allWeeklySummary);
     const publicMember = publicUser(user);
-    publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalSet);
+    publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalKeys);
     const portalComparison = portalComparisonSummary(db, user.ownerId, user.id);
     sendJson(res, 200, {
       role: "member",
@@ -2560,7 +2604,7 @@ async function handleApi(req, res) {
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
     const summary = memberSummary(db, member, uploadId);
     const publicMember = publicUser(member);
-    publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, portalNumberSet(db, session.userId));
+    publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, portalNumberMatchSet(db, session.userId));
     sendJson(res, 200, {
       member: publicMember,
       total: summary.total,
