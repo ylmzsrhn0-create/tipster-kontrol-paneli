@@ -48,6 +48,11 @@ Son guncelleme: 2026-07-09
   - Tipster ilk giriste `Bildirimleri ac` penceresi gorur.
   - Tipster isterse panel icinden de bildirimleri acabilir.
 - Canli surum kontrol edildi: `push-notifications-20260720a`.
+- Bildirim kaydi duzeltildi:
+  - Tipster panele girdiginde cihaz bildirimi aciksa sunucu kaydi otomatik yenilenir.
+  - Tipster paneline `Test bildirimi gonder` butonu eklendi.
+  - Bildirim gonderim hatalari sunucu tarafinda artik takip edilir.
+- Canli surum kontrol edildi: `push-fix-20260720b`.
 
 ## Sonraki Profesyonel Oneriler
 
