@@ -2769,13 +2769,22 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/messages/")) {
-    const session = requireAuth(req, res, "member");
+    const session = requireAuth(req, res);
     if (!session) return;
     const id = url.pathname.split("/")[3];
-    const user = db.users.find(item => item.id === session.userId && item.role === "member");
-    const message = db.messages.find(item => item.id === id && item.ownerId === user?.ownerId && item.recipientIds.includes(session.userId));
+    const user = db.users.find(item => item.id === session.userId);
+    const message = user?.role === "member"
+      ? db.messages.find(item => item.id === id && item.ownerId === user.ownerId && item.recipientIds.includes(session.userId))
+      : db.messages.find(item => item.id === id && item.ownerId === session.userId);
     if (!message) {
       sendJson(res, 404, { error: "Mesaj bulunamadi." });
+      return;
+    }
+    if (isStaff(user)) {
+      db.messages = db.messages.filter(item => item.id !== id);
+      addAuditLog(db, session.userId, user, "Mesaj silindi", `${message.title} baslikli mesaj silindi.`);
+      writeDb(db);
+      sendJson(res, 200, { ok: true });
       return;
     }
     if (!message.readBy?.[session.userId]) {
