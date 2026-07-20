@@ -598,7 +598,7 @@ function notificationPayload(title, body, url = "/") {
 }
 
 async function sendPushToUsers(db, userIds, payload) {
-  if (!configurePush(db)) return { sent: 0, removed: 0 };
+  if (!configurePush(db)) return { sent: 0, removed: 0, failed: 0, total: 0, enabled: false };
   const allowed = new Set((userIds || []).filter(Boolean));
   const subscriptions = (db.pushSubscriptions || []).filter(item => allowed.has(item.userId));
   let sent = 0;
@@ -623,7 +623,7 @@ async function sendPushToUsers(db, userIds, payload) {
       }
     }
   }
-  return { sent, removed, failed, total: subscriptions.length };
+  return { sent, removed, failed, total: subscriptions.length, enabled: true };
 }
 
 function escapeHtml(value) {
@@ -2110,6 +2110,17 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/push/status") {
+    const session = requireAuth(req, res);
+    if (!session) return;
+    const count = (db.pushSubscriptions || []).filter(item => item.userId === session.userId).length;
+    sendJson(res, 200, {
+      enabled: pushConfigured(db),
+      subscriptionCount: count
+    });
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/push/subscribe") {
     const session = requireAuth(req, res);
     if (!session) return;
@@ -2140,7 +2151,8 @@ async function handleApi(req, res) {
       lastSeenAt: new Date().toISOString()
     });
     writeDb(db);
-    sendJson(res, 200, { ok: true });
+    const subscriptionCount = db.pushSubscriptions.filter(item => item.userId === session.userId).length;
+    sendJson(res, 200, { ok: true, subscriptionCount });
     return;
   }
 
@@ -2596,9 +2608,9 @@ async function handleApi(req, res) {
     };
     db.messages.push(message);
     addAuditLog(db, session.userId, user, "Tipsterlara mesaj gonderildi", `${recipientIds.length} tipstera mesaj gonderildi: ${title}`);
-    await sendPushToUsers(db, recipientIds, notificationPayload(title, messageBody, "/"));
+    const pushResult = await sendPushToUsers(db, recipientIds, notificationPayload(title, messageBody, "/"));
     writeDb(db);
-    sendJson(res, 200, { ok: true, message: publicMessageForAdmin(db, message) });
+    sendJson(res, 200, { ok: true, message: publicMessageForAdmin(db, message), push: pushResult });
     return;
   }
 
