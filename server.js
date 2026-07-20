@@ -2692,8 +2692,13 @@ async function handleApi(req, res) {
       memberName: member.name || member.username,
       memberUsername: member.username
     });
+    const pushResult = await sendPushToUsers(
+      db,
+      [member.id],
+      notificationPayload("Kazanciniz hesabiniza gecmistir", `${payment.weekLabel} odemeniz hesabiniza aktarilmistir.`, "/")
+    );
     writeDb(db);
-    sendJson(res, 200, { ok: true, payment: publicPayment(db, payment) });
+    sendJson(res, 200, { ok: true, payment: publicPayment(db, payment), push: pushResult });
     return;
   }
 
