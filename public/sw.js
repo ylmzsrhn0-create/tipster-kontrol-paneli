@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v22-portal-match-exact";
+const CACHE_NAME = "tipster-panel-v23-push-notifications";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=portal-match-exact-20260720b",
-  "/app.js?v=portal-match-exact-20260720b",
+  "/style.css?v=push-notifications-20260720a",
+  "/app.js?v=push-notifications-20260720a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
@@ -51,6 +51,45 @@ self.addEventListener("fetch", event => {
             .then(cached => cached || caches.match("/maintenance.html"));
         }
         return caches.match(event.request);
+      })
+  );
+});
+
+self.addEventListener("push", event => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (error) {
+    data = {
+      title: "Tipster Kontrol Paneli",
+      body: event.data?.text() || "Yeni bildirim var."
+    };
+  }
+
+  const title = data.title || "Tipster Kontrol Paneli";
+  const options = {
+    body: data.body || "Yeni bildirim var.",
+    icon: data.icon || "/icon.svg",
+    badge: data.badge || "/icon.svg",
+    data: { url: data.url || "/" }
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true })
+      .then(clients => {
+        for (const client of clients) {
+          if (client.url.startsWith(self.location.origin) && "focus" in client) {
+            client.navigate(targetUrl);
+            return client.focus();
+          }
+        }
+        return self.clients.openWindow(targetUrl);
       })
   );
 });

@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=portal-match-exact-20260720b">
+  <link rel="stylesheet" href="/style.css?v=push-notifications-20260720a">
 </head>
 <body class="login-mode">
   <main class="shell">
@@ -730,6 +730,15 @@
           Sali gunu komisyonlariniz ogleden sonra belirttiginiz IBAN'lara aktarilir.
         </section>
 
+        <section class="panel notification-panel" id="pushPanel">
+          <div>
+            <strong>Telefon bildirimleri</strong>
+            <p class="muted">Admin mesajlari ve haftalik Excel yuklemeleri icin bildirim al.</p>
+          </div>
+          <button class="primary small" id="pushEnableBtn" type="button">Bildirimleri ac</button>
+          <div class="message" id="pushMessage"></div>
+        </section>
+
         <details class="panel wide collapsible" id="memberMessagesPanel">
           <summary>
             <span>
@@ -1027,6 +1036,22 @@
       </div>
     </section>
 
+    <section class="modal hidden" id="pushPromptModal" aria-modal="true" role="dialog">
+      <div class="modal-panel push-prompt-modal">
+        <div class="section-head">
+          <div>
+            <h2>Bildirimleri ac</h2>
+            <p class="muted">Admin mesajlari ve haftalik Excel yuklemeleri telefonuna bildirim olarak gelsin.</p>
+          </div>
+        </div>
+        <div class="push-prompt-actions">
+          <button class="primary" id="pushPromptEnableBtn" type="button">Bildirimleri ac</button>
+          <button class="ghost" id="pushPromptLaterBtn" type="button">Sonra</button>
+        </div>
+        <div class="message" id="pushPromptMessage"></div>
+      </div>
+    </section>
+
     <section class="modal mobile-select-modal hidden" id="mobileSelectModal" aria-modal="true" role="dialog">
       <div class="mobile-select-page">
         <div class="mobile-select-head">
@@ -1122,6 +1147,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=portal-match-exact-20260720b"></script>
+  <script src="/app.js?v=push-notifications-20260720a"></script>
 </body>
 </html>

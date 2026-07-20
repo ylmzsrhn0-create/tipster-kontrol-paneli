@@ -384,6 +384,15 @@ input:focus, select:focus, textarea:focus {
   line-height: 1.45;
 }
 
+.notification-panel {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.notification-panel .message {
+  grid-column: 1 / -1;
+}
+
 .period-banner {
   display: flex;
   align-items: center;
@@ -1652,6 +1661,26 @@ td:last-child, th:last-child { text-align: right; }
   width: min(900px, 100%);
 }
 
+.push-prompt-modal {
+  width: min(460px, 100%);
+  padding: 22px;
+}
+
+.push-prompt-modal .section-head {
+  padding: 0;
+}
+
+.push-prompt-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.push-prompt-modal .message {
+  margin-top: 12px;
+}
+
 .legal-content {
   display: grid;
   gap: 12px;
@@ -1945,6 +1974,8 @@ body.mobile-select-open {
   .top-actions { align-items: stretch; flex-direction: column; }
   .notification-badge { width: 100%; }
   .admin-panel, .member-panel, .owner-panel { width: min(100% - 20px, 1200px); }
+  .notification-panel { grid-template-columns: 1fr; }
+  .notification-panel .small { width: 100%; }
   .section-inline { align-items: stretch; flex-direction: column; }
   .period-banner { align-items: flex-start; flex-direction: column; }
   .calculator-panel {
@@ -1985,6 +2016,7 @@ body.mobile-select-open {
   .upload-forms { grid-template-columns: 1fr; }
   .panel { padding: 18px; }
   .modal { padding: 10px; }
+  .push-prompt-actions { grid-template-columns: 1fr; }
   th, td { padding: 12px; }
   .table-summary { grid-template-columns: 1fr; padding: 10px 0 0; }
   .table-summary div { align-items: flex-start; flex-direction: column; }

@@ -16,12 +16,13 @@ let normalCalcFresh = true;
 let mobileSelectTarget = null;
 let mobileSelectHistoryOpen = false;
 let loginSubmitting = false;
+let swRegistrationPromise = null;
 const expandedAdminNumbers = new Set();
 const mobileSelectIds = ["adminUploadSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "numberListSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    swRegistrationPromise = navigator.serviceWorker.register("/sw.js").catch(() => null);
   });
 }
 
@@ -33,9 +34,11 @@ const memberPanel = document.getElementById("memberPanel");
 const loginHint = document.getElementById("loginHint");
 const detailModal = document.getElementById("memberDetailModal");
 const kvkkModal = document.getElementById("kvkkModal");
+const pushPromptModal = document.getElementById("pushPromptModal");
 const mobileSelectModal = document.getElementById("mobileSelectModal");
 const notificationBadge = document.getElementById("notificationBadge");
 const rememberStorageKey = "tipsterPanelRememberLogin";
+const pushPromptSessionKey = "tipsterPanelPushPromptDismissed";
 
 const money = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
 
@@ -70,6 +73,110 @@ function api(path, options = {}) {
   });
 }
 
+function setPushMessage(text, ok = false) {
+  setMessage("pushMessage", text, ok);
+  setMessage("pushPromptMessage", text, ok);
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+}
+
+async function serviceWorkerRegistration() {
+  if (!("serviceWorker" in navigator)) return null;
+  if (!swRegistrationPromise) swRegistrationPromise = navigator.serviceWorker.register("/sw.js").catch(() => null);
+  return swRegistrationPromise || navigator.serviceWorker.ready;
+}
+
+async function updatePushButton() {
+  const button = document.getElementById("pushEnableBtn");
+  const panel = document.getElementById("pushPanel");
+  if (!button || !panel) return;
+  if (!("Notification" in window) || !("PushManager" in window) || !("serviceWorker" in navigator)) {
+    button.disabled = true;
+    button.textContent = "Bildirim desteklenmiyor";
+    setPushMessage("Bu telefon/tarayici web bildirimi desteklemiyor.");
+    return;
+  }
+  const registration = await serviceWorkerRegistration();
+  const subscription = await registration?.pushManager?.getSubscription?.();
+  if (Notification.permission === "granted" && subscription) {
+    button.disabled = true;
+    button.textContent = "Bildirimler acik";
+    setPushMessage("Bu cihaz icin bildirimler acik.", true);
+  } else if (Notification.permission === "denied") {
+    button.disabled = true;
+    button.textContent = "Bildirim izni kapali";
+    setPushMessage("Bildirim izni tarayicida kapali. Telefon ayarlarindan izin vermek gerekir.");
+  } else {
+    button.disabled = false;
+    button.textContent = "Bildirimleri ac";
+    setPushMessage("");
+  }
+}
+
+async function enablePushNotifications() {
+  const button = document.getElementById("pushEnableBtn");
+  const promptButton = document.getElementById("pushPromptEnableBtn");
+  if (!button && !promptButton) return;
+  if (button) button.disabled = true;
+  if (promptButton) promptButton.disabled = true;
+  setPushMessage("");
+  try {
+    if (!("Notification" in window) || !("PushManager" in window) || !("serviceWorker" in navigator)) {
+      throw new Error("Bu telefon/tarayici web bildirimi desteklemiyor.");
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") throw new Error("Bildirim izni verilmedi.");
+    const keyData = await api("/api/push/public-key");
+    if (!keyData.enabled || !keyData.publicKey) throw new Error("Bildirim sistemi henuz hazir degil.");
+    const registration = await serviceWorkerRegistration();
+    if (!registration) throw new Error("Bildirim servisi baslatilamadi.");
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+      });
+    }
+    await api("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscription })
+    });
+    setPushMessage("Bildirimler acildi. Mesaj ve haftalik Excel yuklemelerinde haber verilecek.", true);
+    closePushPrompt(false);
+  } catch (error) {
+    setPushMessage(error.message);
+  } finally {
+    await updatePushButton();
+    if (promptButton) promptButton.disabled = "Notification" in window && Notification.permission === "denied";
+  }
+}
+
+function closePushPrompt(saveForSession = true) {
+  pushPromptModal?.classList.add("hidden");
+  if (saveForSession) {
+    try { sessionStorage.setItem(pushPromptSessionKey, "1"); } catch (error) {}
+  }
+}
+
+async function maybeShowPushPrompt() {
+  if (!pushPromptModal || currentDashboard?.role !== "member") return;
+  try {
+    if (sessionStorage.getItem(pushPromptSessionKey) === "1") return;
+  } catch (error) {}
+  if (!("Notification" in window) || !("PushManager" in window) || !("serviceWorker" in navigator)) return;
+  if (Notification.permission !== "default") return;
+  const registration = await serviceWorkerRegistration();
+  const subscription = await registration?.pushManager?.getSubscription?.();
+  if (subscription) return;
+  pushPromptModal.classList.remove("hidden");
+}
+
 function showApp(user) {
   loginView.classList.add("hidden");
   appView.classList.remove("hidden");
@@ -93,6 +200,7 @@ function showLogin() {
   memberPanel.classList.add("hidden");
   detailModal.classList.add("hidden");
   kvkkModal.classList.add("hidden");
+  closePushPrompt(false);
   notificationBadge.classList.add("hidden");
   document.title = "Tipster Kontrol Paneli";
 }
@@ -1131,6 +1239,7 @@ function renderMember(data) {
   selectedDailyUploadId = data.selectedDailyUploadId || data.dailyUploads?.[0]?.id || "";
   adminPanel.classList.add("hidden");
   memberPanel.classList.remove("hidden");
+  updatePushButton().then(() => maybeShowPushPrompt()).catch(() => {});
   const numbers = numberRecordsOf(data.member);
   renderUploadSelect("memberUploadSelect", data.uploads, data.selectedUploadId);
   renderDailyUploadSelect("memberDailyUploadSelect", data.dailyUploads || [], selectedDailyUploadId);
@@ -1546,6 +1655,10 @@ document.getElementById("restartLoginBtn").addEventListener("click", () => {
   resetOtpLogin();
   setMessage("loginMessage", "");
 });
+
+document.getElementById("pushEnableBtn").addEventListener("click", enablePushNotifications);
+document.getElementById("pushPromptEnableBtn").addEventListener("click", enablePushNotifications);
+document.getElementById("pushPromptLaterBtn").addEventListener("click", () => closePushPrompt(true));
 
 function openKvkk() {
   kvkkModal.classList.remove("hidden");
