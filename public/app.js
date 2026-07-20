@@ -7,6 +7,7 @@ let detailMemberId = "";
 let detailUploadId = "";
 let pendingLoginToken = "";
 let pendingLoginType = "";
+let pendingRememberMe = false;
 let calculatorMode = "percent";
 let normalCalcValue = "0";
 let normalCalcStored = null;
@@ -34,6 +35,7 @@ const detailModal = document.getElementById("memberDetailModal");
 const kvkkModal = document.getElementById("kvkkModal");
 const mobileSelectModal = document.getElementById("mobileSelectModal");
 const notificationBadge = document.getElementById("notificationBadge");
+const rememberStorageKey = "tipsterPanelRememberLogin";
 
 const money = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
 
@@ -98,12 +100,46 @@ function showLogin() {
 function resetOtpLogin() {
   pendingLoginToken = "";
   pendingLoginType = "";
+  pendingRememberMe = false;
   document.getElementById("otpPanel").classList.add("hidden");
   document.getElementById("otpCode").required = false;
   document.getElementById("otpCode").value = "";
   document.getElementById("username").disabled = false;
   document.getElementById("password").disabled = false;
   document.querySelectorAll("[data-login-type]").forEach(item => item.disabled = false);
+}
+
+function rememberLoginChoice(user) {
+  const rememberMe = document.getElementById("rememberMe")?.checked;
+  try {
+    if (rememberMe) {
+      localStorage.setItem(rememberStorageKey, JSON.stringify({
+        loginType: selectedLoginType,
+        username: document.getElementById("username").value.trim()
+      }));
+    } else {
+      localStorage.removeItem(rememberStorageKey);
+    }
+  } catch (error) {}
+}
+
+function restoreRememberedLogin() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(rememberStorageKey) || "{}");
+    if (!saved.username) {
+      document.getElementById("username").value = "admin";
+      return;
+    }
+    selectedLoginType = saved.loginType === "member" ? "member" : "admin";
+    document.querySelectorAll("[data-login-type]").forEach(item => item.classList.toggle("active", item.dataset.loginType === selectedLoginType));
+    document.getElementById("username").value = saved.username;
+    document.getElementById("rememberMe").checked = true;
+    loginHint.textContent = selectedLoginType === "admin"
+      ? "Admin hesabi icin size verilen guvenli sifreyi kullanin."
+      : "Tipster girisi icin adminin olusturdugu kullanici adi ve sifre kullanilir.";
+  } catch (error) {
+    document.getElementById("username").value = "admin";
+  }
 }
 
 function uploadLabel(upload) {
@@ -1415,7 +1451,8 @@ document.querySelectorAll("[data-login-type]").forEach(button => {
     loginHint.textContent = selectedLoginType === "admin"
       ? "Admin hesabi icin size verilen guvenli sifreyi kullanin."
       : "Tipster girisi icin adminin olusturdugu kullanici adi ve sifre kullanilir.";
-    document.getElementById("username").value = selectedLoginType === "admin" ? "admin" : "";
+    const remembered = document.getElementById("rememberMe").checked;
+    if (!remembered) document.getElementById("username").value = selectedLoginType === "admin" ? "admin" : "";
     document.getElementById("password").value = "";
   });
 });
@@ -1436,7 +1473,8 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           loginToken: pendingLoginToken,
-          code: document.getElementById("otpCode").value.trim()
+          code: document.getElementById("otpCode").value.trim(),
+          rememberMe: pendingRememberMe
         })
       });
 
@@ -1448,6 +1486,7 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
       csrfToken = data.csrf;
       selectedUploadId = "";
       selectedDailyUploadId = "";
+      rememberLoginChoice(data.user);
       resetOtpLogin();
       showApp(data.user);
       await loadDashboard("");
@@ -1460,13 +1499,15 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
       body: JSON.stringify({
         username: document.getElementById("username").value.trim(),
         password: document.getElementById("password").value,
-        loginType: selectedLoginType
+        loginType: selectedLoginType,
+        rememberMe: document.getElementById("rememberMe").checked
       })
     });
 
     if (data.requiresOtp) {
       pendingLoginToken = data.loginToken;
       pendingLoginType = selectedLoginType;
+      pendingRememberMe = document.getElementById("rememberMe").checked;
       document.getElementById("otpPanel").classList.remove("hidden");
       document.getElementById("otpCode").required = true;
       document.getElementById("username").disabled = true;
@@ -1489,6 +1530,7 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
     csrfToken = data.csrf;
     selectedUploadId = "";
     selectedDailyUploadId = "";
+    rememberLoginChoice(data.user);
     showApp(data.user);
     await loadDashboard("");
   } catch (error) {
@@ -2266,7 +2308,7 @@ api("/api/me").then(async data => {
   setDefaultUploadDate();
   setDefaultPaymentDate();
   if (!data.user) {
-    document.getElementById("username").value = "admin";
+    restoreRememberedLogin();
     document.getElementById("password").value = "";
     return;
   }
