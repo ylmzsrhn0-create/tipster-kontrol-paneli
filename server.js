@@ -954,6 +954,79 @@ function portalNumbersFromCell(value) {
   return found;
 }
 
+const GSM_MASK_CHARS = "*xX\u2022\u2023\u2027\u2219\u2217\u25CF\u25E6\u00B7";
+const GSM_MASKED_RE = new RegExp(`0?5\\d{2}[${GSM_MASK_CHARS}]{2,}\\d{4}`);
+const GSM_MASKED_GLOBAL_RE = new RegExp(`(?:\\+?90)?0?5\\d{2}[${GSM_MASK_CHARS}]{2,}\\d{4}`, "g");
+const GSM_MASK_REPLACE_RE = new RegExp(`[${GSM_MASK_CHARS}]+`);
+
+function normalizeGsm(value) {
+  const text = String(value ?? "").trim().replace(/\s+/g, "");
+  const masked = text.match(GSM_MASKED_RE);
+  if (masked) {
+    const value = masked[0].replace(GSM_MASK_REPLACE_RE, "***");
+    return value.startsWith("0") ? value : `0${value}`;
+  }
+
+  const digits = text.replace(/\D/g, "");
+  let national = "";
+  if (/^05\d{9}$/.test(digits)) national = digits;
+  if (/^5\d{9}$/.test(digits)) national = `0${digits}`;
+  if (/^905\d{9}$/.test(digits)) national = `0${digits.slice(2)}`;
+  if (!national) return text;
+
+  return `${national.slice(0, 4)}***${national.slice(-4)}`;
+}
+
+function canonicalGsm(value) {
+  const normalized = normalizeGsm(value);
+  const masked = String(normalized || "").match(/05\d{2}\*{3}\d{4}/);
+  return masked ? masked[0] : "";
+}
+
+function gsmEdgeKey(value) {
+  const text = String(value ?? "").trim().replace(/\s+/g, "");
+  const masked = text.match(GSM_MASKED_RE);
+  if (masked) {
+    const cleanMasked = masked[0].replace(GSM_MASK_REPLACE_RE, "***");
+    const normalized = cleanMasked.startsWith("0") ? cleanMasked : `0${cleanMasked}`;
+    return `${normalized.slice(0, 4)}:${normalized.slice(-4)}`;
+  }
+  const digits = text.replace(/\D/g, "");
+  let national = "";
+  if (/^05\d{9}$/.test(digits)) national = digits;
+  if (/^5\d{9}$/.test(digits)) national = `0${digits}`;
+  if (/^905\d{9}$/.test(digits)) national = `0${digits.slice(2)}`;
+  return national ? `${national.slice(0, 4)}:${national.slice(-4)}` : "";
+}
+
+function gsmMatchKeys(value) {
+  const keys = new Set();
+  const canonical = canonicalGsm(value);
+  const edge = gsmEdgeKey(value);
+  if (canonical) keys.add(`canon:${canonical}`);
+  if (edge) keys.add(`edge:${edge}`);
+  return Array.from(keys);
+}
+
+function portalNumberFromCell(value) {
+  return portalNumbersFromCell(value)[0] || "";
+}
+
+function portalNumbersFromCell(value) {
+  const raw = String(value ?? "");
+  const compact = raw.replace(/\s+/g, "");
+  const found = [];
+  const add = number => {
+    const normalized = normalizeGsm(number);
+    const canonical = canonicalGsm(normalized);
+    if (canonical && !found.includes(canonical)) found.push(canonical);
+  };
+  for (const match of compact.matchAll(GSM_MASKED_GLOBAL_RE)) add(match[0]);
+  for (const match of compact.matchAll(/(?:\+?90)?0?5\d{9}/g)) add(match[0]);
+  if (!found.length) add(raw);
+  return found;
+}
+
 function normalizeNumberName(value) {
   return String(value ?? "").trim().slice(0, 80);
 }
