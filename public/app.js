@@ -44,6 +44,7 @@ const money = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
 
 function setMessage(id, text, ok = false) {
   const el = document.getElementById(id);
+  if (!el) return;
   el.textContent = text || "";
   el.style.color = ok ? "var(--ok)" : "var(--danger)";
 }
@@ -93,10 +94,12 @@ async function serviceWorkerRegistration() {
 
 async function updatePushButton() {
   const button = document.getElementById("pushEnableBtn");
+  const testButton = document.getElementById("pushTestBtn");
   const panel = document.getElementById("pushPanel");
   if (!button || !panel) return;
   if (!("Notification" in window) || !("PushManager" in window) || !("serviceWorker" in navigator)) {
     button.disabled = true;
+    if (testButton) testButton.disabled = true;
     button.textContent = "Bildirim desteklenmiyor";
     setPushMessage("Bu telefon/tarayici web bildirimi desteklemiyor.");
     return;
@@ -104,17 +107,55 @@ async function updatePushButton() {
   const registration = await serviceWorkerRegistration();
   const subscription = await registration?.pushManager?.getSubscription?.();
   if (Notification.permission === "granted" && subscription) {
-    button.disabled = true;
-    button.textContent = "Bildirimler acik";
-    setPushMessage("Bu cihaz icin bildirimler acik.", true);
+    try {
+      await savePushSubscription(subscription);
+      button.disabled = true;
+      if (testButton) testButton.disabled = false;
+      button.textContent = "Bildirimler acik";
+      setPushMessage("Bu cihaz icin bildirimler acik.", true);
+    } catch (error) {
+      button.disabled = false;
+      if (testButton) testButton.disabled = true;
+      button.textContent = "Tekrar bagla";
+      setPushMessage("Bildirim izni var ama sunucu kaydi yenilenemedi. Tekrar bagla butonuna basin.");
+    }
   } else if (Notification.permission === "denied") {
     button.disabled = true;
+    if (testButton) testButton.disabled = true;
     button.textContent = "Bildirim izni kapali";
     setPushMessage("Bildirim izni tarayicida kapali. Telefon ayarlarindan izin vermek gerekir.");
   } else {
     button.disabled = false;
+    if (testButton) testButton.disabled = true;
     button.textContent = "Bildirimleri ac";
     setPushMessage("");
+  }
+}
+
+async function savePushSubscription(subscription) {
+  await api("/api/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subscription })
+  });
+}
+
+async function sendTestPush() {
+  const testButton = document.getElementById("pushTestBtn");
+  if (testButton) testButton.disabled = true;
+  try {
+    const registration = await serviceWorkerRegistration();
+    const subscription = await registration?.pushManager?.getSubscription?.();
+    if (!subscription || Notification.permission !== "granted") {
+      throw new Error("Once bildirimleri acmak gerekiyor.");
+    }
+    await savePushSubscription(subscription);
+    const result = await api("/api/push/test", { method: "POST" });
+    setPushMessage(result.sent ? "Test bildirimi gonderildi." : "Test bildirimi gonderilemedi. Birazdan tekrar deneyin.", Boolean(result.sent));
+  } catch (error) {
+    setPushMessage(error.message);
+  } finally {
+    await updatePushButton();
   }
 }
 
@@ -142,11 +183,7 @@ async function enablePushNotifications() {
         applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
       });
     }
-    await api("/api/push/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subscription })
-    });
+    await savePushSubscription(subscription);
     setPushMessage("Bildirimler acildi. Mesaj ve haftalik Excel yuklemelerinde haber verilecek.", true);
     closePushPrompt(false);
   } catch (error) {
@@ -1657,6 +1694,7 @@ document.getElementById("restartLoginBtn").addEventListener("click", () => {
 });
 
 document.getElementById("pushEnableBtn").addEventListener("click", enablePushNotifications);
+document.getElementById("pushTestBtn").addEventListener("click", sendTestPush);
 document.getElementById("pushPromptEnableBtn").addEventListener("click", enablePushNotifications);
 document.getElementById("pushPromptLaterBtn").addEventListener("click", () => closePushPrompt(true));
 

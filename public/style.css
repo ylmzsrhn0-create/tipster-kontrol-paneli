@@ -393,6 +393,14 @@ input:focus, select:focus, textarea:focus {
   grid-column: 1 / -1;
 }
 
+.notification-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .period-banner {
   display: flex;
   align-items: center;
@@ -1975,7 +1983,8 @@ body.mobile-select-open {
   .notification-badge { width: 100%; }
   .admin-panel, .member-panel, .owner-panel { width: min(100% - 20px, 1200px); }
   .notification-panel { grid-template-columns: 1fr; }
-  .notification-panel .small { width: 100%; }
+  .notification-actions { align-items: stretch; flex-direction: column; }
+  .notification-actions .small { width: 100%; }
   .section-inline { align-items: stretch; flex-direction: column; }
   .period-banner { align-items: flex-start; flex-direction: column; }
   .calculator-panel {

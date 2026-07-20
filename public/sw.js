@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v23-push-notifications";
+const CACHE_NAME = "tipster-panel-v24-push-fix";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=push-notifications-20260720a",
-  "/app.js?v=push-notifications-20260720a",
+  "/style.css?v=push-fix-20260720b",
+  "/app.js?v=push-fix-20260720b",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",

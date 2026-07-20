@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=push-notifications-20260720a">
+  <link rel="stylesheet" href="/style.css?v=push-fix-20260720b">
 </head>
 <body class="login-mode">
   <main class="shell">
@@ -735,7 +735,10 @@
             <strong>Telefon bildirimleri</strong>
             <p class="muted">Admin mesajlari ve haftalik Excel yuklemeleri icin bildirim al.</p>
           </div>
-          <button class="primary small" id="pushEnableBtn" type="button">Bildirimleri ac</button>
+          <div class="notification-actions">
+            <button class="primary small" id="pushEnableBtn" type="button">Bildirimleri ac</button>
+            <button class="ghost small" id="pushTestBtn" type="button">Test bildirimi gonder</button>
+          </div>
           <div class="message" id="pushMessage"></div>
         </section>
 
@@ -1147,6 +1150,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=push-notifications-20260720a"></script>
+  <script src="/app.js?v=push-fix-20260720b"></script>
 </body>
 </html>
