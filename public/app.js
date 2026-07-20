@@ -1215,10 +1215,11 @@ function renderMemberPassiveNumbers(numbers) {
 function renderMessageRecipients(members) {
   const list = document.getElementById("messageRecipients");
   const allChecked = document.getElementById("messageAllMembers").checked;
-  list.classList.toggle("disabled", allChecked);
+  const selectedIds = new Set(Array.from(list.querySelectorAll("input:checked")).map(input => input.value));
+  list.classList.toggle("disabled", allChecked && !selectedIds.size);
   list.innerHTML = members.map(member => `
     <label class="recipient-item">
-      <input type="checkbox" value="${member.id}" ${allChecked ? "disabled" : ""}>
+      <input type="checkbox" value="${member.id}" ${selectedIds.has(member.id) ? "checked" : ""}>
       <span>
         <strong>${escapeHtml(member.name)}</strong>
         <small>${escapeHtml(member.username)}</small>
@@ -2087,6 +2088,18 @@ document.getElementById("adminEmailForm").addEventListener("submit", async event
 });
 
 document.getElementById("messageAllMembers").addEventListener("change", () => {
+  if (document.getElementById("messageAllMembers").checked) {
+    document.querySelectorAll("#messageRecipients input:checked").forEach(input => {
+      input.checked = false;
+    });
+  }
+  renderMessageRecipients(currentDashboard?.members || []);
+});
+
+document.getElementById("messageRecipients").addEventListener("change", event => {
+  if (!event.target.matches("input[type='checkbox']")) return;
+  const checkedCount = document.querySelectorAll("#messageRecipients input:checked").length;
+  if (checkedCount) document.getElementById("messageAllMembers").checked = false;
   renderMessageRecipients(currentDashboard?.members || []);
 });
 
@@ -2095,6 +2108,7 @@ document.getElementById("messageForm").addEventListener("submit", async event =>
   setMessage("messageSendMessage", "");
   const allMembers = document.getElementById("messageAllMembers").checked;
   const recipientIds = Array.from(document.querySelectorAll("#messageRecipients input:checked")).map(input => input.value);
+  const targetType = recipientIds.length ? "selected" : allMembers ? "all" : "selected";
   try {
     await api("/api/messages", {
       method: "POST",
@@ -2102,7 +2116,7 @@ document.getElementById("messageForm").addEventListener("submit", async event =>
       body: JSON.stringify({
         title: document.getElementById("messageTitle").value,
         body: document.getElementById("messageBody").value,
-        targetType: allMembers ? "all" : "selected",
+        targetType,
         recipientIds
       })
     });
