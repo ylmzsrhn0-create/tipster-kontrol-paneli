@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v30-mobile-menu-cache-fix";
+const CACHE_NAME = "tipster-panel-v31-payment-push";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=mobile-menu-cache-fix-20260720a",
-  "/app.js?v=mobile-menu-cache-fix-20260720a",
+  "/style.css?v=payment-push-20260720a",
+  "/app.js?v=payment-push-20260720a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",

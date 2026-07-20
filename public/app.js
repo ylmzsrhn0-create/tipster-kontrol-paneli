@@ -2018,7 +2018,7 @@ document.getElementById("paymentForm").addEventListener("submit", async event =>
     return;
   }
   try {
-    await api("/api/payments", {
+    const result = await api("/api/payments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2032,7 +2032,7 @@ document.getElementById("paymentForm").addEventListener("submit", async event =>
     document.getElementById("paymentAmount").value = "";
     document.getElementById("paymentNote").value = "";
     setDefaultPaymentDate();
-    setMessage("paymentMessage", "Odeme kaydi eklendi.", true);
+    setMessage("paymentMessage", `Odeme kaydi eklendi. ${pushResultText(result.push)}`, true);
     await loadDashboard(selectedUploadId, selectedDailyUploadId);
   } catch (error) {
     setMessage("paymentMessage", error.message);
