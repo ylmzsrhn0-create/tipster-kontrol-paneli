@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=message-delete-admin-20260720a">
+  <link rel="stylesheet" href="/style.css?v=account-menu-20260720a">
 </head>
 <body class="login-mode">
   <main class="shell">
@@ -69,8 +69,17 @@
         </div>
         <div class="top-actions">
           <span class="notification-badge hidden" id="notificationBadge">Yeni mesaj</span>
-          <button class="ghost" id="openKvkkPanelBtn" type="button">KVKK</button>
-          <button class="ghost" id="logoutBtn" type="button">Cikis</button>
+          <details class="account-menu" id="accountMenu">
+            <summary aria-label="Hesap menusu">
+              <span></span>
+              <span></span>
+              <span></span>
+            </summary>
+            <div class="account-menu-panel">
+              <button class="menu-action" id="openKvkkPanelBtn" type="button">KVKK Aydinlatma Metni</button>
+              <button class="menu-action danger-text" id="logoutBtn" type="button">Cikis yap</button>
+            </div>
+          </details>
         </div>
       </header>
 
@@ -1150,6 +1159,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=message-delete-admin-20260720a"></script>
+  <script src="/app.js?v=account-menu-20260720a"></script>
 </body>
 </html>

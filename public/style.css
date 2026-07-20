@@ -345,6 +345,70 @@ input:focus, select:focus, textarea:focus {
   gap: 10px;
 }
 
+.account-menu {
+  position: relative;
+}
+
+.account-menu summary {
+  width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+  cursor: pointer;
+  list-style: none;
+}
+
+.account-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.account-menu summary span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #253149;
+}
+
+.account-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: 220px;
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.menu-action {
+  min-height: 42px;
+  justify-content: flex-start;
+  border-radius: 7px;
+  padding: 10px 12px;
+  background: transparent;
+  color: #253149;
+  font-weight: 900;
+  text-align: left;
+}
+
+.menu-action:hover {
+  background: #f1f5f9;
+}
+
+.menu-action.danger-text {
+  color: var(--danger);
+}
+
 .notification-badge {
   min-height: 34px;
   display: inline-flex;
@@ -1986,9 +2050,22 @@ body.mobile-select-open {
   .cover { padding: 22px; }
   .cover h1 { font-size: 34px; }
   .login-card { width: calc(100% - 24px); padding: 22px; }
-  .topbar { align-items: stretch; flex-direction: column; padding: 16px; }
-  .top-actions { align-items: stretch; flex-direction: column; }
-  .notification-badge { width: 100%; }
+  .topbar { align-items: flex-start; flex-direction: row; padding: 18px 16px; }
+  .topbar > div:first-child { min-width: 0; }
+  .top-actions { align-items: center; flex: 0 0 auto; }
+  .notification-badge {
+    max-width: 126px;
+    min-height: 34px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .account-menu-panel {
+    position: fixed;
+    top: 70px;
+    right: 14px;
+    width: min(260px, calc(100vw - 28px));
+  }
   .admin-panel, .member-panel, .owner-panel { width: min(100% - 20px, 1200px); }
   .notification-panel { grid-template-columns: 1fr; }
   .notification-actions { align-items: stretch; flex-direction: column; }

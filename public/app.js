@@ -1718,6 +1718,7 @@ document.getElementById("pushPromptEnableBtn").addEventListener("click", enableP
 document.getElementById("pushPromptLaterBtn").addEventListener("click", () => closePushPrompt(true));
 
 function openKvkk() {
+  document.getElementById("accountMenu")?.removeAttribute("open");
   kvkkModal.classList.remove("hidden");
 }
 
@@ -1839,6 +1840,7 @@ document.getElementById("adminRows").addEventListener("change", async event => {
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async () => {
+  document.getElementById("accountMenu")?.removeAttribute("open");
   await api("/api/logout", { method: "POST" }).catch(() => {});
   csrfToken = "";
   selectedUploadId = "";
