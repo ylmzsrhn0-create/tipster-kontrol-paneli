@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v25-message-select-fix";
+const CACHE_NAME = "tipster-panel-v26-push-diagnostics";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=message-select-fix-20260720a",
-  "/app.js?v=message-select-fix-20260720a",
+  "/style.css?v=push-diagnostics-20260720a",
+  "/app.js?v=push-diagnostics-20260720a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",

@@ -108,11 +108,11 @@ async function updatePushButton() {
   const subscription = await registration?.pushManager?.getSubscription?.();
   if (Notification.permission === "granted" && subscription) {
     try {
-      await savePushSubscription(subscription);
+      const saved = await savePushSubscription(subscription);
       button.disabled = true;
       if (testButton) testButton.disabled = false;
       button.textContent = "Bildirimler acik";
-      setPushMessage("Bu cihaz icin bildirimler acik.", true);
+      setPushMessage(`Bu cihaz icin bildirimler acik. Kayitli cihaz: ${saved.subscriptionCount || 1}`, true);
     } catch (error) {
       button.disabled = false;
       if (testButton) testButton.disabled = true;
@@ -133,7 +133,7 @@ async function updatePushButton() {
 }
 
 async function savePushSubscription(subscription) {
-  await api("/api/push/subscribe", {
+  return api("/api/push/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ subscription })
@@ -151,12 +151,20 @@ async function sendTestPush() {
     }
     await savePushSubscription(subscription);
     const result = await api("/api/push/test", { method: "POST" });
-    setPushMessage(result.sent ? "Test bildirimi gonderildi." : "Test bildirimi gonderilemedi. Birazdan tekrar deneyin.", Boolean(result.sent));
+    setPushMessage(pushResultText(result, "Test bildirimi"), Boolean(result.sent));
   } catch (error) {
     setPushMessage(error.message);
   } finally {
     await updatePushButton();
   }
+}
+
+function pushResultText(result, prefix = "Bildirim") {
+  if (!result?.enabled) return `${prefix}: bildirim sistemi sunucuda hazir degil.`;
+  if (!result.total) return `${prefix}: bu tipster icin kayitli telefon yok. Tipster kendi telefonundan Bildirimleri ac demeli.`;
+  if (result.sent) return `${prefix}: ${result.sent} cihaza gonderildi.`;
+  if (result.failed) return `${prefix}: ${result.failed} cihazda hata olustu. Telefon bildirim iznini kapatip tekrar acmak gerekebilir.`;
+  return `${prefix}: gonderilemedi.`;
 }
 
 async function enablePushNotifications() {
@@ -177,6 +185,10 @@ async function enablePushNotifications() {
     const registration = await serviceWorkerRegistration();
     if (!registration) throw new Error("Bildirim servisi baslatilamadi.");
     let subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      try { await subscription.unsubscribe(); } catch (error) {}
+      subscription = null;
+    }
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -2110,7 +2122,7 @@ document.getElementById("messageForm").addEventListener("submit", async event =>
   const recipientIds = Array.from(document.querySelectorAll("#messageRecipients input:checked")).map(input => input.value);
   const targetType = recipientIds.length ? "selected" : allMembers ? "all" : "selected";
   try {
-    await api("/api/messages", {
+    const result = await api("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2122,7 +2134,7 @@ document.getElementById("messageForm").addEventListener("submit", async event =>
     });
     event.target.reset();
     document.getElementById("messageAllMembers").checked = true;
-    setMessage("messageSendMessage", "Mesaj gonderildi.", true);
+    setMessage("messageSendMessage", `Mesaj gonderildi. ${pushResultText(result.push)}`, true);
     await loadDashboard(selectedUploadId);
   } catch (error) {
     setMessage("messageSendMessage", error.message);
