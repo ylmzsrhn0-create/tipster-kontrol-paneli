@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v34-brand-pattern-preview";
+const CACHE_NAME = "tipster-panel-v35-logo-watermark-visible";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=brand-pattern-preview-20260720a",
-  "/app.js?v=brand-pattern-preview-20260720a",
+  "/style.css?v=logo-watermark-visible-20260720b",
+  "/app.js?v=logo-watermark-visible-20260720b",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",

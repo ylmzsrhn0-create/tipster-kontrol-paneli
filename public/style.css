@@ -53,7 +53,7 @@ body::after {
 }
 
 body.app-mode::before {
-  opacity: .18;
+  opacity: .22;
 }
 
 body.app-mode::after {
@@ -1981,7 +1981,7 @@ body.mobile-select-open {
 
 @media (max-width: 900px) {
   body::before { background-size: 132px 132px; }
-  body.app-mode::before { opacity: .16; }
+  body.app-mode::before { opacity: .2; }
   .page-watermarks::before { background-size: 138px 138px; opacity: .075; }
   .login-view { grid-template-columns: 1fr; }
   .cover { min-height: 380px; padding: 30px; }
@@ -2078,6 +2078,27 @@ body.mobile-select-open {
     border-radius: 0;
     background: #f5f7fb;
     box-shadow: none;
+  }
+
+  details.collapsible.mobile-panel-page::before {
+    content: "";
+    position: fixed;
+    inset: -70px;
+    z-index: 0;
+    pointer-events: none;
+    background-image: var(--panel-logo-url, url("/logo-watermark.png"));
+    background-repeat: repeat;
+    background-size: 132px 132px;
+    background-position: 8px 12px;
+    opacity: .18;
+    filter: grayscale(1) brightness(1.08) contrast(.72);
+    mix-blend-mode: multiply;
+    transform: rotate(-8deg);
+  }
+
+  details.collapsible.mobile-panel-page > * {
+    position: relative;
+    z-index: 1;
   }
 
   details.collapsible.mobile-panel-page > summary {
