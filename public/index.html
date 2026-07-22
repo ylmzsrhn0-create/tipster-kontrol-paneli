@@ -224,8 +224,12 @@
             <b id="unmatchedNumberCount">0</b>
           </summary>
           <div class="section-head collapsible-tools">
-            <p class="muted">Secili haftalik ve gunluk Exceldeki tipstersiz numaralari kendi admin kaydina aktarabilirsin.</p>
-            <button class="primary small" id="assignUnmatchedAdminBtn" type="button">Admine kaydet</button>
+            <p class="muted">Secili haftalik ve gunluk Exceldeki tipstersiz numaralari sectigin tipstera aktar.</p>
+            <label>
+              Kayit yapilacak tipster
+              <select id="unmatchedTargetMemberSelect"></select>
+            </label>
+            <button class="primary small" id="assignUnmatchedAdminBtn" type="button">Secili tipstera kaydet</button>
           </div>
           <div class="message" id="unmatchedNumberMessage"></div>
           <div class="table-wrap collapsible-table">
@@ -239,6 +243,34 @@
                 </tr>
               </thead>
               <tbody id="unmatchedNumberRows"></tbody>
+            </table>
+          </div>
+          <div class="section-head collapsible-tools">
+            <div>
+              <h3>Ana admin hesabina kayitli numaralar</h3>
+              <p class="muted">Daha once "Admine kaydet" ile gizli admin kaydina eklenen numaralar.</p>
+            </div>
+            <b id="adminStoredNumberCount">0</b>
+          </div>
+          <div class="section-head collapsible-tools">
+            <label>
+              Tasinacak tipster
+              <select id="adminNumberTargetMemberSelect"></select>
+            </label>
+            <button class="primary small" id="moveAdminNumbersBtn" type="button">Isaretlenenleri tipstera tasi</button>
+          </div>
+          <div class="message" id="adminNumberMoveMessage"></div>
+          <div class="table-wrap collapsible-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Sec</th>
+                  <th>Numara</th>
+                  <th>Isim</th>
+                  <th>Kayit tarihi</th>
+                </tr>
+              </thead>
+              <tbody id="adminStoredNumberRows"></tbody>
             </table>
           </div>
         </details>
@@ -1194,6 +1226,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=daily-earning-total-20260720a"></script>
+  <script src="/app.js?v=admin-number-transfer-20260722a"></script>
 </body>
 </html>

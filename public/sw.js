@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v36-daily-earning-total";
+const CACHE_NAME = "tipster-panel-v37-admin-number-transfer";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
   "/style.css?v=daily-earning-total-20260720a",
-  "/app.js?v=daily-earning-total-20260720a",
+  "/app.js?v=admin-number-transfer-20260722a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",

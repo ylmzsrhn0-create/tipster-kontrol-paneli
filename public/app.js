@@ -761,6 +761,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderDailyMembers();
   renderPaymentPanel();
   renderSharedNumbers(data.sharedNumbers || []);
+  renderAdminNumberTransfers(data);
   renderUnmatchedNumbers(data.unmatchedNumbers || []);
   renderPassiveNumbers(data.passiveNumbers || []);
   renderUploadReports(data.uploadReports || []);
@@ -1011,6 +1012,33 @@ function renderUnmatchedNumbers(numbers) {
       <td data-label="Excel / dosya">${escapeHtml((item.uploads || []).join(", ") || "-")}</td>
     </tr>
   `).join("") || `<tr><td colspan="4">Secili haftalik ve gunluk Excelde tipstersiz numara yok.</td></tr>`;
+}
+
+function renderAdminNumberTransfers(data) {
+  const members = data.members || [];
+  const options = members.length
+    ? members.map(member => `<option value="${escapeHtml(member.id)}">${escapeHtml(member.name)} (${escapeHtml(member.username)})</option>`).join("")
+    : `<option value="">Tipster yok</option>`;
+  ["unmatchedTargetMemberSelect", "adminNumberTargetMemberSelect"].forEach(id => {
+    const select = document.getElementById(id);
+    const previous = select.value;
+    select.innerHTML = options;
+    if (members.some(member => member.id === previous)) select.value = previous;
+    select.disabled = !members.length;
+    updateMobileSelectTrigger(select);
+  });
+  const records = numberRecordsOf(data.currentAdmin || {});
+  document.getElementById("adminStoredNumberCount").textContent = records.length;
+  document.getElementById("adminStoredNumberRows").innerHTML = records.map(record => `
+    <tr>
+      <td data-label="Sec"><input type="checkbox" data-admin-stored-number value="${escapeHtml(record.number)}"></td>
+      <td data-label="Numara"><strong>${escapeHtml(record.number)}</strong></td>
+      <td data-label="Isim">${escapeHtml(record.name || "-")}</td>
+      <td data-label="Kayit tarihi">${escapeHtml(record.createdAt ? formatDateTime(record.createdAt) : "-")}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="4">Ana admin hesabinda gizli numara yok.</td></tr>`;
+  document.getElementById("assignUnmatchedAdminBtn").disabled = !members.length;
+  document.getElementById("moveAdminNumbersBtn").disabled = !members.length || !records.length;
 }
 
 function portalComparisonMemberText(item) {
@@ -2249,15 +2277,37 @@ document.getElementById("adminMessageRows").addEventListener("click", async even
 document.getElementById("assignUnmatchedAdminBtn").addEventListener("click", async () => {
   setMessage("unmatchedNumberMessage", "");
   try {
-    const data = await api("/api/unmatched-numbers/assign-admin", {
+    const memberId = document.getElementById("unmatchedTargetMemberSelect").value;
+    if (!memberId) throw new Error("Kayit yapilacak tipsteri secin.");
+    const data = await api("/api/unmatched-numbers/assign-member", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uploadId: selectedUploadId || "all", dailyUploadId: selectedDailyUploadId || "" })
+      body: JSON.stringify({ memberId, uploadId: selectedUploadId || "all", dailyUploadId: selectedDailyUploadId || "" })
     });
-    setMessage("unmatchedNumberMessage", `${data.addedCount} numara admin kaydina eklendi.`, true);
+    setMessage("unmatchedNumberMessage", `${data.addedCount} numara secili tipstera eklendi.`, true);
     await loadDashboard(selectedUploadId, selectedDailyUploadId);
   } catch (error) {
     setMessage("unmatchedNumberMessage", error.message);
+  }
+});
+
+document.getElementById("moveAdminNumbersBtn").addEventListener("click", async () => {
+  setMessage("adminNumberMoveMessage", "");
+  try {
+    const memberId = document.getElementById("adminNumberTargetMemberSelect").value;
+    const numbers = Array.from(document.querySelectorAll("[data-admin-stored-number]:checked")).map(input => input.value);
+    if (!memberId) throw new Error("Tasinacak tipsteri secin.");
+    if (!numbers.length) throw new Error("Tasinacak en az bir numara secin.");
+    const data = await api("/api/admin-numbers/move-to-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId, numbers })
+    });
+    const skippedText = data.skippedCount ? ` ${data.skippedCount} numara baska tipsterda kayitli oldugu icin atlandi.` : "";
+    setMessage("adminNumberMoveMessage", `${data.movedCount + data.alreadyCount} numara secili tipstera tasindi.${skippedText}`, true);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+  } catch (error) {
+    setMessage("adminNumberMoveMessage", error.message);
   }
 });
 
