@@ -1224,8 +1224,35 @@
         </div>
       </div>
     </section>
+
+    <section class="chat-widget hidden" id="chatWidget" aria-label="Mesaj kutusu">
+      <button class="chat-toggle" id="chatToggleBtn" type="button" aria-label="Mesaj kutusunu ac">
+        <span>Mesaj</span>
+        <b class="chat-badge hidden" id="chatUnreadBadge">0</b>
+      </button>
+      <div class="chat-panel hidden" id="chatPanel">
+        <div class="chat-head">
+          <div>
+            <strong id="chatPanelTitle">Mesaj kutusu</strong>
+            <small id="chatPanelSubtitle">Canli destek</small>
+          </div>
+          <button class="ghost small" id="chatCloseBtn" type="button">Kapat</button>
+        </div>
+        <label class="chat-member-picker hidden" id="chatMemberPicker">
+          Tipster sec
+          <select id="chatMemberSelect"></select>
+          <small id="chatMemberLastSeen"></small>
+        </label>
+        <div class="chat-list" id="chatMessages"></div>
+        <form class="chat-form" id="chatForm">
+          <textarea id="chatBody" rows="3" placeholder="Mesajinizi yazin" required></textarea>
+          <button class="primary" type="submit">Gonder</button>
+        </form>
+        <div class="message" id="chatMessage"></div>
+      </div>
+    </section>
   </main>
 
-  <script src="/app.js?v=admin-number-transfer-20260722a"></script>
+  <script src="/app.js?v=live-chat-20260724a"></script>
 </body>
 </html>

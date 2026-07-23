@@ -17,6 +17,8 @@ let mobileSelectTarget = null;
 let mobileSelectHistoryOpen = false;
 let loginSubmitting = false;
 let swRegistrationPromise = null;
+let activeChatMemberId = "";
+let activeChatMessages = [];
 const expandedAdminNumbers = new Set();
 const mobileSelectIds = ["adminUploadSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "numberListSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
@@ -47,6 +49,12 @@ function setMessage(id, text, ok = false) {
   if (!el) return;
   el.textContent = text || "";
   el.style.color = ok ? "var(--ok)" : "var(--danger)";
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString("tr-TR");
 }
 
 function escapeHtml(value) {
@@ -264,6 +272,8 @@ function showLogin() {
   memberPanel.classList.add("hidden");
   detailModal.classList.add("hidden");
   kvkkModal.classList.add("hidden");
+  document.getElementById("chatWidget")?.classList.add("hidden");
+  document.getElementById("chatPanel")?.classList.add("hidden");
   closePushPrompt(false);
   notificationBadge.classList.add("hidden");
   document.title = "Tipster Kontrol Paneli";
@@ -768,6 +778,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderAuditLogs(data.auditLogs || []);
   renderMessageRecipients(data.members || []);
   renderAdminMessages(data.messages || []);
+  renderChatWidget(data);
   document.getElementById("adminFeedbackPanel").classList.toggle("hidden", data.role === "owner");
   const weeklyUploads = data.uploads || [];
   const dailyUploads = data.dailyUploads || [];
@@ -1374,11 +1385,12 @@ function renderMember(data) {
   renderNumbers(numbers);
   renderMyRows(data.rows || []);
   renderMemberMessages(data.messages || []);
+  renderChatWidget(data);
 }
 
 function renderMemberMessages(messages) {
   const panel = document.getElementById("memberMessagesPanel");
-  const unreadCount = messages.filter(message => message.unread).length;
+  const unreadCount = messages.filter(message => message.unread).length + chatUnreadCount(currentDashboard);
   notificationBadge.classList.toggle("hidden", unreadCount === 0);
   notificationBadge.textContent = unreadCount ? `${unreadCount} yeni mesaj` : "Yeni mesaj";
   document.title = unreadCount ? `(${unreadCount}) Tipster Kontrol Paneli` : "Tipster Kontrol Paneli";
@@ -1404,6 +1416,89 @@ function renderMemberMessages(messages) {
       `}
     </article>
   `).join("") || `<p class="muted">Henuz mesaj yok.</p>`;
+}
+
+function chatUnreadCount(data = currentDashboard) {
+  if (!data) return 0;
+  if (data.role === "member") return Number(data.chatUnreadCount || 0);
+  return (data.chatThreads || []).reduce((sum, thread) => sum + Number(thread.unreadCount || 0), 0);
+}
+
+function currentChatThread() {
+  return (currentDashboard?.chatThreads || []).find(thread => thread.id === activeChatMemberId) || null;
+}
+
+function renderChatWidget(data = currentDashboard) {
+  const widget = document.getElementById("chatWidget");
+  if (!widget || !data || loginView.classList.contains("hidden") === false) return;
+  widget.classList.remove("hidden");
+  const unread = chatUnreadCount(data);
+  const badge = document.getElementById("chatUnreadBadge");
+  badge.classList.toggle("hidden", unread === 0);
+  badge.textContent = unread > 99 ? "99+" : String(unread);
+  const isMember = data.role === "member";
+  document.getElementById("chatPanelTitle").textContent = isMember ? "Admin mesajlari" : "Tipster mesajlari";
+  document.getElementById("chatPanelSubtitle").textContent = isMember
+    ? "Admininize buradan mesaj yazabilirsiniz."
+    : "Tipster secip mesajlasabilirsiniz.";
+  document.getElementById("chatMemberPicker").classList.toggle("hidden", isMember);
+  if (isMember) {
+    activeChatMessages = data.chatMessages || [];
+    renderChatMessages(activeChatMessages);
+    return;
+  }
+  const threads = data.chatThreads || [];
+  if (!activeChatMemberId && threads.length) activeChatMemberId = threads[0].id;
+  const select = document.getElementById("chatMemberSelect");
+  select.innerHTML = threads.map(thread => `
+    <option value="${escapeHtml(thread.id)}">${escapeHtml(thread.name)}${thread.unreadCount ? ` (${thread.unreadCount})` : ""}</option>
+  `).join("") || `<option value="">Tipster yok</option>`;
+  select.value = activeChatMemberId || "";
+  const thread = currentChatThread();
+  document.getElementById("chatMemberLastSeen").textContent = thread
+    ? `Son giris: ${formatDateTime(thread.lastLoginAt)}`
+    : "Tipster secin";
+  if (activeChatMemberId) loadChatThread(activeChatMemberId, false).catch(() => renderChatMessages([]));
+  else renderChatMessages([]);
+}
+
+function renderChatMessages(messages) {
+  const list = document.getElementById("chatMessages");
+  if (!list) return;
+  list.innerHTML = (messages || []).map(message => {
+    const mine = message.isMine ? " mine" : "";
+    const system = message.kind === "system" ? " system" : "";
+    const readText = message.isMine
+      ? (Object.keys(message.readBy || {}).length ? "Okundu" : "Okunmadi")
+      : (message.unread ? "Okunmadi" : "Okundu");
+    return `
+      <article class="chat-bubble${mine}${system}">
+        <strong>${escapeHtml(message.senderName || "Sistem")}</strong>
+        <p>${escapeHtml(message.body)}</p>
+        <span class="chat-meta">${formatDateTime(message.createdAt)} - ${readText}</span>
+      </article>
+    `;
+  }).join("") || `<p class="chat-empty">Henuz mesaj yok.</p>`;
+  list.scrollTop = list.scrollHeight;
+}
+
+async function loadChatThread(memberId, markRead = true) {
+  if (!memberId) return;
+  const data = await api(`/api/chat?memberId=${encodeURIComponent(memberId)}`);
+  activeChatMessages = data.messages || [];
+  renderChatMessages(activeChatMessages);
+  const thread = data.thread || currentChatThread();
+  document.getElementById("chatMemberLastSeen").textContent = thread
+    ? `Son giris: ${formatDateTime(thread.lastLoginAt)}`
+    : "Son giris bilgisi yok";
+  if (markRead && activeChatMessages.some(message => message.unread)) {
+    await api("/api/chat/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId })
+    });
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+  }
 }
 
 function withAllWeeklyTotals(rows) {
@@ -2258,6 +2353,52 @@ document.getElementById("messageForm").addEventListener("submit", async event =>
     await loadDashboard(selectedUploadId);
   } catch (error) {
     setMessage("messageSendMessage", error.message);
+  }
+});
+
+document.getElementById("chatToggleBtn").addEventListener("click", async () => {
+  const panel = document.getElementById("chatPanel");
+  panel.classList.toggle("hidden");
+  if (!panel.classList.contains("hidden")) {
+    renderChatWidget(currentDashboard);
+    if (currentDashboard?.role === "member" && activeChatMessages.some(message => message.unread)) {
+      await api("/api/chat/read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).catch(() => {});
+      await loadDashboard(selectedUploadId, selectedDailyUploadId);
+    }
+  }
+});
+
+document.getElementById("chatCloseBtn").addEventListener("click", () => {
+  document.getElementById("chatPanel").classList.add("hidden");
+});
+
+document.getElementById("chatMemberSelect").addEventListener("change", event => {
+  activeChatMemberId = event.target.value;
+  loadChatThread(activeChatMemberId).catch(error => setMessage("chatMessage", error.message));
+});
+
+document.getElementById("chatForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  setMessage("chatMessage", "");
+  const text = document.getElementById("chatBody").value.trim();
+  const isMember = currentDashboard?.role === "member";
+  if (!text) return;
+  if (!isMember && !activeChatMemberId) {
+    setMessage("chatMessage", "Mesaj gonderilecek tipsteri secin.");
+    return;
+  }
+  try {
+    await api("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: text, memberId: activeChatMemberId })
+    });
+    document.getElementById("chatBody").value = "";
+    setMessage("chatMessage", "Mesaj gonderildi.", true);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+    if (!isMember && activeChatMemberId) await loadChatThread(activeChatMemberId, false);
+  } catch (error) {
+    setMessage("chatMessage", error.message);
   }
 });
 
