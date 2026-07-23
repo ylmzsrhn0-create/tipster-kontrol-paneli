@@ -214,6 +214,7 @@ function normalizeDb(db) {
   db.users.forEach(user => {
     if (isStaff(user)) user.email = normalizeEmail(user.email);
     if (!isStaff(user)) user.brandingLogoFile = "";
+    user.lastLoginAt ||= "";
     if (user.role === "member" && !user.ownerId) user.ownerId = ownerId;
     if (user.role === "admin" && !user.createdBy) user.createdBy = ownerId;
     const records = backfillNumberRecordDates(db, user);
@@ -225,6 +226,12 @@ function normalizeDb(db) {
     message.recipientIds ||= [];
     message.readBy ||= {};
     message.deletedBy ||= {};
+    message.kind ||= message.senderRole === "member" ? "chat" : "broadcast";
+    message.senderId ||= "";
+    message.senderRole ||= "";
+    message.conversationMemberId ||= "";
+    message.title ||= "Mesaj";
+    message.body ||= "";
   });
   db.feedbacks.forEach(feedback => {
     feedback.type ||= "suggestion";
@@ -733,6 +740,7 @@ function publicUser(user) {
     percentage: user.percentage,
     ownerId: user.ownerId,
     createdAt: user.createdAt,
+    lastLoginAt: user.lastLoginAt || "",
     accessStartsAt: isStaff(user) ? defaultAccessStartsAt(user) : "",
     accessEndsAt: isStaff(user) ? defaultAccessEndsAt(user) : "",
     sharedNumbersEnabled: isStaff(user) ? Boolean(user.sharedNumbersEnabled) : false
@@ -753,6 +761,7 @@ function publicAdmin(user) {
     brandingLogoUrl: logoUrlFor(user),
     hasCustomLogo: Boolean(user.brandingLogoFile),
     createdAt: user.createdAt,
+    lastLoginAt: user.lastLoginAt || "",
     accessStartsAt: defaultAccessStartsAt(user),
     accessEndsAt: defaultAccessEndsAt(user)
   };
@@ -791,6 +800,95 @@ function publicMessageForMember(message, memberId) {
     createdAt: message.createdAt,
     readAt,
     unread: !readAt
+  };
+}
+
+function chatMessagesFor(db, ownerId, memberId, viewerId) {
+  return (db.messages || [])
+    .filter(message => message.ownerId === ownerId)
+    .filter(message => (message.kind === "chat" || message.kind === "system") && message.conversationMemberId === memberId)
+    .filter(message => !message.deletedBy?.[viewerId])
+    .slice()
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+    .map(message => publicChatMessage(message, viewerId));
+}
+
+function publicChatMessage(message, viewerId) {
+  return {
+    id: message.id,
+    kind: message.kind || "chat",
+    title: message.title || "Mesaj",
+    body: message.body || "",
+    senderId: message.senderId || "",
+    senderRole: message.senderRole || "",
+    senderName: message.senderName || "Sistem",
+    createdAt: message.createdAt,
+    readAt: message.readBy?.[viewerId] || "",
+    unread: message.recipientIds.includes(viewerId) && !message.readBy?.[viewerId],
+    isMine: message.senderId === viewerId,
+    readBy: message.readBy || {}
+  };
+}
+
+function chatThreadsForAdmin(db, admin) {
+  return db.users
+    .filter(user => user.role === "member" && user.ownerId === admin.id)
+    .map(member => {
+      const messages = chatMessagesFor(db, admin.id, member.id, admin.id);
+      const last = messages[messages.length - 1] || null;
+      return {
+        id: member.id,
+        name: member.name || member.username,
+        username: member.username,
+        lastLoginAt: member.lastLoginAt || "",
+        unreadCount: messages.filter(message => message.unread).length,
+        lastMessageAt: last?.createdAt || "",
+        lastMessage: last?.body || ""
+      };
+    })
+    .sort((a, b) => String(b.lastMessageAt || b.lastLoginAt).localeCompare(String(a.lastMessageAt || a.lastLoginAt)));
+}
+
+function unreadChatCountForUser(db, user) {
+  return (db.messages || []).filter(message =>
+    (message.kind === "chat" || message.kind === "system") &&
+    message.recipientIds.includes(user.id) &&
+    !message.readBy?.[user.id] &&
+    !message.deletedBy?.[user.id]
+  ).length;
+}
+
+function addSystemMessage(db, ownerId, memberId, title, body) {
+  const message = {
+    id: crypto.randomUUID(),
+    kind: "system",
+    ownerId,
+    conversationMemberId: memberId,
+    senderId: "system",
+    senderRole: "system",
+    senderName: "Sistem",
+    targetType: "selected",
+    recipientIds: [memberId],
+    title,
+    body,
+    readBy: {},
+    deletedBy: {},
+    createdAt: new Date().toISOString()
+  };
+  db.messages.push(message);
+  return message;
+}
+
+function uploadNotificationText(uploadType, label) {
+  if (uploadType === "daily") {
+    return {
+      title: "Gunluk oyuncu raporu yuklendi",
+      body: `${label} tarihli gunluk oyuncu raporu sisteme eklenmistir. Oyuncu bazli toplamlari panelinizden kontrol edebilirsiniz.`
+    };
+  }
+  return {
+    title: "Haftalik oyuncu raporu yuklendi",
+    body: `${label} haftalik oyuncu raporu sisteme eklenmistir. Haftalik komisyon bilgilerinizi panelinizden kontrol edebilirsiniz.`
   };
 }
 
@@ -2241,6 +2339,7 @@ async function handleApi(req, res) {
       });
       return;
     }
+    user.lastLoginAt = new Date().toISOString();
     const csrf = setSession(res, user, rememberMe);
     addAuditLog(db, user.role === "member" ? user.ownerId : user.id, user, "Giris yapildi", user.role === "member" ? "Tipster girisi" : "Admin girisi");
     writeDb(db);
@@ -2288,6 +2387,7 @@ async function handleApi(req, res) {
     }
     const rememberMe = Boolean(pending.rememberMe);
     pendingOtps.delete(token);
+    user.lastLoginAt = new Date().toISOString();
     const csrf = setSession(res, user, rememberMe);
     addAuditLog(db, user.id, user, "Giris yapildi", "E-posta onay kodu ile admin girisi");
     writeDb(db);
@@ -2679,7 +2779,7 @@ async function handleApi(req, res) {
         };
       });
       const messages = db.messages
-        .filter(message => message.ownerId === user.id)
+        .filter(message => message.ownerId === user.id && (message.kind || "broadcast") === "broadcast")
         .slice()
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 30)
@@ -2708,7 +2808,8 @@ async function handleApi(req, res) {
         .slice(0, 120)
         .map(payment => publicPayment(db, payment));
       const selectedPayments = ownerPayments.filter(payment => payment.uploadId === uploadId);
-      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const chatThreads = chatThreadsForAdmin(db, user);
+      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, chatThreads, chatUnreadCount: chatThreads.reduce((sum, item) => sum + item.unreadCount, 0), unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -2739,8 +2840,10 @@ async function handleApi(req, res) {
       allWeeklyNumberSummaries: allWeeklySummary.numberSummaries,
       dailySummaries: memberDailySummaries(db, user, user.ownerId),
       passiveNumbers: passiveNumberSummary(db, uploadId, user.ownerId).filter(item => item.memberId === user.id),
+      chatMessages: chatMessagesFor(db, user.ownerId, user.id, user.id),
+      chatUnreadCount: unreadChatCountForUser(db, user),
       messages: db.messages
-        .filter(message => message.ownerId === user.ownerId && message.recipientIds.includes(user.id) && !message.deletedBy?.[user.id])
+        .filter(message => message.ownerId === user.ownerId && (message.kind || "broadcast") === "broadcast" && message.recipientIds.includes(user.id) && !message.deletedBy?.[user.id])
         .slice()
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 30)
@@ -2858,8 +2961,10 @@ async function handleApi(req, res) {
     }
     const message = {
       id: crypto.randomUUID(),
+      kind: "broadcast",
       ownerId: session.userId,
       senderId: session.userId,
+      senderRole: user?.role || "admin",
       senderName: user?.name || user?.username || "Admin",
       targetType,
       recipientIds,
@@ -2870,9 +2975,122 @@ async function handleApi(req, res) {
     };
     db.messages.push(message);
     addAuditLog(db, session.userId, user, "Tipsterlara mesaj gonderildi", `${recipientIds.length} tipstera mesaj gonderildi: ${title}`);
-    const pushResult = await sendPushToUsers(db, recipientIds, notificationPayload(title, messageBody, "/"));
+    const pushResult = await sendPushToUsers(db, recipientIds, notificationPayload("Admininizden yeni mesajiniz var", "Mesaj kutunuzu kontrol edebilirsiniz.", "/"));
     writeDb(db);
     sendJson(res, 200, { ok: true, message: publicMessageForAdmin(db, message), push: pushResult });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/chat") {
+    const session = requireAuth(req, res);
+    if (!session) return;
+    const user = db.users.find(item => item.id === session.userId);
+    if (!user) {
+      sendJson(res, 404, { error: "Kullanici bulunamadi." });
+      return;
+    }
+    let ownerId = user.ownerId;
+    let member = user;
+    if (isStaff(user)) {
+      ownerId = user.id;
+      member = db.users.find(item => item.id === String(url.searchParams.get("memberId") || "") && item.role === "member" && item.ownerId === user.id);
+      if (!member) {
+        sendJson(res, 400, { error: "Tipster secin." });
+        return;
+      }
+    }
+    sendJson(res, 200, {
+      member: publicUser(member),
+      thread: chatThreadsForAdmin(db, db.users.find(item => item.id === ownerId) || user).find(item => item.id === member.id) || null,
+      messages: chatMessagesFor(db, ownerId, member.id, user.id)
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/chat") {
+    const session = requireAuth(req, res);
+    if (!session) return;
+    const body = JSON.parse((await readBody(req, 1024 * 80)).toString("utf8"));
+    const user = db.users.find(item => item.id === session.userId);
+    const text = String(body.body || "").trim().slice(0, 1200);
+    if (!user || !text) {
+      sendJson(res, 400, { error: "Mesaj metni gerekli." });
+      return;
+    }
+    let ownerId = user.ownerId;
+    let member = user;
+    let recipientIds = [];
+    let pushTitle = "";
+    let pushBody = "Mesaj kutunuzu kontrol edebilirsiniz.";
+    if (isStaff(user)) {
+      ownerId = user.id;
+      member = db.users.find(item => item.id === String(body.memberId || "") && item.role === "member" && item.ownerId === user.id);
+      if (!member) {
+        sendJson(res, 400, { error: "Mesaj gonderilecek tipsteri secin." });
+        return;
+      }
+      recipientIds = [member.id];
+      pushTitle = "Admininizden yeni mesajiniz var";
+    } else {
+      const admin = db.users.find(item => item.id === user.ownerId && isStaff(item));
+      if (!admin) {
+        sendJson(res, 400, { error: "Admin hesabi bulunamadi." });
+        return;
+      }
+      recipientIds = [admin.id];
+      pushTitle = `${user.name || user.username} adli tipsterdan mesajiniz var`;
+    }
+    const message = {
+      id: crypto.randomUUID(),
+      kind: "chat",
+      ownerId,
+      conversationMemberId: member.id,
+      senderId: user.id,
+      senderRole: user.role,
+      senderName: user.name || user.username || "Kullanici",
+      targetType: "selected",
+      recipientIds,
+      title: isStaff(user) ? "Admin mesaji" : "Tipster mesaji",
+      body: text,
+      readBy: {},
+      deletedBy: {},
+      createdAt: new Date().toISOString()
+    };
+    db.messages.push(message);
+    addAuditLog(db, ownerId, user, "Sohbet mesaji gonderildi", `${member.name || member.username} sohbetine mesaj eklendi`);
+    const pushResult = await sendPushToUsers(db, recipientIds, notificationPayload(pushTitle, pushBody, "/"));
+    writeDb(db);
+    sendJson(res, 200, { ok: true, message: publicChatMessage(message, user.id), push: pushResult });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/chat/read") {
+    const session = requireAuth(req, res);
+    if (!session) return;
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const user = db.users.find(item => item.id === session.userId);
+    if (!user) {
+      sendJson(res, 404, { error: "Kullanici bulunamadi." });
+      return;
+    }
+    const memberId = isStaff(user) ? String(body.memberId || "") : user.id;
+    const ownerId = isStaff(user) ? user.id : user.ownerId;
+    const member = db.users.find(item => item.id === memberId && item.role === "member" && item.ownerId === ownerId);
+    if (!member) {
+      sendJson(res, 400, { error: "Tipster bulunamadi." });
+      return;
+    }
+    const now = new Date().toISOString();
+    let count = 0;
+    db.messages.forEach(message => {
+      if ((message.kind !== "chat" && message.kind !== "system") || message.ownerId !== ownerId || message.conversationMemberId !== member.id) return;
+      if (!message.recipientIds.includes(user.id) || message.readBy?.[user.id]) return;
+      message.readBy ||= {};
+      message.readBy[user.id] = now;
+      count += 1;
+    });
+    writeDb(db);
+    sendJson(res, 200, { ok: true, count });
     return;
   }
 
@@ -3435,13 +3653,21 @@ async function handleApi(req, res) {
       return { uploadId, rowCount: rows.length, filename: file.filename, weekLabel };
     });
     addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), uploadType === "daily" ? "Gunluk Excel yuklendi" : "Haftalik Excel yuklendi", `${imported.length} Excel aktarildi, ${imported.reduce((sum, item) => sum + item.rowCount, 0)} Bonus Disi Kupon Oynama satiri islendi`);
-    if (uploadType === "weekly") {
-      const memberIds = db.users
-        .filter(user => user.role === "member" && user.ownerId === session.userId)
-        .map(user => user.id);
-      const title = "Haftalik Excel yuklendi";
-      const body = "Haftalik kazanciniz hazir. Tipster panelinden kontrol edebilirsiniz.";
-      await sendPushToUsers(db, memberIds, notificationPayload(title, body, "/"));
+    const memberIds = db.users
+      .filter(user => user.role === "member" && user.ownerId === session.userId)
+      .map(user => user.id);
+    imported.forEach(item => {
+      const label = uploadType === "daily"
+        ? (db.uploads.find(upload => upload.id === item.uploadId)?.uploadDate || item.weekLabel || "Secili gun")
+        : (item.weekLabel || "Secili hafta");
+      const notice = uploadNotificationText(uploadType, label);
+      memberIds.forEach(memberId => addSystemMessage(db, session.userId, memberId, notice.title, notice.body));
+    });
+    if (memberIds.length && imported.length) {
+      const lastUpload = db.uploads.find(upload => upload.id === imported[imported.length - 1].uploadId);
+      const label = uploadType === "daily" ? (lastUpload?.uploadDate || imported[0].weekLabel || "Secili gun") : (imported[0].weekLabel || "Secili hafta");
+      const notice = uploadNotificationText(uploadType, label);
+      await sendPushToUsers(db, memberIds, notificationPayload(notice.title, notice.body, "/"));
     }
     writeDb(db);
     const last = imported[imported.length - 1];
