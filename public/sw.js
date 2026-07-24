@@ -1,4 +1,4 @@
-const CACHE_NAME = "tipster-panel-v37-admin-number-transfer";
+const CACHE_NAME = "tipster-panel-v38-fast-session-20260724a";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -24,8 +24,6 @@ self.addEventListener("activate", event => {
     caches.keys()
       .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
-      .then(() => self.clients.matchAll({ type: "window", includeUncontrolled: true }))
-      .then(clients => Promise.all(clients.map(client => client.navigate(client.url))))
   );
 });
 
@@ -33,33 +31,34 @@ self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.pathname.startsWith("/api/")) return;
   const isNavigation = event.request.mode === "navigate" || event.request.headers.get("accept")?.includes("text/html");
-  const isFreshAsset = isNavigation || ["/", "/index.html", "/app.js", "/style.css", "/sw.js"].includes(url.pathname);
-  if (isFreshAsset) {
+  if (isNavigation) {
+    const update = fetch(event.request).then(response => {
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put("/index.html", copy));
+      }
+      return response;
+    });
     event.respondWith(
-      fetch(event.request)
-        .catch(() => isNavigation ? caches.match("/maintenance.html") : caches.match(event.request))
+      caches.match("/index.html")
+        .then(cached => cached || caches.match("/"))
+        .then(cached => cached || update)
+        .catch(() => caches.match("/maintenance.html"))
     );
+    event.waitUntil(update.catch(() => undefined));
     return;
   }
+  if (url.pathname === "/sw.js") return;
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        if (isNavigation && response.status >= 500) {
-          return caches.match("/index.html")
-            .then(cached => cached || caches.match("/"))
-            .then(cached => cached || caches.match("/maintenance.html"))
-            .then(cached => cached || response);
+    caches.match(event.request)
+      .then(cached => cached || fetch(event.request).then(response => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
         }
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
         return response;
-      })
+      }))
       .catch(() => {
-        if (isNavigation) {
-          return caches.match("/index.html")
-            .then(cached => cached || caches.match("/"))
-            .then(cached => cached || caches.match("/maintenance.html"));
-        }
         return caches.match(event.request);
       })
   );
