@@ -88,6 +88,15 @@ function defaultDb() {
 }
 
 let dbCache = null;
+const calculationCache = new Map();
+let deferredDbWriteTimer = null;
+
+function cachedCalculation(key, calculate) {
+  if (calculationCache.has(key)) return calculationCache.get(key);
+  const value = calculate();
+  calculationCache.set(key, value);
+  return value;
+}
 
 function readDb() {
   if (dbCache) return dbCache;
@@ -108,9 +117,24 @@ function readDb() {
 }
 
 function writeDb(db) {
+  if (deferredDbWriteTimer) {
+    clearTimeout(deferredDbWriteTimer);
+    deferredDbWriteTimer = null;
+  }
   dbCache = db;
+  calculationCache.clear();
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
   createDailyBackup(db);
+}
+
+function writeDbAfterLogin(db) {
+  dbCache = db;
+  calculationCache.clear();
+  if (deferredDbWriteTimer) clearTimeout(deferredDbWriteTimer);
+  deferredDbWriteTimer = setTimeout(() => {
+    deferredDbWriteTimer = null;
+    writeDb(dbCache);
+  }, 1500);
 }
 
 function backupSafeName(value) {
@@ -1315,22 +1339,22 @@ function setUserNumberRecords(user, records) {
 }
 
 function latestPortalList(db, ownerId) {
-  return (db.portalLists || [])
+  return cachedCalculation(`latestPortalList:${ownerId}`, () => (db.portalLists || [])
     .filter(list => list.ownerId === ownerId)
     .slice()
     .sort((a, b) => {
       const countDiff = Number(b.rowCount || b.numbers?.length || 0) - Number(a.rowCount || a.numbers?.length || 0);
       if (countDiff) return countDiff;
       return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
-    })[0] || null;
+    })[0] || null);
 }
 
 function portalNumberSet(db, ownerId) {
-  return new Set((latestPortalList(db, ownerId)?.numbers || []).map(canonicalGsm).filter(Boolean));
+  return cachedCalculation(`portalNumberSet:${ownerId}`, () => new Set((latestPortalList(db, ownerId)?.numbers || []).map(canonicalGsm).filter(Boolean)));
 }
 
 function portalNumberMatchSet(db, ownerId) {
-  return new Set((latestPortalList(db, ownerId)?.numbers || []).flatMap(gsmMatchKeys));
+  return cachedCalculation(`portalNumberMatchSet:${ownerId}`, () => new Set((latestPortalList(db, ownerId)?.numbers || []).flatMap(gsmMatchKeys)));
 }
 
 function portalHasNumber(portalKeys, number) {
@@ -1349,6 +1373,7 @@ function withPortalStatus(records, portalKeys) {
 }
 
 function portalComparisonSummary(db, ownerId, memberId = "") {
+  return cachedCalculation(`portalComparisonSummary:${ownerId}:${memberId}`, () => {
   const portalKeys = portalNumberMatchSet(db, ownerId);
   const grouped = new Map();
   db.users
@@ -1390,6 +1415,7 @@ function portalComparisonSummary(db, ownerId, memberId = "") {
     unregistered: items.filter(item => !item.portalRegistered),
     all: items
   };
+  });
 }
 
 function findNumberOwner(db, ownerId, gsm, exceptUserId = "") {
@@ -1649,14 +1675,30 @@ function parseMultipart(buffer, contentType) {
 }
 
 function selectedRows(db, uploadId, ownerId) {
+  return cachedCalculation(`selectedRows:${ownerId || "all-owners"}:${uploadId || "all"}`, () => {
   const rows = (ownerId ? db.rows.filter(row => row.ownerId === ownerId) : db.rows)
     .filter(row => isBonusDisiKuponOynama(row.processType));
   if (!uploadId || uploadId === "all") return rows;
   return rows.filter(row => row.uploadId === uploadId);
+  });
+}
+
+function selectedRowsByNumber(db, uploadId, ownerId) {
+  return cachedCalculation(`selectedRowsByNumber:${ownerId || "all-owners"}:${uploadId || "all"}`, () => {
+    const grouped = new Map();
+    selectedRows(db, uploadId, ownerId).forEach(row => {
+      const number = canonicalGsm(row.gsmMasked);
+      if (!number) return;
+      const rows = grouped.get(number) || [];
+      rows.push(row);
+      grouped.set(number, rows);
+    });
+    return grouped;
+  });
 }
 
 function uploadsByType(db, ownerId, uploadType) {
-  return db.uploads.filter(upload => upload.ownerId === ownerId && (upload.uploadType || "weekly") === uploadType);
+  return cachedCalculation(`uploadsByType:${ownerId}:${uploadType}`, () => db.uploads.filter(upload => upload.ownerId === ownerId && (upload.uploadType || "weekly") === uploadType));
 }
 
 function latestUploadByType(db, ownerId, uploadType) {
@@ -1671,6 +1713,7 @@ function sharedNumbersEnabledForOwner(db, ownerId) {
 
 function numberShareCounts(db, ownerId) {
   if (!sharedNumbersEnabledForOwner(db, ownerId)) return new Map();
+  return cachedCalculation(`numberShareCounts:${ownerId}`, () => {
   const counts = new Map();
   db.users
     .filter(user => user.role === "member" && user.ownerId === ownerId)
@@ -1681,10 +1724,12 @@ function numberShareCounts(db, ownerId) {
       });
     });
   return counts;
+  });
 }
 
 function sharedNumberSummary(db, uploadId, ownerId) {
   if (!sharedNumbersEnabledForOwner(db, ownerId)) return [];
+  return cachedCalculation(`sharedNumberSummary:${ownerId}:${uploadId || "all"}`, () => {
   const grouped = new Map();
   db.users
     .filter(user => user.role === "member" && user.ownerId === ownerId)
@@ -1706,11 +1751,11 @@ function sharedNumberSummary(db, uploadId, ownerId) {
         grouped.set(record.number, current);
       });
     });
-  const rows = selectedRows(db, uploadId, ownerId);
+  const rowsByNumber = selectedRowsByNumber(db, uploadId, ownerId);
   return Array.from(grouped.values())
     .filter(item => item.members.length > 1)
     .map(item => {
-      const numberRows = rows.filter(row => row.gsmMasked === item.number);
+      const numberRows = rowsByNumber.get(canonicalGsm(item.number)) || [];
       const total = numberRows.reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
       return {
         ...item,
@@ -1721,6 +1766,7 @@ function sharedNumberSummary(db, uploadId, ownerId) {
       };
     })
     .sort((a, b) => b.memberCount - a.memberCount || b.total - a.total || a.number.localeCompare(b.number));
+  });
 }
 
 function sharedRow(row, shareCounts) {
@@ -1735,14 +1781,14 @@ function sharedRow(row, shareCounts) {
 }
 
 function memberSummary(db, user, uploadId) {
+  return cachedCalculation(`memberSummary:${user.id}:${uploadId || "all"}`, () => {
   const ownerId = user.role === "member" ? user.ownerId : user.id;
   const numberRecords = getUserNumberRecords(user);
   const numbers = numberRecords.map(record => canonicalGsm(record.number)).filter(Boolean);
-  const gsmSet = new Set(numbers);
-  const sourceRows = selectedRows(db, uploadId, ownerId);
+  const sourceRowsByNumber = selectedRowsByNumber(db, uploadId, ownerId);
   const shareCounts = numberShareCounts(db, ownerId);
   const portalKeys = portalNumberMatchSet(db, ownerId);
-  const rows = sourceRows.filter(row => gsmSet.has(canonicalGsm(row.gsmMasked))).map(row => {
+  const rows = numbers.flatMap(number => sourceRowsByNumber.get(number) || []).map(row => {
     const shared = sharedRow(row, shareCounts);
     const sharedNumber = canonicalGsm(shared.gsmMasked);
     const record = numberRecords.find(item => canonicalGsm(item.number) === sharedNumber);
@@ -1758,7 +1804,7 @@ function memberSummary(db, user, uploadId) {
   const calculated = total * (Number(user.percentage) || 0) / 100;
   const numberSummaries = numberRecords.map(record => {
     const recordNumber = canonicalGsm(record.number);
-    const numberRows = sourceRows.filter(row => canonicalGsm(row.gsmMasked) === recordNumber).map(row => sharedRow(row, shareCounts));
+    const numberRows = (sourceRowsByNumber.get(recordNumber) || []).map(row => sharedRow(row, shareCounts));
     const numberTotal = numberRows.reduce((sum, row) => sum + row.totalAmount, 0);
     const shareCount = Math.max(1, shareCounts.get(recordNumber) || 1);
     return {
@@ -1775,22 +1821,22 @@ function memberSummary(db, user, uploadId) {
     };
   });
   return { rows, total, calculated, numberSummaries };
+  });
 }
 
 function memberAllWeeklySummary(db, user) {
+  return cachedCalculation(`memberAllWeeklySummary:${user.id}`, () => {
   const ownerId = user.role === "member" ? user.ownerId : user.id;
-  const weeklyIds = new Set(uploadsByType(db, ownerId, "weekly").map(upload => upload.id));
   const numberRecords = getUserNumberRecords(user);
   const numbers = numberRecords.map(record => canonicalGsm(record.number)).filter(Boolean);
-  const gsmSet = new Set(numbers);
-  const sourceRows = selectedRows(db, "all", ownerId).filter(row => weeklyIds.has(row.uploadId));
+  const rowsByNumber = weeklyRowsByNumber(db, ownerId);
   const shareCounts = numberShareCounts(db, ownerId);
-  const rows = sourceRows.filter(row => gsmSet.has(canonicalGsm(row.gsmMasked))).map(row => sharedRow(row, shareCounts));
+  const rows = numbers.flatMap(number => rowsByNumber.get(number) || []).map(row => sharedRow(row, shareCounts));
   const total = rows.reduce((sum, row) => sum + row.totalAmount, 0);
   const calculated = total * (Number(user.percentage) || 0) / 100;
   const numberSummaries = numberRecords.map(record => {
     const recordNumber = canonicalGsm(record.number);
-    const numberRows = sourceRows.filter(row => canonicalGsm(row.gsmMasked) === recordNumber).map(row => sharedRow(row, shareCounts));
+    const numberRows = (rowsByNumber.get(recordNumber) || []).map(row => sharedRow(row, shareCounts));
     const numberTotal = numberRows.reduce((sum, row) => sum + row.totalAmount, 0);
     return {
       number: record.number,
@@ -1801,7 +1847,24 @@ function memberAllWeeklySummary(db, user) {
       calculated: numberTotal * (Number(user.percentage) || 0) / 100
     };
   });
-  return { rows, total, calculated, numberSummaries };
+  return { rows: [], rowCount: rows.length, total, calculated, numberSummaries };
+  });
+}
+
+function weeklyRowsByNumber(db, ownerId) {
+  return cachedCalculation(`weeklyRowsByNumber:${ownerId}`, () => {
+    const weeklyIds = new Set(uploadsByType(db, ownerId, "weekly").map(upload => upload.id));
+    const grouped = new Map();
+    selectedRows(db, "all", ownerId).forEach(row => {
+      if (!weeklyIds.has(row.uploadId)) return;
+      const number = canonicalGsm(row.gsmMasked);
+      if (!number) return;
+      const rows = grouped.get(number) || [];
+      rows.push(row);
+      grouped.set(number, rows);
+    });
+    return grouped;
+  });
 }
 
 function memberPrivateSummary(summary) {
@@ -1901,6 +1964,7 @@ function adminOverview(db, uploadId, ownerId, unmatchedUploadIds = [uploadId]) {
 }
 
 function unmatchedNumberSummary(db, uploadId, ownerId) {
+  return cachedCalculation(`unmatchedNumberSummary:${ownerId}:${uploadId || "all"}`, () => {
   const registeredNumbers = new Set(
     db.users
       .filter(user => (user.role === "member" && user.ownerId === ownerId) || user.id === ownerId)
@@ -1930,9 +1994,12 @@ function unmatchedNumberSummary(db, uploadId, ownerId) {
   return Array.from(grouped.values())
     .map(item => ({ ...item, uploads: Array.from(item.uploads) }))
     .sort((a, b) => b.total - a.total || a.number.localeCompare(b.number));
+  });
 }
 
 function combinedUnmatchedNumberSummary(db, uploadIds, ownerId) {
+  const cacheIds = Array.from(new Set((uploadIds || []).filter(Boolean))).sort();
+  return cachedCalculation(`combinedUnmatchedNumberSummary:${ownerId}:${cacheIds.join(",") || "all"}`, () => {
   const ids = Array.from(new Set((uploadIds || []).filter(Boolean)));
   const summaries = ids.length ? ids.flatMap(id => unmatchedNumberSummary(db, id, ownerId)) : unmatchedNumberSummary(db, "", ownerId);
   const grouped = new Map();
@@ -1955,6 +2022,7 @@ function combinedUnmatchedNumberSummary(db, uploadIds, ownerId) {
   return Array.from(grouped.values())
     .map(item => ({ ...item, uploads: Array.from(item.uploads) }))
     .sort((a, b) => b.total - a.total || a.number.localeCompare(b.number));
+  });
 }
 
 function uploadDisplayLabel(upload) {
@@ -1966,9 +2034,10 @@ function uploadTypeLabel(upload) {
 }
 
 function passiveNumberSummary(db, uploadId, ownerId) {
+  return cachedCalculation(`passiveNumberSummary:${ownerId}:${uploadId || "all"}`, () => {
   const selected = selectedRows(db, uploadId, ownerId);
   const selectedNumbers = new Set(selected.map(row => canonicalGsm(row.gsmMasked)).filter(Boolean));
-  const allRows = selectedRows(db, "all", ownerId);
+  const allRowsByNumber = selectedRowsByNumber(db, "all", ownerId);
   const uploadMap = new Map(db.uploads.map(upload => [upload.id, upload]));
   const selectedUpload = uploadId && uploadId !== "all" ? uploadMap.get(uploadId) : null;
   const passiveSince = selectedUpload ? uploadDisplayLabel(selectedUpload) : "Tum haftalar";
@@ -1978,8 +2047,8 @@ function passiveNumberSummary(db, uploadId, ownerId) {
     .flatMap(user => getUserNumberRecords(user).map(record => {
       const recordNumber = canonicalGsm(record.number);
       if (!recordNumber || selectedNumbers.has(recordNumber)) return null;
-      const numberRows = allRows
-        .filter(row => canonicalGsm(row.gsmMasked) === recordNumber)
+      const numberRows = (allRowsByNumber.get(recordNumber) || [])
+        .slice()
         .sort((a, b) => String(b.importedAt || "").localeCompare(String(a.importedAt || "")));
       if (uploadId === "all" && numberRows.length) return null;
       const lastRow = numberRows[0];
@@ -1998,6 +2067,7 @@ function passiveNumberSummary(db, uploadId, ownerId) {
     }))
     .filter(Boolean)
     .sort((a, b) => a.memberName.localeCompare(b.memberName, "tr") || a.number.localeCompare(b.number));
+  });
 }
 
 function createUploadReport(db, upload, ownerId) {
@@ -2389,7 +2459,7 @@ async function handleApi(req, res) {
     user.lastLoginAt = new Date().toISOString();
     const csrf = setSession(res, user, rememberMe);
     addAuditLog(db, user.role === "member" ? user.ownerId : user.id, user, "Giris yapildi", user.role === "member" ? "Tipster girisi" : "Admin girisi");
-    writeDb(db);
+    writeDbAfterLogin(db);
     sendJson(res, 200, { csrf, user: publicUser(user) });
     return;
   }
@@ -2437,7 +2507,7 @@ async function handleApi(req, res) {
     user.lastLoginAt = new Date().toISOString();
     const csrf = setSession(res, user, rememberMe);
     addAuditLog(db, user.id, user, "Giris yapildi", "E-posta onay kodu ile admin girisi");
-    writeDb(db);
+    writeDbAfterLogin(db);
     sendJson(res, 200, { csrf, user: publicUser(user) });
     return;
   }
@@ -2810,7 +2880,7 @@ async function handleApi(req, res) {
           calculated: summary.calculated,
           allWeeklyTotal: allWeeklySummary.total,
           allWeeklyCalculated: allWeeklySummary.calculated,
-          allWeeklyRowCount: allWeeklySummary.rows.length,
+          allWeeklyRowCount: allWeeklySummary.rowCount,
           rowCount: summary.rows.length
         };
       });
