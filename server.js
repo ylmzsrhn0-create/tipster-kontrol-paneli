@@ -16,6 +16,7 @@ const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
 const DATA = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, "data");
 const DB_FILE = path.join(DATA, "database.json");
+const SESSIONS_FILE = path.join(DATA, "sessions.json");
 const BACKUP_DIR = path.join(DATA, "backups");
 const BRANDING_DIR = path.join(DATA, "branding");
 const PORT = Number(process.env.PORT || 3000);
@@ -86,7 +87,10 @@ function defaultDb() {
   };
 }
 
+let dbCache = null;
+
 function readDb() {
+  if (dbCache) return dbCache;
   if (!fs.existsSync(DB_FILE)) {
     const db = defaultDb();
     writeDb(db);
@@ -97,11 +101,14 @@ function readDb() {
   const normalized = normalizeDb(raw);
   if (beforeNormalize !== JSON.stringify(normalized)) {
     writeDb(normalized);
+  } else {
+    dbCache = normalized;
   }
   return normalized;
 }
 
 function writeDb(db) {
+  dbCache = db;
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
   createDailyBackup(db);
 }
@@ -284,6 +291,38 @@ const sessions = new Map();
 const pendingOtps = new Map();
 const loginAttempts = new Map();
 
+function saveSessions() {
+  const now = Date.now();
+  const activeSessions = [];
+  for (const [sid, session] of sessions.entries()) {
+    if (!session || session.expiresAt <= now) {
+      sessions.delete(sid);
+      continue;
+    }
+    activeSessions.push([sid, session]);
+  }
+  fs.writeFileSync(SESSIONS_FILE, JSON.stringify(activeSessions));
+}
+
+function loadSessions() {
+  if (!fs.existsSync(SESSIONS_FILE)) return;
+  try {
+    const saved = JSON.parse(fs.readFileSync(SESSIONS_FILE, "utf8"));
+    const now = Date.now();
+    for (const item of Array.isArray(saved) ? saved : []) {
+      if (!Array.isArray(item) || item.length !== 2) continue;
+      const [sid, session] = item;
+      if (!sid || !session?.userId || !session?.csrf || session.expiresAt <= now) continue;
+      sessions.set(String(sid), session);
+    }
+    saveSessions();
+  } catch (error) {
+    console.error("Oturumlar yuklenemedi:", error.message);
+  }
+}
+
+loadSessions();
+
 function clientIp(req) {
   const forwarded = TRUST_PROXY ? String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() : "";
   return forwarded || req.socket.remoteAddress || "unknown";
@@ -332,9 +371,9 @@ function currentSession(req) {
   const session = sessions.get(sid);
   if (!session || session.expiresAt < Date.now()) {
     sessions.delete(sid);
+    saveSessions();
     return null;
   }
-  session.expiresAt = Date.now() + (session.ttlMs || SESSION_TTL_MS);
   return session;
 }
 
@@ -349,6 +388,7 @@ function setSession(res, user, rememberMe = false) {
     ttlMs,
     expiresAt: Date.now() + ttlMs
   });
+  saveSessions();
   const secure = TRUST_PROXY ? "; Secure" : "";
   res.setHeader("Set-Cookie", `sid=${sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(ttlMs / 1000)}${secure}`);
   return csrf;
@@ -597,7 +637,7 @@ async function sendOtpEmail(to, code) {
 
 function clearSession(req, res) {
   const sid = parseCookies(req).sid;
-  if (sid) sessions.delete(sid);
+  if (sid && sessions.delete(sid)) saveSessions();
   res.setHeader("Set-Cookie", "sid=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0");
 }
 
@@ -2216,7 +2256,8 @@ function serveBrandingLogo(req, res) {
 }
 
 function serveStatic(req, res) {
-  const requestedPath = decodeURIComponent(req.url.split("?")[0]);
+  const requestUrl = new URL(req.url, "http://localhost");
+  const requestedPath = decodeURIComponent(requestUrl.pathname);
   const requested = requestedPath === "/" ? "/index.html" : requestedPath;
   const filePath = path.normalize(path.join(PUBLIC, requested));
   if (!filePath.startsWith(PUBLIC)) {
@@ -2260,10 +2301,16 @@ function serveStatic(req, res) {
     };
     const type = types[ext] || "application/octet-stream";
     const charset = type.startsWith("text/") || type.includes("json") || type.includes("svg") ? "; charset=utf-8" : "";
+    const isRevalidatedAsset = ext === ".html" || requested === "/sw.js" || requested === "/manifest.webmanifest";
+    const cacheControl = isRevalidatedAsset
+      ? "no-cache"
+      : requestUrl.searchParams.has("v")
+        ? "public, max-age=31536000, immutable"
+        : "public, max-age=86400";
     res.writeHead(200, {
       "Content-Type": `${type}${charset}`,
       "X-Content-Type-Options": "nosniff",
-      "Cache-Control": "no-store"
+      "Cache-Control": cacheControl
     });
     res.end(data);
   });
@@ -2728,6 +2775,7 @@ async function handleApi(req, res) {
     for (const [sid, activeSession] of sessions.entries()) {
       if (activeSession.userId === admin.id || memberIds.has(activeSession.userId)) sessions.delete(sid);
     }
+    saveSessions();
     addAuditLog(db, session.userId, db.users.find(user => user.id === session.userId), "Admin silindi", `${admin.name || admin.username} admin hesabi ve bagli kayitlari silindi`);
     writeDb(db);
     sendJson(res, 200, { ok: true });
