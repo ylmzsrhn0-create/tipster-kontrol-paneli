@@ -36,6 +36,7 @@ const memberPanel = document.getElementById("memberPanel");
 const loginHint = document.getElementById("loginHint");
 const detailModal = document.getElementById("memberDetailModal");
 const kvkkModal = document.getElementById("kvkkModal");
+const publicContactModal = document.getElementById("publicContactModal");
 const pushPromptModal = document.getElementById("pushPromptModal");
 const mobileSelectModal = document.getElementById("mobileSelectModal");
 const notificationBadge = document.getElementById("notificationBadge");
@@ -942,7 +943,7 @@ function renderOverview(overview) {
     ["Son yedek", overview.latestBackupAt ? formatDateTime(overview.latestBackupAt) : "-", "Veri koruma kaydi", "info"]
   ];
   if (currentDashboard?.role === "owner") {
-    cards.splice(10, 0, ["Gelen talep", overview.feedbackCount || 0, "Oneri ve sikayet kutusu", overview.feedbackCount ? "warn" : "info"]);
+    cards.splice(10, 0, ["Gelen talep", overview.feedbackCount || 0, "Admin iletisim kutusu", overview.feedbackCount ? "warn" : "info"]);
   }
   document.getElementById("overviewGrid").innerHTML = cards.map(([label, value, help, tone]) => `
     <div class="overview-card ${tone ? `overview-card-${tone}` : ""}">
@@ -974,6 +975,8 @@ function renderMembers() {
     return searchMatches(text, query);
   });
   const rows = sortByAmount(filteredRows, sort, "total");
+  const weeklyPlayedTotal = (currentDashboard.members || []).reduce((sum, member) => sum + Number(member.total || 0), 0);
+  document.getElementById("weeklyPlayedGrandTotal").textContent = money.format(weeklyPlayedTotal);
   document.getElementById("memberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
@@ -1000,6 +1003,8 @@ function renderDailyMembers() {
     return searchMatches(text, query);
   });
   const rows = sortByAmount(filteredRows, sort, "dailyTotal");
+  const dailyPlayedTotal = (currentDashboard.dailyMembers || []).reduce((sum, member) => sum + Number(member.dailyTotal || 0), 0);
+  document.getElementById("dailyPlayedGrandTotal").textContent = money.format(dailyPlayedTotal);
   document.getElementById("dailyMemberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
@@ -1348,21 +1353,22 @@ function renderAdminMessages(messages) {
 }
 
 function renderOwnerFeedbacks(feedbacks) {
-  const roleLabels = { owner: "Ana admin", admin: "Admin", member: "Tipster" };
-  const typeLabels = { suggestion: "Oneri", complaint: "Sikayet" };
+  const roleLabels = { owner: "Ana admin", admin: "Admin", member: "Tipster", visitor: "Ziyaretci" };
+  const typeLabels = { suggestion: "Oneri", complaint: "Sikayet", contact: "Iletisim" };
   document.getElementById("ownerFeedbackRows").innerHTML = feedbacks.map(feedback => `
     <article class="message-card feedback-card">
       <div class="message-card-head">
         <div>
           <strong>${escapeHtml(feedback.title)}</strong>
-          <span>${escapeHtml(roleLabels[feedback.senderRole] || "Kullanici")} - ${escapeHtml(feedback.senderName || "-")} (${escapeHtml(feedback.senderUsername || "-")})</span>
+          <span>${escapeHtml(roleLabels[feedback.senderRole] || "Kullanici")} - ${escapeHtml(feedback.senderName || "-")}${feedback.senderUsername ? ` (${escapeHtml(feedback.senderUsername)})` : ""}</span>
+          ${feedback.senderContact ? `<span>Iletisim: <strong>${escapeHtml(feedback.senderContact)}</strong></span>` : ""}
           <span>${new Date(feedback.createdAt).toLocaleString("tr-TR")}</span>
         </div>
         <span class="status-pill ${feedback.type === "complaint" ? "passive" : "active"}">${escapeHtml(typeLabels[feedback.type] || "Oneri")}</span>
       </div>
       <p>${escapeHtml(feedback.body)}</p>
     </article>
-  `).join("") || `<p class="muted">Henuz oneri veya sikayet yok.</p>`;
+  `).join("") || `<p class="muted">Henuz gelen talep veya mesaj yok.</p>`;
 }
 
 function renderMember(data) {
@@ -1901,9 +1907,54 @@ function closeKvkk() {
   kvkkModal.classList.add("hidden");
 }
 
+function openPublicContact() {
+  setMessage("publicContactMessage", "");
+  publicContactModal.classList.remove("hidden");
+  document.getElementById("publicContactName").focus();
+}
+
+function closePublicContact() {
+  publicContactModal.classList.add("hidden");
+}
+
 document.getElementById("openKvkkLoginBtn").addEventListener("click", openKvkk);
 document.getElementById("openKvkkPanelBtn").addEventListener("click", openKvkk);
 document.getElementById("closeKvkkBtn").addEventListener("click", closeKvkk);
+document.getElementById("openPublicContactBtn").addEventListener("click", openPublicContact);
+document.getElementById("closePublicContactBtn").addEventListener("click", closePublicContact);
+
+document.getElementById("publicContactForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const submitButton = document.getElementById("publicContactSubmitBtn");
+  const originalText = submitButton.textContent;
+  submitButton.disabled = true;
+  submitButton.textContent = "Gonderiliyor...";
+  setMessage("publicContactMessage", "");
+  try {
+    const result = await api("/api/public-contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: document.getElementById("publicContactName").value,
+        contact: document.getElementById("publicContactAddress").value,
+        title: document.getElementById("publicContactTitleInput").value,
+        body: document.getElementById("publicContactBody").value,
+        company: document.getElementById("publicContactCompany").value,
+        consent: document.getElementById("publicContactConsent").checked
+      })
+    });
+    event.target.reset();
+    const notificationText = result.push?.sent
+      ? " Telefon bildirimi de ana admine ulasti."
+      : " Mesaj ana admin paneline kaydedildi.";
+    setMessage("publicContactMessage", `Mesajiniz gonderildi.${notificationText}`, true);
+  } catch (error) {
+    setMessage("publicContactMessage", error.message);
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = originalText;
+  }
+});
 
 document.getElementById("commissionCalcTab").addEventListener("click", () => setCalculatorTab("commission"));
 document.getElementById("normalCalcTab").addEventListener("click", () => setCalculatorTab("normal"));
@@ -2775,6 +2826,10 @@ detailModal.addEventListener("click", event => {
 
 kvkkModal.addEventListener("click", event => {
   if (event.target === kvkkModal) closeKvkk();
+});
+
+publicContactModal.addEventListener("click", event => {
+  if (event.target === publicContactModal) closePublicContact();
 });
 
 setDefaultAdminPeriod();

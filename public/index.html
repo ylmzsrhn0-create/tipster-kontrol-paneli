@@ -11,21 +11,35 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=daily-earning-total-20260720a">
+  <link rel="stylesheet" href="/style.css?v=professional-login-contact-20260725a">
 </head>
 <body class="login-mode">
   <main class="shell">
     <section class="login-view" id="loginView">
       <div class="cover">
-        <div class="brand">Tipster Kontrol Paneli</div>
-        <div>
-          <h1>Excel, tipster ve komisyon takibi tek panelde.</h1>
-          <p>Admin haftalari yukler, tipster hesaplarini yonetir ve sonuclari kontrol eder. Tipsterlar kendi numaralariyla eslesen haftalik toplam ve komisyonlarini gorur.</p>
+        <div class="cover-top">
+          <div class="brand"><span class="brand-mark">TK</span><span>Tipster Kontrol Paneli</span></div>
+          <span class="service-status"><i></i> Guvenli panel erisimi</span>
         </div>
+        <div class="cover-copy">
+          <span class="cover-kicker">Operasyonlariniz tek merkezde</span>
+          <h1>Tipster yonetimini daha net ve hizli hale getirin.</h1>
+          <p>Excel sonuclari, tipster hesaplari, haftalik komisyonlar ve gunluk performans tek guvenli panelde.</p>
+          <div class="cover-features" aria-label="Panel ozellikleri">
+            <span><b>01</b> Haftalik ve gunluk raporlama</span>
+            <span><b>02</b> Guvenli hesap yonetimi</span>
+            <span><b>03</b> Anlik toplam ve komisyon takibi</span>
+          </div>
+        </div>
+        <p class="cover-footnote">tipsterkontrolpaneli.com</p>
       </div>
 
       <form class="login-card" id="loginForm">
-        <h2>Giris</h2>
+        <div class="login-card-head">
+          <span class="login-eyebrow">Hesabiniza erisin</span>
+          <h2>Panele giris</h2>
+          <p>Rolunuzu secin ve guvenli oturumunuzu baslatin.</p>
+        </div>
         <div class="login-tabs" aria-label="Giris tipi">
           <button class="tab active" type="button" data-login-type="admin">Admin Girisi</button>
           <button class="tab" type="button" data-login-type="member">Tipster Girisi</button>
@@ -52,7 +66,15 @@
           <button class="ghost" id="restartLoginBtn" type="button">Bilgileri yeniden gir</button>
         </div>
         <button class="primary" id="loginSubmitBtn" type="submit">Giris yap</button>
-        <button class="text-link" id="openKvkkLoginBtn" type="button">KVKK Aydinlatma Metni</button>
+        <button class="contact-entry" id="openPublicContactBtn" type="button">
+          <span class="contact-entry-icon">?</span>
+          <span><strong>Admine ulasin</strong><small>Hesabiniz yoksa veya destek almak istiyorsaniz mesaj gonderin.</small></span>
+          <b aria-hidden="true">→</b>
+        </button>
+        <div class="login-legal-row">
+          <span>Verileriniz guvenli baglanti ile iletilir.</span>
+          <button class="text-link" id="openKvkkLoginBtn" type="button">KVKK metni</button>
+        </div>
         <div class="message" id="loginMessage"></div>
       </form>
     </section>
@@ -684,6 +706,10 @@
               <tbody id="memberRows"></tbody>
             </table>
           </div>
+          <div class="earnings-grand-total">
+            <span>Toplam haftalik oynanan miktar</span>
+            <strong id="weeklyPlayedGrandTotal">0</strong>
+          </div>
         </details>
 
         <details class="panel wide collapsible">
@@ -724,6 +750,10 @@
               </thead>
               <tbody id="dailyMemberRows"></tbody>
             </table>
+          </div>
+          <div class="earnings-grand-total daily-total">
+            <span>Toplam gunluk oynanan miktar</span>
+            <strong id="dailyPlayedGrandTotal">0</strong>
           </div>
         </details>
       </div>
@@ -785,8 +815,8 @@
         <details class="panel wide collapsible">
           <summary>
             <span>
-              <strong>Gelen oneri ve sikayetler</strong>
-              <small>Admin ve tipsterlardan ana admine gelen mesajlar</small>
+              <strong>Gelen talepler ve mesajlar</strong>
+              <small>Admin, tipster ve giris yapmayan ziyaretcilerden ana admine gelen mesajlar</small>
             </span>
           </summary>
           <div class="message-list collapsible-body" id="ownerFeedbackRows"></div>
@@ -1115,6 +1145,49 @@
       </div>
     </section>
 
+    <section class="modal hidden" id="publicContactModal" aria-modal="true" role="dialog" aria-labelledby="publicContactTitle">
+      <div class="modal-panel public-contact-modal">
+        <div class="section-head">
+          <div>
+            <span class="login-eyebrow">Giris yapmadan iletisim</span>
+            <h2 id="publicContactTitle">Admine ulasin</h2>
+            <p class="muted">Hesap, erisim veya panel hakkindaki mesajiniz dogrudan ana admine iletilir.</p>
+          </div>
+          <button class="ghost" id="closePublicContactBtn" type="button">Kapat</button>
+        </div>
+        <form class="public-contact-form" id="publicContactForm">
+          <div class="contact-form-grid">
+            <label>
+              Adiniz
+              <input id="publicContactName" maxlength="80" autocomplete="name" required placeholder="Ad soyad">
+            </label>
+            <label>
+              Telefon veya e-posta
+              <input id="publicContactAddress" maxlength="120" autocomplete="email" required placeholder="05XXXXXXXXX veya ornek@mail.com">
+            </label>
+          </div>
+          <label>
+            Konu
+            <input id="publicContactTitleInput" maxlength="90" required placeholder="Orn. Hesap acma talebi">
+          </label>
+          <label>
+            Mesajiniz
+            <textarea id="publicContactBody" maxlength="1200" required placeholder="Talebinizi kisaca anlatin"></textarea>
+          </label>
+          <label class="contact-honeypot" aria-hidden="true" hidden>
+            Sirket
+            <input id="publicContactCompany" tabindex="-1" autocomplete="off">
+          </label>
+          <label class="check-row contact-consent">
+            <input id="publicContactConsent" type="checkbox" required>
+            <span>Iletisim bilgilerimin bu talebe donus yapilmasi amaciyla islenmesini kabul ediyorum.</span>
+          </label>
+          <button class="primary" id="publicContactSubmitBtn" type="submit">Mesaji admine gonder</button>
+          <div class="message" id="publicContactMessage"></div>
+        </form>
+      </div>
+    </section>
+
     <section class="modal hidden" id="pushPromptModal" aria-modal="true" role="dialog">
       <div class="modal-panel push-prompt-modal">
         <div class="section-head">
@@ -1253,6 +1326,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=live-chat-20260724a"></script>
+  <script src="/app.js?v=professional-login-contact-20260725a"></script>
 </body>
 </html>
