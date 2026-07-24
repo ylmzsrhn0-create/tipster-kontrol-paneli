@@ -2713,17 +2713,17 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/push/test") {
-    const session = requireAuth(req, res, "member");
+    const session = requireAuth(req, res);
     if (!session) return;
-    const dbUser = db.users.find(item => item.id === session.userId && item.role === "member");
+    const dbUser = db.users.find(item => item.id === session.userId);
     if (!dbUser) {
-      sendJson(res, 404, { error: "Tipster bulunamadi." });
+      sendJson(res, 404, { error: "Kullanici bulunamadi." });
       return;
     }
     const result = await sendPushToUsers(
       db,
       [session.userId],
-      notificationPayload("Test bildirimi", "Tipster Kontrol Paneli bildirimleri calisiyor.", "/")
+      notificationPayload("Test bildirimi", "Tipster Kontrol Paneli telefon bildirimleri calisiyor.", "/")
     );
     writeDb(db);
     sendJson(res, 200, { ok: true, ...result });
