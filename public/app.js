@@ -2780,13 +2780,13 @@ kvkkModal.addEventListener("click", event => {
 setDefaultAdminPeriod();
 setDefaultUploadDate();
 setDefaultPaymentDate();
+restoreRememberedLogin();
 
 api("/api/me").then(async data => {
   setDefaultAdminPeriod();
   setDefaultUploadDate();
   setDefaultPaymentDate();
   if (!data.user) {
-    restoreRememberedLogin();
     document.getElementById("password").value = "";
     return;
   }
