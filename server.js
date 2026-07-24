@@ -28,6 +28,8 @@ const OTP_TTL_MS = 1000 * 60 * 5;
 const OTP_RESEND_COOLDOWN_MS = 1000 * 60;
 const LOGIN_LOCK_MS = 1000 * 60 * 10;
 const LOGIN_MAX_ATTEMPTS = 5;
+const PUBLIC_CONTACT_WINDOW_MS = 1000 * 60 * 15;
+const PUBLIC_CONTACT_MAX_ATTEMPTS = 3;
 const OTP_ENABLED = process.env.EMAIL_OTP_ENABLED === "1";
 const FALLBACK_OTP_EMAIL = String(process.env.ADMIN_OTP_EMAIL || "").trim();
 const SMTP_HOST = String(process.env.SMTP_HOST || "").trim();
@@ -314,6 +316,7 @@ function normalizeDb(db) {
 const sessions = new Map();
 const pendingOtps = new Map();
 const loginAttempts = new Map();
+const publicContactAttempts = new Map();
 
 function saveSessions() {
   const now = Date.now();
@@ -376,6 +379,19 @@ function recordLoginFailure(key) {
 
 function clearLoginFailure(key) {
   loginAttempts.delete(key);
+}
+
+function allowPublicContact(req) {
+  const key = clientIp(req);
+  const now = Date.now();
+  const recent = (publicContactAttempts.get(key) || []).filter(timestamp => now - timestamp < PUBLIC_CONTACT_WINDOW_MS);
+  if (recent.length >= PUBLIC_CONTACT_MAX_ATTEMPTS) {
+    publicContactAttempts.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  publicContactAttempts.set(key, recent);
+  return true;
 }
 
 function parseCookies(req) {
@@ -964,6 +980,7 @@ function publicFeedback(feedback) {
     body: feedback.body,
     senderName: feedback.senderName,
     senderUsername: feedback.senderUsername,
+    senderContact: feedback.senderContact || "",
     senderRole: feedback.senderRole,
     createdAt: feedback.createdAt
   };
@@ -3362,6 +3379,65 @@ async function handleApi(req, res) {
     });
     writeDb(db);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/public-contact") {
+    if (!allowPublicContact(req)) {
+      sendJson(res, 429, { error: "Cok fazla mesaj gonderildi. Lutfen 15 dakika sonra tekrar deneyin." });
+      return;
+    }
+    const body = JSON.parse((await readBody(req, 1024 * 40)).toString("utf8"));
+    const name = String(body.name || "").trim().slice(0, 80);
+    const contact = String(body.contact || "").trim().slice(0, 120);
+    const title = String(body.title || "").trim().slice(0, 90);
+    const feedbackBody = String(body.body || "").trim().slice(0, 1200);
+    const honeypot = String(body.company || "").trim();
+    const contactDigits = contact.replace(/\D/g, "");
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact);
+    const validPhone = contactDigits.length >= 10 && contactDigits.length <= 15;
+    if (honeypot) {
+      sendJson(res, 200, { ok: true, push: { sent: 0 } });
+      return;
+    }
+    if (!body.consent) {
+      sendJson(res, 400, { error: "Iletisim iznini onaylamalisiniz." });
+      return;
+    }
+    if (!name || !title || !feedbackBody) {
+      sendJson(res, 400, { error: "Ad, konu ve mesaj alanlari gerekli." });
+      return;
+    }
+    if (!validEmail && !validPhone) {
+      sendJson(res, 400, { error: "Gecerli bir telefon numarasi veya e-posta adresi girin." });
+      return;
+    }
+    const owner = db.users.find(item => item.role === "owner") || db.users.find(item => item.role === "admin" && item.username === "admin");
+    if (!owner) {
+      sendJson(res, 503, { error: "Ana admin hesabi bulunamadi. Lutfen daha sonra tekrar deneyin." });
+      return;
+    }
+    db.feedbacks.push({
+      id: crypto.randomUUID(),
+      ownerId: owner.id,
+      senderId: "",
+      senderName: name,
+      senderUsername: "",
+      senderContact: contact,
+      senderRole: "visitor",
+      type: "contact",
+      title,
+      body: feedbackBody,
+      status: "new",
+      createdAt: new Date().toISOString()
+    });
+    const push = await sendPushToUsers(
+      db,
+      [owner.id],
+      notificationPayload("Yeni ziyaretci mesaji", `${name}: ${title}`, "/")
+    );
+    writeDb(db);
+    sendJson(res, 200, { ok: true, push });
     return;
   }
 
