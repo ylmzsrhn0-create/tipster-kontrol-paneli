@@ -765,6 +765,11 @@ input:focus, select:focus, textarea:focus {
   align-items: center;
 }
 
+.global-notification-panel {
+  width: min(1200px, calc(100% - 32px));
+  margin: 24px auto -6px;
+}
+
 .notification-panel .message {
   grid-column: 1 / -1;
 }

@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v40-professional-login-20260725a";
+const CACHE_NAME = "tipster-panel-v41-weekly-results-admin-push-20260725b";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=professional-login-contact-20260725a",
-  "/app.js?v=professional-login-contact-20260725a",
+  "/style.css?v=weekly-results-admin-push-20260725b",
+  "/app.js?v=weekly-results-admin-push-20260725b",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",

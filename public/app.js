@@ -20,7 +20,7 @@ let swRegistrationPromise = null;
 let activeChatMemberId = "";
 let activeChatMessages = [];
 const expandedAdminNumbers = new Set();
-const mobileSelectIds = ["adminUploadSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "numberListSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
+const mobileSelectIds = ["adminUploadSelect", "adminWeeklyResultsSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "numberListSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -184,7 +184,7 @@ async function sendTestPush() {
 
 function pushResultText(result, prefix = "Bildirim") {
   if (!result?.enabled) return `${prefix}: bildirim sistemi sunucuda hazir degil.`;
-  if (!result.total) return `${prefix}: bu tipster icin kayitli telefon yok. Tipster kendi telefonundan Bildirimleri ac demeli.`;
+  if (!result.total) return `${prefix}: bu hesap icin kayitli telefon yok. Bu telefondan Bildirimleri ac butonuna basin.`;
   if (result.sent) return `${prefix}: ${result.sent} cihaza gonderildi.`;
   if (result.failed) return `${prefix}: ${result.failed} cihazda hata olustu. Telefon bildirim iznini kapatip tekrar acmak gerekebilir.`;
   return `${prefix}: gonderilemedi.`;
@@ -237,7 +237,7 @@ function closePushPrompt(saveForSession = true) {
 }
 
 async function maybeShowPushPrompt() {
-  if (!pushPromptModal || currentDashboard?.role !== "member") return;
+  if (!pushPromptModal || !currentDashboard?.role) return;
   try {
     if (sessionStorage.getItem(pushPromptSessionKey) === "1") return;
   } catch (error) {}
@@ -260,6 +260,14 @@ function showApp(user) {
     : user.role === "admin"
     ? "Tipsterlar, Excel haftalari ve hesaplamalar burada yonetilir."
     : "Numaralarini ve haftalik hesaplarini buradan takip ediyorsun.";
+  const pushHelp = document.getElementById("pushPanelHelp");
+  if (pushHelp) {
+    pushHelp.textContent = user.role === "owner"
+      ? "Giris yapmadan gelen mesajlar ve admin hareketleri icin telefona bildirim al."
+      : user.role === "admin"
+      ? "Tipster mesajlari ve panel hareketleri icin telefona bildirim al."
+      : "Admin mesajlari ve haftalik Excel yuklemeleri icin telefona bildirim al.";
+  }
 }
 
 function showLogin() {
@@ -757,6 +765,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   document.title = "Tipster Kontrol Paneli";
   renderAdminPeriod(data.currentAdmin);
   renderUploadSelect("adminUploadSelect", data.uploads, data.selectedUploadId);
+  renderUploadSelect("adminWeeklyResultsSelect", data.uploads, data.selectedUploadId);
   renderDailyUploadSelect("adminDailyUploadSelect", data.dailyUploads || [], data.selectedDailyUploadId);
   document.getElementById("deleteSelectedDailyUploadBtn").disabled = !(data.dailyUploads || []).length || !data.selectedDailyUploadId;
   document.getElementById("adminEmail").value = data.currentAdmin?.email || "";
@@ -780,6 +789,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   renderMessageRecipients(data.members || []);
   renderAdminMessages(data.messages || []);
   renderChatWidget(data);
+  updatePushButton().then(() => maybeShowPushPrompt()).catch(() => {});
   document.getElementById("adminFeedbackPanel").classList.toggle("hidden", data.role === "owner");
   const weeklyUploads = data.uploads || [];
   const dailyUploads = data.dailyUploads || [];
@@ -2650,6 +2660,11 @@ document.getElementById("adminUploadSelect").addEventListener("change", event =>
   updateMobileSelectTrigger(event.target);
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
+document.getElementById("adminWeeklyResultsSelect").addEventListener("change", event => {
+  selectedUploadId = event.target.value;
+  updateMobileSelectTrigger(event.target);
+  loadDashboard(selectedUploadId, selectedDailyUploadId);
+});
 document.getElementById("adminDailyUploadSelect").addEventListener("change", event => {
   selectedDailyUploadId = event.target.value;
   updateMobileSelectTrigger(event.target);
@@ -2657,6 +2672,10 @@ document.getElementById("adminDailyUploadSelect").addEventListener("change", eve
 });
 document.getElementById("adminUploadApplyBtn").addEventListener("click", () => {
   selectedUploadId = document.getElementById("adminUploadSelect").value;
+  loadDashboard(selectedUploadId, selectedDailyUploadId);
+});
+document.getElementById("adminWeeklyResultsApplyBtn").addEventListener("click", () => {
+  selectedUploadId = document.getElementById("adminWeeklyResultsSelect").value;
   loadDashboard(selectedUploadId, selectedDailyUploadId);
 });
 document.getElementById("adminDailyUploadApplyBtn").addEventListener("click", () => {

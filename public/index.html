@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=professional-login-contact-20260725a">
+  <link rel="stylesheet" href="/style.css?v=weekly-results-admin-push-20260725b">
 </head>
 <body class="login-mode">
   <main class="shell">
@@ -104,6 +104,18 @@
           </details>
         </div>
       </header>
+
+      <section class="panel notification-panel global-notification-panel" id="pushPanel">
+        <div>
+          <strong>Telefon bildirimleri</strong>
+          <p class="muted" id="pushPanelHelp">Yeni mesajlar ve panel hareketleri icin bildirim al.</p>
+        </div>
+        <div class="notification-actions">
+          <button class="primary small" id="pushEnableBtn" type="button">Bildirimleri ac</button>
+          <button class="ghost small" id="pushTestBtn" type="button">Test bildirimi gonder</button>
+        </div>
+        <div class="message" id="pushMessage"></div>
+      </section>
 
       <div class="admin-panel hidden" id="adminPanel">
         <section class="period-banner hidden" id="adminPeriodBanner"></section>
@@ -663,11 +675,16 @@
         <details class="panel wide collapsible">
           <summary>
             <span>
-              <strong>Tipster sonuclari</strong>
-              <small>Uye, toplam ve komisyon listesi</small>
+              <strong>Tipster haftalik Excel sonuclari</strong>
+              <small>Secili haftalik Excel icin uye, toplam ve komisyon listesi</small>
             </span>
           </summary>
           <div class="section-head collapsible-tools">
+            <label>
+              Goruntulenen hafta
+              <select id="adminWeeklyResultsSelect"></select>
+            </label>
+            <button class="primary small" id="adminWeeklyResultsApplyBtn" type="button">Sec</button>
             <div class="search-actions">
               <input id="search" placeholder="Tipster veya numara ara">
               <button class="primary small" id="searchBtn" type="button">Ara</button>
@@ -826,18 +843,6 @@
       <div class="member-panel hidden" id="memberPanel">
         <section class="info-banner">
           Sali gunu komisyonlariniz ogleden sonra belirttiginiz IBAN'lara aktarilir.
-        </section>
-
-        <section class="panel notification-panel" id="pushPanel">
-          <div>
-            <strong>Telefon bildirimleri</strong>
-            <p class="muted">Admin mesajlari ve haftalik Excel yuklemeleri icin bildirim al.</p>
-          </div>
-          <div class="notification-actions">
-            <button class="primary small" id="pushEnableBtn" type="button">Bildirimleri ac</button>
-            <button class="ghost small" id="pushTestBtn" type="button">Test bildirimi gonder</button>
-          </div>
-          <div class="message" id="pushMessage"></div>
         </section>
 
         <details class="panel wide collapsible" id="memberMessagesPanel">
@@ -1193,7 +1198,7 @@
         <div class="section-head">
           <div>
             <h2>Bildirimleri ac</h2>
-            <p class="muted">Admin mesajlari ve haftalik Excel yuklemeleri telefonuna bildirim olarak gelsin.</p>
+            <p class="muted">Yeni mesajlar ve panel hareketleri telefonuna bildirim olarak gelsin.</p>
           </div>
         </div>
         <div class="push-prompt-actions">
@@ -1326,6 +1331,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=professional-login-contact-20260725a"></script>
+  <script src="/app.js?v=weekly-results-admin-push-20260725b"></script>
 </body>
 </html>
