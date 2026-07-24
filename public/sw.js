@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v41-weekly-results-admin-push-20260725b";
+const CACHE_NAME = "tipster-panel-v42-ios-push-refresh-20260725c";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=weekly-results-admin-push-20260725b",
-  "/app.js?v=weekly-results-admin-push-20260725b",
+  "/style.css?v=ios-push-refresh-20260725c",
+  "/app.js?v=ios-push-refresh-20260725c",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
@@ -32,20 +32,17 @@ self.addEventListener("fetch", event => {
   if (event.request.method !== "GET" || url.pathname.startsWith("/api/")) return;
   const isNavigation = event.request.mode === "navigate" || event.request.headers.get("accept")?.includes("text/html");
   if (isNavigation) {
-    const update = fetch(event.request).then(response => {
-      if (response.ok) {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put("/index.html", copy));
-      }
-      return response;
-    });
     event.respondWith(
-      caches.match("/index.html")
-        .then(cached => cached || caches.match("/"))
-        .then(cached => cached || update)
-        .catch(() => caches.match("/maintenance.html"))
+      fetch(event.request)
+        .then(response => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put("/index.html", copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match("/index.html").then(cached => cached || caches.match("/maintenance.html")))
     );
-    event.waitUntil(update.catch(() => undefined));
     return;
   }
   if (url.pathname === "/sw.js") return;

@@ -24,7 +24,12 @@ const mobileSelectIds = ["adminUploadSelect", "adminWeeklyResultsSelect", "admin
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    swRegistrationPromise = navigator.serviceWorker.register("/sw.js").catch(() => null);
+    swRegistrationPromise = navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" })
+      .then(async registration => {
+        await registration.update().catch(() => {});
+        return registration;
+      })
+      .catch(() => null);
   });
 }
 
@@ -111,7 +116,14 @@ function urlBase64ToUint8Array(base64String) {
 
 async function serviceWorkerRegistration() {
   if (!("serviceWorker" in navigator)) return null;
-  if (!swRegistrationPromise) swRegistrationPromise = navigator.serviceWorker.register("/sw.js").catch(() => null);
+  if (!swRegistrationPromise) {
+    swRegistrationPromise = navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" })
+      .then(async registration => {
+        await registration.update().catch(() => {});
+        return registration;
+      })
+      .catch(() => null);
+  }
   return swRegistrationPromise || navigator.serviceWorker.ready;
 }
 
@@ -124,7 +136,11 @@ async function updatePushButton() {
     button.disabled = true;
     if (testButton) testButton.disabled = true;
     button.textContent = "Bildirim desteklenmiyor";
-    setPushMessage("Bu telefon/tarayici web bildirimi desteklemiyor.");
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isStandalone = window.matchMedia?.("(display-mode: standalone)")?.matches || navigator.standalone === true;
+    setPushMessage(isIos
+      ? (isStandalone ? "Bu iPhone surumu bildirimleri desteklemiyor. iOS 16.4 veya daha yeni bir surum gerekli." : "iPhone'da Safari Paylas menusunden Ana Ekrana Ekle deyip paneli ana ekran simgesinden acin.")
+      : "Bu telefon/tarayici web bildirimi desteklemiyor.");
     return;
   }
   const registration = await serviceWorkerRegistration();
@@ -1930,6 +1946,10 @@ function closePublicContact() {
 document.getElementById("openKvkkLoginBtn").addEventListener("click", openKvkk);
 document.getElementById("openKvkkPanelBtn").addEventListener("click", openKvkk);
 document.getElementById("closeKvkkBtn").addEventListener("click", closeKvkk);
+document.getElementById("openPushSettingsBtn").addEventListener("click", () => {
+  document.getElementById("accountMenu")?.removeAttribute("open");
+  document.getElementById("pushPanel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+});
 document.getElementById("openPublicContactBtn").addEventListener("click", openPublicContact);
 document.getElementById("closePublicContactBtn").addEventListener("click", closePublicContact);
 

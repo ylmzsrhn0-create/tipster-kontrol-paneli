@@ -1,8 +1,9 @@
 {
   "name": "Tipster Kontrol Paneli",
   "short_name": "Tipster Panel",
+  "id": "/",
   "description": "Excel, tipster ve komisyon takibi.",
-  "start_url": "/",
+  "start_url": "/?source=homescreen",
   "scope": "/",
   "display": "standalone",
   "background_color": "#050607",
