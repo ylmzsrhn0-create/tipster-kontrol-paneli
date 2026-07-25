@@ -418,6 +418,71 @@ button { border: 0; cursor: pointer; }
   font-size: 20px;
 }
 
+.demo-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.demo-divider::before,
+.demo-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+}
+
+.demo-entry {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #a8d9ca;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #effcf7, #f4fbff);
+  color: var(--ink);
+  text-align: left;
+}
+
+.demo-entry:hover {
+  border-color: #1b9a70;
+  box-shadow: 0 8px 22px rgba(27,154,112,.13);
+}
+
+.demo-entry-icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #167a5b;
+  color: #fff;
+  font-weight: 950;
+}
+
+.demo-entry strong,
+.demo-entry small { display: block; }
+
+.demo-entry small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.demo-entry > b {
+  color: #167a5b;
+  font-size: 20px;
+}
+
 .login-legal-row {
   display: flex;
   align-items: center;
@@ -768,6 +833,55 @@ input:focus, select:focus, textarea:focus {
 .global-notification-panel {
   width: min(1200px, calc(100% - 32px));
   margin: 24px auto -6px;
+}
+
+.demo-banner {
+  width: min(1200px, calc(100% - 32px));
+  margin: 20px auto -6px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #9ed9c5;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ecfbf5, #eef8ff);
+  color: #135f49;
+  box-shadow: 0 12px 28px rgba(19,95,73,.08);
+}
+
+.demo-banner strong,
+.demo-banner span { display: block; }
+
+.demo-banner span {
+  margin-top: 3px;
+  color: #456b61;
+  font-size: 12px;
+}
+
+.demo-banner b {
+  flex: 0 0 auto;
+  min-width: 68px;
+  padding: 9px 11px;
+  border-radius: 999px;
+  background: #167a5b;
+  color: #fff;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+body.demo-mode #pushPanel,
+body.demo-mode #openPushSettingsBtn,
+body.demo-mode #chatWidget { display: none !important; }
+
+body.demo-mode button.danger,
+body.demo-mode button[data-upload-delete],
+body.demo-mode button[data-portal-delete],
+body.demo-mode button[data-payment-delete],
+body.demo-mode button[data-delete],
+body.demo-mode button[data-admin-message-delete] {
+  opacity: .45;
+  pointer-events: none;
 }
 
 .notification-panel .message {

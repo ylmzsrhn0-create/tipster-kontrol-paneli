@@ -19,6 +19,9 @@ let loginSubmitting = false;
 let swRegistrationPromise = null;
 let activeChatMemberId = "";
 let activeChatMessages = [];
+let demoModeActive = false;
+let demoExpiresAt = 0;
+let demoCountdownTimer = null;
 const expandedAdminNumbers = new Set();
 const mobileSelectIds = ["adminUploadSelect", "adminWeeklyResultsSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "numberListSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
@@ -57,6 +60,40 @@ function setMessage(id, text, ok = false) {
   el.style.color = ok ? "var(--ok)" : "var(--danger)";
 }
 
+function stopDemoCountdown() {
+  if (demoCountdownTimer) clearInterval(demoCountdownTimer);
+  demoCountdownTimer = null;
+  demoExpiresAt = 0;
+}
+
+async function endExpiredDemo() {
+  stopDemoCountdown();
+  await api("/api/logout", { method: "POST" }).catch(() => {});
+  csrfToken = "";
+  selectedUploadId = "";
+  selectedDailyUploadId = "";
+  showLogin();
+  setMessage("loginMessage", "20 dakikalik demo suresi doldu. Isterseniz yeniden baslatabilirsiniz.");
+}
+
+function updateDemoCountdown() {
+  if (!demoModeActive || !demoExpiresAt) return;
+  const remaining = Math.max(0, demoExpiresAt - Date.now());
+  const totalSeconds = Math.ceil(remaining / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const label = document.getElementById("demoCountdown");
+  if (label) label.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  if (remaining <= 0) endExpiredDemo().catch(() => showLogin());
+}
+
+function startDemoCountdown(expiresAt) {
+  stopDemoCountdown();
+  demoExpiresAt = Number(expiresAt || 0);
+  updateDemoCountdown();
+  demoCountdownTimer = setInterval(updateDemoCountdown, 1000);
+}
+
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -79,6 +116,9 @@ function parseMoneyInput(value) {
 }
 
 function api(path, options = {}) {
+  if (demoModeActive && options.method && options.method !== "GET" && path !== "/api/logout") {
+    return Promise.reject(new Error("Demo modu salt okunurdur. Bu islem ornek ekranda degisiklik yapmaz."));
+  }
   const headers = options.headers || {};
   if (csrfToken && options.method && options.method !== "GET") headers["X-CSRF-Token"] = csrfToken;
   return fetch(path, { ...options, headers }).then(async response => {
@@ -266,12 +306,17 @@ async function maybeShowPushPrompt() {
 }
 
 function showApp(user) {
+  demoModeActive = Boolean(user.demo);
   loginView.classList.add("hidden");
   appView.classList.remove("hidden");
   document.body.classList.remove("login-mode");
   document.body.classList.add("app-mode");
-  document.getElementById("panelTitle").textContent = user.role === "owner" ? "Ana Admin Paneli" : user.role === "admin" ? "Admin Paneli" : user.name;
-  document.getElementById("panelSubtitle").textContent = user.role === "owner"
+  document.body.classList.toggle("demo-mode", demoModeActive);
+  document.getElementById("demoBanner")?.classList.toggle("hidden", !demoModeActive);
+  document.getElementById("panelTitle").textContent = demoModeActive ? "Demo Admin Paneli" : user.role === "owner" ? "Ana Admin Paneli" : user.role === "admin" ? "Admin Paneli" : user.name;
+  document.getElementById("panelSubtitle").textContent = demoModeActive
+    ? "Ornek verilerle salt okunur tanitim oturumu."
+    : user.role === "owner"
     ? "Admin hesaplari ve kendi paneliniz burada yonetilir."
     : user.role === "admin"
     ? "Tipsterlar, Excel haftalari ve hesaplamalar burada yonetilir."
@@ -284,13 +329,19 @@ function showApp(user) {
       ? "Tipster mesajlari ve panel hareketleri icin telefona bildirim al."
       : "Admin mesajlari ve haftalik Excel yuklemeleri icin telefona bildirim al.";
   }
+  if (demoModeActive) startDemoCountdown(user.demoExpiresAt);
+  else stopDemoCountdown();
 }
 
 function showLogin() {
+  demoModeActive = false;
+  stopDemoCountdown();
   appView.classList.add("hidden");
   loginView.classList.remove("hidden");
   document.body.classList.remove("app-mode");
+  document.body.classList.remove("demo-mode");
   document.body.classList.add("login-mode");
+  document.getElementById("demoBanner")?.classList.add("hidden");
   applyBranding({ logoUrl: "/logo-watermark.png", hasCustomLogo: false });
   ownerPanel.classList.add("hidden");
   adminPanel.classList.add("hidden");
@@ -1913,6 +1964,34 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
     loginSubmitBtn.textContent = loginSubmitText;
   }
 });
+
+document.getElementById("demoLoginBtn").addEventListener("click", async () => {
+  const button = document.getElementById("demoLoginBtn");
+  const originalText = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = `<span class="demo-entry-icon">20</span><span><strong>Demo hazirlaniyor...</strong><small>Ornek panel verileri yukleniyor.</small></span>`;
+  setMessage("loginMessage", "");
+  try {
+    const data = await api("/api/demo", { method: "POST" });
+    csrfToken = data.csrf;
+    showApp(data.user);
+    await loadDashboard("");
+  } catch (error) {
+    setMessage("loginMessage", error.message);
+    showLogin();
+  } finally {
+    button.disabled = false;
+    button.innerHTML = originalText;
+  }
+});
+
+appView.addEventListener("submit", event => {
+  if (!demoModeActive) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const banner = document.getElementById("demoBanner");
+  banner?.scrollIntoView({ behavior: "smooth", block: "center" });
+}, true);
 
 document.getElementById("restartLoginBtn").addEventListener("click", () => {
   resetOtpLogin();

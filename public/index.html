@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=ios-push-refresh-20260725c">
+  <link rel="stylesheet" href="/style.css?v=demo-session-20260725d">
 </head>
 <body class="login-mode">
   <main class="shell">
@@ -66,6 +66,12 @@
           <button class="ghost" id="restartLoginBtn" type="button">Bilgileri yeniden gir</button>
         </div>
         <button class="primary" id="loginSubmitBtn" type="submit">Giris yap</button>
+        <div class="demo-divider"><span>veya</span></div>
+        <button class="demo-entry" id="demoLoginBtn" type="button">
+          <span class="demo-entry-icon">20</span>
+          <span><strong>20 dakikalik demoyu ac</strong><small>Ornek verilerle paneli guvenle inceleyin. Degisiklik yapilamaz.</small></span>
+          <b aria-hidden="true">&rarr;</b>
+        </button>
         <button class="contact-entry" id="openPublicContactBtn" type="button">
           <span class="contact-entry-icon">?</span>
           <span><strong>Admine ulasin</strong><small>Hesabiniz yoksa veya destek almak istiyorsaniz mesaj gonderin.</small></span>
@@ -105,6 +111,14 @@
           </details>
         </div>
       </header>
+
+      <section class="demo-banner hidden" id="demoBanner" role="status">
+        <div>
+          <strong>Demo modu - salt okunur</strong>
+          <span>Buradaki bilgiler ornektir; gercek kayitlar goruntulenmez ve degistirilemez.</span>
+        </div>
+        <b id="demoCountdown">20:00</b>
+      </section>
 
       <section class="panel notification-panel global-notification-panel" id="pushPanel">
         <div>
@@ -1332,6 +1346,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=ios-push-refresh-20260725c"></script>
+  <script src="/app.js?v=demo-session-20260725d"></script>
 </body>
 </html>
