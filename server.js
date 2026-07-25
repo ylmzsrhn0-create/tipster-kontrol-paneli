@@ -24,12 +24,15 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
 const TRUST_PROXY = process.env.TRUST_PROXY === "1";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 const REMEMBER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const DEMO_SESSION_TTL_MS = 1000 * 60 * 20;
 const OTP_TTL_MS = 1000 * 60 * 5;
 const OTP_RESEND_COOLDOWN_MS = 1000 * 60;
 const LOGIN_LOCK_MS = 1000 * 60 * 10;
 const LOGIN_MAX_ATTEMPTS = 5;
 const PUBLIC_CONTACT_WINDOW_MS = 1000 * 60 * 15;
 const PUBLIC_CONTACT_MAX_ATTEMPTS = 3;
+const DEMO_WINDOW_MS = 1000 * 60 * 15;
+const DEMO_MAX_ATTEMPTS = 10;
 const OTP_ENABLED = process.env.EMAIL_OTP_ENABLED === "1";
 const FALLBACK_OTP_EMAIL = String(process.env.ADMIN_OTP_EMAIL || "").trim();
 const SMTP_HOST = String(process.env.SMTP_HOST || "").trim();
@@ -317,6 +320,7 @@ const sessions = new Map();
 const pendingOtps = new Map();
 const loginAttempts = new Map();
 const publicContactAttempts = new Map();
+const demoAttempts = new Map();
 
 function saveSessions() {
   const now = Date.now();
@@ -394,6 +398,19 @@ function allowPublicContact(req) {
   return true;
 }
 
+function allowDemoSession(req) {
+  const key = clientIp(req);
+  const now = Date.now();
+  const recent = (demoAttempts.get(key) || []).filter(timestamp => now - timestamp < DEMO_WINDOW_MS);
+  if (recent.length >= DEMO_MAX_ATTEMPTS) {
+    demoAttempts.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  demoAttempts.set(key, recent);
+  return true;
+}
+
 function parseCookies(req) {
   const out = {};
   const raw = req.headers.cookie || "";
@@ -432,6 +449,24 @@ function setSession(res, user, rememberMe = false) {
   const secure = TRUST_PROXY ? "; Secure" : "";
   res.setHeader("Set-Cookie", `sid=${sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(ttlMs / 1000)}${secure}`);
   return csrf;
+}
+
+function setDemoSession(res) {
+  const sid = crypto.randomBytes(32).toString("hex");
+  const csrf = crypto.randomBytes(24).toString("hex");
+  const expiresAt = Date.now() + DEMO_SESSION_TTL_MS;
+  sessions.set(sid, {
+    userId: "demo-admin",
+    role: "admin",
+    demo: true,
+    csrf,
+    ttlMs: DEMO_SESSION_TTL_MS,
+    expiresAt
+  });
+  saveSessions();
+  const secure = TRUST_PROXY ? "; Secure" : "";
+  res.setHeader("Set-Cookie", `sid=${sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(DEMO_SESSION_TTL_MS / 1000)}${secure}`);
+  return { csrf, expiresAt };
 }
 
 function normalizeEmail(value) {
@@ -780,6 +815,14 @@ function requireAuth(req, res, role) {
     sendJson(res, 401, { error: "Oturum gerekli." });
     return null;
   }
+  if (session.demo) {
+    const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
+    const allowedDemoGet = req.method === "GET" && (pathname === "/api/dashboard" || pathname === "/api/me");
+    if (!allowedDemoGet) {
+      sendJson(res, 403, { error: "Demo modu salt okunurdur. Bu islem gercek kayitlarda degisiklik yapmaz." });
+      return null;
+    }
+  }
   if (role && session.role !== role) {
     sendJson(res, 403, { error: "Bu işlem için yetki yok." });
     return null;
@@ -826,6 +869,117 @@ function publicUser(user) {
     sharedNumbersEnabled: isStaff(user) ? Boolean(user.sharedNumbersEnabled) : false
     , brandingLogoUrl: isStaff(user) ? logoUrlFor(user) : ""
     , hasCustomLogo: isStaff(user) ? Boolean(user.brandingLogoFile) : false
+  };
+}
+
+function demoPublicUser(session) {
+  return {
+    id: "demo-admin",
+    role: "admin",
+    username: "demo",
+    name: "Demo Yonetici",
+    email: "demo@tipsterkontrolpaneli.com",
+    gsmMasked: "",
+    gsmList: [],
+    numberRecords: [],
+    percentage: 0,
+    ownerId: "demo-admin",
+    createdAt: new Date().toISOString(),
+    lastLoginAt: new Date().toISOString(),
+    accessStartsAt: new Date().toISOString().slice(0, 10),
+    accessEndsAt: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
+    sharedNumbersEnabled: false,
+    brandingLogoUrl: "",
+    hasCustomLogo: false,
+    demo: true,
+    demoExpiresAt: session.expiresAt
+  };
+}
+
+function demoDashboard(url, session) {
+  const createdAt = new Date().toISOString();
+  const weekOne = { id: "demo-week-1", filename: "ornek-hafta-1.xlsx", weekLabel: "Demo - 1. Hafta", rowCount: 128, uploadType: "weekly", createdAt };
+  const weekTwo = { id: "demo-week-2", filename: "ornek-hafta-2.xlsx", weekLabel: "Demo - 2. Hafta", rowCount: 142, uploadType: "weekly", createdAt };
+  const daily = { id: "demo-day-1", filename: "ornek-gunluk.xlsx", weekLabel: "Bugunun Demo Sonuclari", uploadDate: createdAt.slice(0, 10), rowCount: 38, uploadType: "daily", createdAt };
+  const uploads = [weekTwo, weekOne];
+  const selectedUploadId = uploads.some(item => item.id === url.searchParams.get("uploadId")) ? url.searchParams.get("uploadId") : weekTwo.id;
+  const selectedDailyUploadId = daily.id;
+  const members = [
+    {
+      id: "demo-member-1", role: "member", username: "ornek_tipster_1", name: "Ornek Tipster 1", percentage: 30,
+      gsmMasked: "0532***1201", gsmList: ["0532***1201", "0533***3402"],
+      numberRecords: [
+        { number: "0532***1201", name: "Ornek Uye A", portalRegistered: true, createdAt },
+        { number: "0533***3402", name: "Ornek Uye B", portalRegistered: false, createdAt }
+      ],
+      numberCount: 2, rowCount: 47, total: 28450, calculated: 8535,
+      allWeeklyTotal: 55200, allWeeklyCalculated: 16560, allWeeklyRowCount: 91
+    },
+    {
+      id: "demo-member-2", role: "member", username: "ornek_tipster_2", name: "Ornek Tipster 2", percentage: 25,
+      gsmMasked: "0542***2203", gsmList: ["0542***2203"],
+      numberRecords: [{ number: "0542***2203", name: "Ornek Uye C", portalRegistered: true, createdAt }],
+      numberCount: 1, rowCount: 36, total: 19750, calculated: 4937.5,
+      allWeeklyTotal: 38900, allWeeklyCalculated: 9725, allWeeklyRowCount: 72
+    },
+    {
+      id: "demo-member-3", role: "member", username: "ornek_tipster_3", name: "Ornek Tipster 3", percentage: 20,
+      gsmMasked: "0555***4504", gsmList: ["0555***4504"],
+      numberRecords: [{ number: "0555***4504", name: "Ornek Uye D", portalRegistered: true, createdAt }],
+      numberCount: 1, rowCount: 29, total: 14300, calculated: 2860,
+      allWeeklyTotal: 27150, allWeeklyCalculated: 5430, allWeeklyRowCount: 58
+    }
+  ];
+  const dailyMembers = members.map((member, index) => ({
+    ...member,
+    dailyRowCount: [14, 11, 8][index],
+    dailyTotal: [7200, 5100, 3650][index],
+    dailyCalculated: [2160, 1275, 730][index]
+  }));
+  const totalAmount = members.reduce((sum, item) => sum + item.total, 0);
+  const totalCommission = members.reduce((sum, item) => sum + item.calculated, 0);
+  const currentAdmin = demoPublicUser(session);
+  return {
+    role: "admin",
+    demo: true,
+    demoExpiresAt: session.expiresAt,
+    branding: { logoUrl: "/logo-watermark.png", hasCustomLogo: false },
+    currentAdmin,
+    summary: { memberCount: members.length, rowCount: members.reduce((sum, item) => sum + item.rowCount, 0), totalAmount, totalCommission },
+    overview: {
+      portalListCount: 4, tipsterNumberCount: 4, portalMatchedCount: 3, portalMissingCount: 1,
+      portalUnassignedCount: 1, activeNumberCount: 4, passiveNumberCount: 1, unmatchedNumberCount: 1,
+      unreadMessageCount: 1, uploadCount: 3, latestBackupAt: createdAt
+    },
+    backups: [{ filename: "demo-yedek.json.gz", createdAt, size: 184320 }],
+    members,
+    dailyMembers,
+    uploads,
+    dailyUploads: [daily],
+    portalLists: [{ id: "demo-portal-1", filename: "ornek-portal.xlsx", weekLabel: "Demo Portal Listesi", rowCount: 4, createdAt }],
+    currentPortalList: { id: "demo-portal-1", filename: "ornek-portal.xlsx", weekLabel: "Demo Portal Listesi", rowCount: 4, createdAt },
+    portalComparison: {
+      registered: [
+        { number: "0532***1201", name: "Ornek Uye A", members: [{ name: "Ornek Tipster 1", username: "ornek_tipster_1" }] },
+        { number: "0542***2203", name: "Ornek Uye C", members: [{ name: "Ornek Tipster 2", username: "ornek_tipster_2" }] }
+      ],
+      unregistered: [{ number: "0533***3402", name: "Ornek Uye B", members: [{ name: "Ornek Tipster 1", username: "ornek_tipster_1" }] }]
+    },
+    messages: [{
+      id: "demo-message-1", title: "Haftalik sonuc bilgilendirmesi", body: "Bu mesaj demo amacli ornek olarak gosterilmektedir.",
+      targetType: "all", createdAt, recipientCount: 3, readCount: 2, unreadCount: 1,
+      recipients: members.map((member, index) => ({ id: member.id, name: member.name, username: member.username, readAt: index < 2 ? createdAt : "" }))
+    }],
+    chatThreads: [], chatUnreadCount: 0,
+    unmatchedNumbers: [{ number: "0505***7788", rowCount: 3, total: 1250, uploads: ["Demo - 2. Hafta"] }],
+    passiveNumbers: [{ memberId: "demo-member-3", memberName: "Ornek Tipster 3", memberUsername: "ornek_tipster_3", number: "0555***4504", name: "Ornek Uye D", passiveSince: "1 hafta", statusText: "Gecen hafta aktifti" }],
+    sharedNumbers: [],
+    uploadReports: [{ uploadType: "weekly", weekLabel: "Demo - 2. Hafta", filename: weekTwo.filename, createdAt, rowCount: 142, activeNumberCount: 4, passiveCount: 1, unmatchedCount: 1, totalAmount, totalCommission }],
+    auditLogs: [{ id: "demo-log-1", action: "Haftalik Excel yuklendi", actorName: "Demo Yonetici", actorUsername: "demo", actorRole: "admin", details: "142 satirlik ornek dosya islendi.", createdAt }],
+    payments: [{ id: "demo-payment-1", uploadId: weekTwo.id, paymentDate: createdAt.slice(0, 10), weekLabel: weekTwo.weekLabel, memberName: members[0].name, memberUsername: members[0].username, calculatedAmount: members[0].calculated, paidAmount: 8000, note: "Ornek odeme" }],
+    paymentSummary: { count: 1, totalPaid: 8000, totalCalculated: members[0].calculated },
+    selectedUploadId,
+    selectedDailyUploadId
   };
 }
 
@@ -2407,6 +2561,17 @@ async function handleApi(req, res) {
   const db = readDb();
   const url = new URL(req.url, `http://${req.headers.host}`);
 
+  if (req.method === "POST" && url.pathname === "/api/demo") {
+    if (!allowDemoSession(req)) {
+      sendJson(res, 429, { error: "Cok fazla demo oturumu acildi. Lutfen 15 dakika sonra tekrar deneyin." });
+      return;
+    }
+    const { csrf, expiresAt } = setDemoSession(res);
+    const session = { expiresAt };
+    sendJson(res, 200, { csrf, expiresAt, user: demoPublicUser(session) });
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/login") {
     const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
     const username = String(body.username || "").trim();
@@ -2533,6 +2698,10 @@ async function handleApi(req, res) {
     const session = currentSession(req);
     if (!session) {
       sendJson(res, 200, { user: null });
+      return;
+    }
+    if (session.demo) {
+      sendJson(res, 200, { csrf: session.csrf, expiresAt: session.expiresAt, user: demoPublicUser(session) });
       return;
     }
     const user = db.users.find(item => item.id === session.userId);
@@ -2872,6 +3041,10 @@ async function handleApi(req, res) {
   if (req.method === "GET" && url.pathname === "/api/dashboard") {
     const session = requireAuth(req, res);
     if (!session) return;
+    if (session.demo) {
+      sendJson(res, 200, demoDashboard(url, session));
+      return;
+    }
     const user = db.users.find(item => item.id === session.userId);
     const staffOwnerId = isStaff(user) ? user.id : user.ownerId;
     const visibleUploads = uploadsByType(db, staffOwnerId, "weekly");
