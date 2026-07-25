@@ -79,7 +79,7 @@ async function endExpiredDemo() {
 function updateDemoCountdown() {
   if (!demoModeActive || !demoExpiresAt) return;
   const remaining = Math.max(0, demoExpiresAt - Date.now());
-  const totalSeconds = Math.ceil(remaining / 1000);
+  const totalSeconds = Math.min(20 * 60, Math.ceil(remaining / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   const label = document.getElementById("demoCountdown");
