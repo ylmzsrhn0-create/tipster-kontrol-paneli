@@ -44,6 +44,7 @@ const memberPanel = document.getElementById("memberPanel");
 const loginHint = document.getElementById("loginHint");
 const detailModal = document.getElementById("memberDetailModal");
 const kvkkModal = document.getElementById("kvkkModal");
+const passwordResetModal = document.getElementById("passwordResetModal");
 const publicContactModal = document.getElementById("publicContactModal");
 const pushPromptModal = document.getElementById("pushPromptModal");
 const mobileSelectModal = document.getElementById("mobileSelectModal");
@@ -2012,6 +2013,32 @@ function closeKvkk() {
   kvkkModal.classList.add("hidden");
 }
 
+function clearPasswordResetTokenFromUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("reset");
+  history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+function openPasswordReset(token = "") {
+  const hasToken = /^[a-f0-9]{64}$/i.test(String(token || ""));
+  setMessage("passwordResetRequestMessage", "");
+  setMessage("passwordResetConfirmMessage", "");
+  document.getElementById("passwordResetRequestForm").classList.toggle("hidden", hasToken);
+  document.getElementById("passwordResetConfirmForm").classList.toggle("hidden", !hasToken);
+  document.getElementById("passwordResetSubtitle").textContent = hasToken
+    ? "Yeni admin sifrenizi belirleyin. Bu baglanti yalnizca bir kez kullanilabilir."
+    : "Kayitli e-posta adresinize 15 dakika gecerli bir baglanti gonderilir.";
+  passwordResetModal.dataset.token = hasToken ? token : "";
+  passwordResetModal.classList.remove("hidden");
+  setTimeout(() => document.getElementById(hasToken ? "passwordResetNewPassword" : "passwordResetAccount").focus(), 50);
+}
+
+function closePasswordReset(removeToken = true) {
+  passwordResetModal.classList.add("hidden");
+  passwordResetModal.dataset.token = "";
+  if (removeToken && new URLSearchParams(window.location.search).has("reset")) clearPasswordResetTokenFromUrl();
+}
+
 function openPublicContact() {
   setMessage("publicContactMessage", "");
   publicContactModal.classList.remove("hidden");
@@ -2025,12 +2052,66 @@ function closePublicContact() {
 document.getElementById("openKvkkLoginBtn").addEventListener("click", openKvkk);
 document.getElementById("openKvkkPanelBtn").addEventListener("click", openKvkk);
 document.getElementById("closeKvkkBtn").addEventListener("click", closeKvkk);
+document.getElementById("openPasswordResetBtn").addEventListener("click", () => openPasswordReset());
+document.getElementById("closePasswordResetBtn").addEventListener("click", () => closePasswordReset());
 document.getElementById("openPushSettingsBtn").addEventListener("click", () => {
   document.getElementById("accountMenu")?.removeAttribute("open");
   document.getElementById("pushPanel")?.scrollIntoView({ behavior: "smooth", block: "center" });
 });
 document.getElementById("openPublicContactBtn").addEventListener("click", openPublicContact);
 document.getElementById("closePublicContactBtn").addEventListener("click", closePublicContact);
+
+document.getElementById("passwordResetRequestForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const button = document.getElementById("passwordResetRequestBtn");
+  button.disabled = true;
+  button.textContent = "Gonderiliyor...";
+  setMessage("passwordResetRequestMessage", "");
+  try {
+    const result = await api("/api/password-reset/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account: document.getElementById("passwordResetAccount").value })
+    });
+    event.target.reset();
+    setMessage("passwordResetRequestMessage", result.message, true);
+  } catch (error) {
+    setMessage("passwordResetRequestMessage", error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Yenileme baglantisi gonder";
+  }
+});
+
+document.getElementById("passwordResetConfirmForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const button = document.getElementById("passwordResetConfirmBtn");
+  const newPassword = document.getElementById("passwordResetNewPassword").value;
+  const passwordAgain = document.getElementById("passwordResetNewPasswordAgain").value;
+  setMessage("passwordResetConfirmMessage", "");
+  if (newPassword !== passwordAgain) {
+    setMessage("passwordResetConfirmMessage", "Yeni sifreler ayni degil.");
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Kaydediliyor...";
+  try {
+    const result = await api("/api/password-reset/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: passwordResetModal.dataset.token, newPassword })
+    });
+    event.target.reset();
+    passwordResetModal.dataset.token = "";
+    clearPasswordResetTokenFromUrl();
+    setMessage("passwordResetConfirmMessage", result.message, true);
+    button.textContent = "Sifre yenilendi";
+  } catch (error) {
+    setMessage("passwordResetConfirmMessage", error.message);
+    button.disabled = false;
+    button.textContent = "Yeni sifreyi kaydet";
+  }
+});
 
 document.getElementById("publicContactForm").addEventListener("submit", async event => {
   event.preventDefault();
@@ -2946,6 +3027,10 @@ kvkkModal.addEventListener("click", event => {
   if (event.target === kvkkModal) closeKvkk();
 });
 
+passwordResetModal.addEventListener("click", event => {
+  if (event.target === passwordResetModal) closePasswordReset();
+});
+
 publicContactModal.addEventListener("click", event => {
   if (event.target === publicContactModal) closePublicContact();
 });
@@ -2954,6 +3039,9 @@ setDefaultAdminPeriod();
 setDefaultUploadDate();
 setDefaultPaymentDate();
 restoreRememberedLogin();
+
+const initialPasswordResetToken = new URLSearchParams(window.location.search).get("reset") || "";
+if (initialPasswordResetToken) openPasswordReset(initialPasswordResetToken);
 
 api("/api/me").then(async data => {
   setDefaultAdminPeriod();

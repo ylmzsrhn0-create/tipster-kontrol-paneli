@@ -418,6 +418,21 @@ button { border: 0; cursor: pointer; }
   font-size: 20px;
 }
 
+.forgot-password-link {
+  justify-self: end;
+  margin-top: -10px;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.forgot-password-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .demo-divider {
   display: flex;
   align-items: center;
@@ -522,6 +537,19 @@ button { border: 0; cursor: pointer; }
 
 .public-contact-modal {
   width: min(680px, calc(100% - 28px));
+}
+
+.password-reset-modal {
+  width: min(520px, calc(100% - 28px));
+  padding: 22px;
+}
+
+.password-reset-modal .section-head { padding: 0; }
+
+.password-reset-form {
+  display: grid;
+  gap: 15px;
+  margin-top: 22px;
 }
 
 .public-contact-form {

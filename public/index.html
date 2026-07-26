@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=demo-session-20260725e">
+  <link rel="stylesheet" href="/style.css?v=admin-password-reset-20260726a">
 </head>
 <body class="login-mode">
   <main class="shell">
@@ -53,6 +53,7 @@
           Sifre
           <input id="password" type="password" autocomplete="current-password" required>
         </label>
+        <button class="forgot-password-link" id="openPasswordResetBtn" type="button">Sifremi unuttum</button>
         <label class="check-row login-remember-row">
           <input id="rememberMe" type="checkbox">
           <span>Beni hatirla</span>
@@ -1165,6 +1166,39 @@
       </div>
     </section>
 
+    <section class="modal hidden" id="passwordResetModal" aria-modal="true" role="dialog" aria-labelledby="passwordResetTitle">
+      <div class="modal-panel password-reset-modal">
+        <div class="section-head">
+          <div>
+            <span class="login-eyebrow">Admin hesap guvenligi</span>
+            <h2 id="passwordResetTitle">Sifrenizi yenileyin</h2>
+            <p class="muted" id="passwordResetSubtitle">Kayitli e-posta adresinize 15 dakika gecerli bir baglanti gonderilir.</p>
+          </div>
+          <button class="ghost" id="closePasswordResetBtn" type="button">Kapat</button>
+        </div>
+        <form class="password-reset-form" id="passwordResetRequestForm">
+          <label>
+            Admin kullanici adi veya e-posta
+            <input id="passwordResetAccount" autocomplete="username" maxlength="120" required placeholder="Kullanici adi veya e-posta">
+          </label>
+          <button class="primary" id="passwordResetRequestBtn" type="submit">Yenileme baglantisi gonder</button>
+          <div class="message" id="passwordResetRequestMessage"></div>
+        </form>
+        <form class="password-reset-form hidden" id="passwordResetConfirmForm">
+          <label>
+            Yeni sifre
+            <input id="passwordResetNewPassword" type="password" autocomplete="new-password" minlength="8" required placeholder="En az 8 karakter">
+          </label>
+          <label>
+            Yeni sifre tekrar
+            <input id="passwordResetNewPasswordAgain" type="password" autocomplete="new-password" minlength="8" required placeholder="Yeni sifreyi tekrar yazin">
+          </label>
+          <button class="primary" id="passwordResetConfirmBtn" type="submit">Yeni sifreyi kaydet</button>
+          <div class="message" id="passwordResetConfirmMessage"></div>
+        </form>
+      </div>
+    </section>
+
     <section class="modal hidden" id="publicContactModal" aria-modal="true" role="dialog" aria-labelledby="publicContactTitle">
       <div class="modal-panel public-contact-modal">
         <div class="section-head">
@@ -1346,6 +1380,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=demo-session-20260725e"></script>
+  <script src="/app.js?v=admin-password-reset-20260726a"></script>
 </body>
 </html>
