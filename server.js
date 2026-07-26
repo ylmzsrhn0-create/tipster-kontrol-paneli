@@ -2634,13 +2634,11 @@ async function handleApi(req, res) {
       createdAt: new Date().toISOString()
     });
     writeDb(db);
-    try {
-      await sendPasswordResetEmail(normalizeEmail(user.email), user, token);
-    } catch (error) {
+    sendPasswordResetEmail(normalizeEmail(user.email), user, token).catch(error => {
       db.passwordResetTokens = db.passwordResetTokens.filter(item => item.tokenHash !== tokenHash);
       writeDb(db);
       console.error("Sifre yenileme e-postasi gonderilemedi:", error.message);
-    }
+    });
     sendJson(res, 200, { ok: true, message: genericMessage });
     return;
   }
