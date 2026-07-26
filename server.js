@@ -5,6 +5,13 @@ const crypto = require("crypto");
 const zlib = require("zlib");
 const net = require("net");
 const tls = require("tls");
+const {
+  canonicalGsm,
+  gsmMatchKeys,
+  normalizeGsm,
+  normalizePortalImportNumber,
+  portalNumbersFromCell
+} = require("./phone-matching");
 let webPush = null;
 try {
   webPush = require("web-push");
@@ -1299,181 +1306,6 @@ function isBonusDisiKuponOynama(value) {
   return text === "bonus disi kupon oynama" || text === "kupon oynama";
 }
 
-function normalizeGsm(value) {
-  const text = String(value ?? "").trim().replace(/\s+/g, "");
-  const masked = text.match(/0?5\d{2}[*xX•]{2,}\d{4}/);
-  if (masked) {
-    const value = masked[0].replace(/[*xX•]+/, "***");
-    return value.startsWith("0") ? value : `0${value}`;
-  }
-
-  const digits = text.replace(/\D/g, "");
-  let national = "";
-  if (/^05\d{9}$/.test(digits)) national = digits;
-  if (/^5\d{9}$/.test(digits)) national = `0${digits}`;
-  if (/^905\d{9}$/.test(digits)) national = `0${digits.slice(2)}`;
-  if (!national) return text;
-
-  return `${national.slice(0, 4)}***${national.slice(-4)}`;
-}
-
-function canonicalGsm(value) {
-  const normalized = normalizeGsm(value);
-  const masked = String(normalized || "").match(/05\d{2}\*{3}\d{4}/);
-  return masked ? masked[0] : "";
-}
-
-function gsmEdgeKey(value) {
-  const text = String(value ?? "").trim().replace(/\s+/g, "");
-  const masked = text.match(/0?5\d{2}[*xX•]{2,}\d{4}/);
-  if (masked) {
-    const cleanMasked = masked[0].replace(/[*xX•]+/, "***");
-    const normalized = cleanMasked.startsWith("0") ? cleanMasked : `0${cleanMasked}`;
-    return `${normalized.slice(0, 4)}:${normalized.slice(-4)}`;
-  }
-  const digits = text.replace(/\D/g, "");
-  let national = "";
-  if (/^05\d{9}$/.test(digits)) national = digits;
-  if (/^5\d{9}$/.test(digits)) national = `0${digits}`;
-  if (/^905\d{9}$/.test(digits)) national = `0${digits.slice(2)}`;
-  return national ? `${national.slice(0, 4)}:${national.slice(-4)}` : "";
-}
-
-function gsmMatchKeys(value) {
-  const keys = new Set();
-  const canonical = canonicalGsm(value);
-  const edge = gsmEdgeKey(value);
-  if (canonical) keys.add(`canon:${canonical}`);
-  if (edge) keys.add(`edge:${edge}`);
-  return Array.from(keys);
-}
-
-function portalNumberFromCell(value) {
-  return portalNumbersFromCell(value)[0] || "";
-}
-
-function portalNumbersFromCell(value) {
-  const raw = String(value ?? "");
-  const compact = raw.replace(/\s+/g, "");
-  const found = [];
-  const add = number => {
-    const normalized = normalizeGsm(number);
-    const canonical = canonicalGsm(normalized);
-    if (canonical && !found.includes(canonical)) found.push(canonical);
-  };
-  for (const match of compact.matchAll(/(?:\+?90)?0?5\d{2}[*xX•]{2,}\d{4}/g)) add(match[0]);
-  for (const match of compact.matchAll(/(?:\+?90)?0?5\d{9}/g)) add(match[0]);
-  if (!found.length) add(raw);
-  return found;
-}
-
-const GSM_MASK_CHARS = "*xX\u2022\u2023\u2027\u2219\u2217\u25CF\u25E6\u00B7";
-const GSM_MASKED_RE = new RegExp(`0?5\\d{2}[${GSM_MASK_CHARS}]{2,}\\d{4}`);
-const GSM_MASKED_GLOBAL_RE = new RegExp(`(?:\\+?90)?0?5\\d{2}[${GSM_MASK_CHARS}]{2,}\\d{4}`, "g");
-const GSM_MASK_REPLACE_RE = new RegExp(`[${GSM_MASK_CHARS}]+`);
-
-function normalizeGsm(value) {
-  const text = String(value ?? "").trim().replace(/\s+/g, "");
-  const masked = text.match(GSM_MASKED_RE);
-  if (masked) {
-    const value = masked[0].replace(GSM_MASK_REPLACE_RE, "***");
-    return value.startsWith("0") ? value : `0${value}`;
-  }
-
-  const digits = text.replace(/\D/g, "");
-  let national = "";
-  if (/^05\d{9}$/.test(digits)) national = digits;
-  if (/^5\d{9}$/.test(digits)) national = `0${digits}`;
-  if (/^905\d{9}$/.test(digits)) national = `0${digits.slice(2)}`;
-  if (!national) return text;
-
-  return `${national.slice(0, 4)}***${national.slice(-4)}`;
-}
-
-function canonicalGsm(value) {
-  const normalized = normalizeGsm(value);
-  const masked = String(normalized || "").match(/05\d{2}\*{3}\d{4}/);
-  return masked ? masked[0] : "";
-}
-
-function gsmEdgeKey(value) {
-  const text = String(value ?? "").trim().replace(/\s+/g, "");
-  const masked = text.match(GSM_MASKED_RE);
-  if (masked) {
-    const cleanMasked = masked[0].replace(GSM_MASK_REPLACE_RE, "***");
-    const normalized = cleanMasked.startsWith("0") ? cleanMasked : `0${cleanMasked}`;
-    return `${normalized.slice(0, 4)}:${normalized.slice(-4)}`;
-  }
-  const digits = text.replace(/\D/g, "");
-  let national = "";
-  if (/^05\d{9}$/.test(digits)) national = digits;
-  if (/^5\d{9}$/.test(digits)) national = `0${digits}`;
-  if (/^905\d{9}$/.test(digits)) national = `0${digits.slice(2)}`;
-  return national ? `${national.slice(0, 4)}:${national.slice(-4)}` : "";
-}
-
-function gsmMatchKeys(value) {
-  const keys = new Set();
-  const canonical = canonicalGsm(value);
-  const edge = gsmEdgeKey(value);
-  if (canonical) keys.add(`canon:${canonical}`);
-  if (edge) keys.add(`edge:${edge}`);
-  return Array.from(keys);
-}
-
-function portalNumberFromCell(value) {
-  return portalNumbersFromCell(value)[0] || "";
-}
-
-function portalNumbersFromCell(value) {
-  const raw = String(value ?? "");
-  const compact = raw.replace(/\s+/g, "");
-  const found = [];
-  const add = number => {
-    const normalized = normalizeGsm(number);
-    const canonical = canonicalGsm(normalized);
-    if (canonical && !found.includes(canonical)) found.push(canonical);
-  };
-  for (const match of compact.matchAll(GSM_MASKED_GLOBAL_RE)) add(match[0]);
-  for (const match of compact.matchAll(/(?:\+?90)?0?5\d{9}/g)) add(match[0]);
-  if (!found.length) add(raw);
-  return found;
-}
-
-function normalizePortalImportNumber(value) {
-  const text = String(value ?? "").trim().replace(/\s+/g, "");
-  const masked = text.match(GSM_MASKED_RE);
-  if (masked) {
-    const cleanMasked = masked[0].replace(GSM_MASK_REPLACE_RE, "***");
-    const normalized = cleanMasked.startsWith("0") ? cleanMasked : `0${cleanMasked}`;
-    return canonicalGsm(normalized);
-  }
-  const digits = text.replace(/\D/g, "");
-  let national = "";
-  if (/^05\d{9}$/.test(digits)) national = digits;
-  if (/^5\d{9}$/.test(digits)) national = `0${digits}`;
-  if (/^905\d{9}$/.test(digits)) national = `0${digits.slice(2)}`;
-  return national || canonicalGsm(value);
-}
-
-function portalNumberFromCell(value) {
-  return portalNumbersFromCell(value)[0] || "";
-}
-
-function portalNumbersFromCell(value) {
-  const raw = String(value ?? "");
-  const compact = raw.replace(/\s+/g, "");
-  const found = [];
-  const add = number => {
-    const normalized = normalizePortalImportNumber(number);
-    if (normalized && !found.includes(normalized)) found.push(normalized);
-  };
-  for (const match of compact.matchAll(GSM_MASKED_GLOBAL_RE)) add(match[0]);
-  for (const match of compact.matchAll(/(?:\+?90)?0?5\d{9}/g)) add(match[0]);
-  if (!found.length) add(raw);
-  return found;
-}
-
 function normalizeNumberName(value) {
   return String(value ?? "").trim().slice(0, 80);
 }
@@ -1556,11 +1388,7 @@ function latestPortalList(db, ownerId) {
   return cachedCalculation(`latestPortalList:${ownerId}`, () => (db.portalLists || [])
     .filter(list => list.ownerId === ownerId)
     .slice()
-    .sort((a, b) => {
-      const countDiff = Number(b.rowCount || b.numbers?.length || 0) - Number(a.rowCount || a.numbers?.length || 0);
-      if (countDiff) return countDiff;
-      return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
-    })[0] || null);
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0] || null);
 }
 
 function portalNumberSet(db, ownerId) {
@@ -1581,7 +1409,7 @@ function withPortalStatus(records, portalKeys) {
     return {
       ...record,
       portalRegistered: registered,
-      portalStatusText: registered ? "Kayitli" : "Kayitli degil"
+      portalStatusText: registered ? "Listede var" : "Listede yok"
     };
   });
 }
@@ -1619,7 +1447,7 @@ function portalComparisonSummary(db, ownerId, memberId = "") {
     ...item,
     memberCount: item.members.length,
     portalRegistered: portalHasNumber(portalKeys, item.number),
-    portalStatusText: portalHasNumber(portalKeys, item.number) ? "Kayitli" : "Kayitli degil"
+    portalStatusText: portalHasNumber(portalKeys, item.number) ? "Listede var" : "Listede yok"
   })).sort((a, b) => {
     if (a.portalRegistered !== b.portalRegistered) return a.portalRegistered ? -1 : 1;
     return a.number.localeCompare(b.number);
@@ -2011,7 +1839,7 @@ function memberSummary(db, user, uploadId) {
       ...shared,
       createdAt: record?.createdAt || "",
       portalRegistered: registered,
-      portalStatusText: registered ? "Kayitli" : "Kayitli degil"
+      portalStatusText: registered ? "Listede var" : "Listede yok"
     };
   });
   const total = rows.reduce((sum, row) => sum + row.totalAmount, 0);
@@ -2027,7 +1855,7 @@ function memberSummary(db, user, uploadId) {
       createdAt: record.createdAt,
       active: numberRows.length > 0,
       portalRegistered: portalHasNumber(portalKeys, recordNumber),
-      portalStatusText: portalHasNumber(portalKeys, recordNumber) ? "Kayitli" : "Kayitli degil",
+      portalStatusText: portalHasNumber(portalKeys, recordNumber) ? "Listede var" : "Listede yok",
       rowCount: numberRows.length,
       shareCount,
       total: numberTotal,
@@ -2412,7 +2240,7 @@ function createNumbersXlsx(member, summaries) {
       item.number,
       item.createdAt ? new Date(item.createdAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" }) : "",
       item.active ? "Aktif" : "Pasif",
-      item.portalRegistered ? "Kayitli" : "Kayitli degil",
+      item.portalRegistered ? "Listede var" : "Listede yok",
       item.rowCount,
       item.total,
       item.calculated
@@ -4051,14 +3879,6 @@ async function handleApi(req, res) {
       return;
     }
     const numbers = parsePortalNumberExcel(file.data);
-    const previousBest = latestPortalList(db, session.userId);
-    const previousCount = Number(previousBest?.rowCount || previousBest?.numbers?.length || 0);
-    if (previousCount && numbers.length < previousCount) {
-      sendJson(res, 400, {
-        error: `Bu Bayi Portal listesi onceki kayittan daha az numara iceriyor (${numbers.length}/${previousCount}). Eksik liste yuklenmedi. Botu yeniden calistirip en dolu dosyayi yukle.`
-      });
-      return;
-    }
     const fileBase = file.filename.replace(/\.xlsx$/i, "");
     const weekLabel = String(weekPart?.data?.toString("utf8") || "").trim() || fileBase;
     const portalList = {
