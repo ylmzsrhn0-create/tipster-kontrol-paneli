@@ -415,7 +415,7 @@ function portalStatusPill(item) {
   const hasList = Boolean(currentDashboard?.currentPortalList);
   if (!hasList) return `<span class="status-pill passive">Liste yok</span>`;
   const registered = Boolean(item?.portalRegistered);
-  return `<span class="status-pill ${registered ? "active" : "passive"}">${registered ? "Kayitli" : "Kayitli degil"}</span>`;
+  return `<span class="status-pill ${registered ? "active" : "passive"}">${registered ? "Listede var" : "Listede yok"}</span>`;
 }
 
 function numberRecordsOf(member) {
@@ -469,7 +469,7 @@ function adminNumberSplitHtml(member, scope, query = "") {
   const totalRegistered = hasPortalList ? allRecords.filter(record => record.portalRegistered).length : 0;
   const totalUnregistered = hasPortalList ? allRecords.length - totalRegistered : allRecords.length;
   const portalSummary = hasPortalList
-    ? `Kayitli ${totalRegistered} / Kayitsiz ${totalUnregistered}`
+    ? `Listede ${totalRegistered} / Listede yok ${totalUnregistered}`
     : "Bayi Portal listesi yok";
   return `
     <div class="admin-number-toggle">
@@ -479,12 +479,12 @@ function adminNumberSplitHtml(member, scope, query = "") {
       <div class="admin-number-list ${expanded ? "" : "hidden"}">
         <div class="number-split">
           <section>
-            <h4>Kayitli <span>${registered.length}</span></h4>
-            ${hasPortalList ? numberMiniList(registered, "Kayitli numara yok.") : `<p class="muted mini-empty">Liste yok.</p>`}
+            <h4>Listede var <span>${registered.length}</span></h4>
+            ${hasPortalList ? numberMiniList(registered, "Eslesen numara yok.") : `<p class="muted mini-empty">Liste yok.</p>`}
           </section>
           <section>
-            <h4>Kayitsiz <span>${unregistered.length}</span></h4>
-            ${numberMiniList(unregistered, hasPortalList ? "Kayitsiz numara yok." : "Liste yok.")}
+            <h4>Listede yok <span>${unregistered.length}</span></h4>
+            ${numberMiniList(unregistered, hasPortalList ? "Liste disinda numara yok." : "Liste yok.")}
           </section>
         </div>
       </div>
@@ -501,7 +501,7 @@ function adminNumberRecordsToggleHtml(member, scope) {
   const registeredCount = hasPortalList ? records.filter(record => record.portalRegistered).length : 0;
   const unregisteredCount = hasPortalList ? records.length - registeredCount : 0;
   const portalSummary = hasPortalList
-    ? ` - Kayitli ${registeredCount} / Kayitli degil ${unregisteredCount}`
+    ? ` - Listede ${registeredCount} / Listede yok ${unregisteredCount}`
     : " - Bayi Portal listesi yok";
   return `
     <div class="admin-number-toggle">
@@ -1007,11 +1007,15 @@ function formatFileSize(size) {
 }
 
 function renderOverview(overview) {
+  const portalList = currentDashboard?.currentPortalList;
+  const portalListHelp = portalList
+    ? `${portalList.weekLabel || portalList.filename} - ${formatDateTime(portalList.createdAt)}`
+    : "Henuz Bayi Portal listesi yuklenmedi";
   const cards = [
-    ["Portal listesi", overview.portalListCount || 0, "Yuklenen Bayi Portal numarasi", "info"],
+    ["Aktif portal listesi", overview.portalListCount || 0, portalListHelp, "info"],
     ["Tipster kaydi", overview.tipsterNumberCount || 0, "Tipsterlarda kayitli benzersiz numara", "info"],
     ["Eslesen", overview.portalMatchedCount || 0, "Tipsterda olup Bayi Portalda bulunan", "good"],
-    ["Kayitli degil", overview.portalMissingCount || 0, "Tipsterda var, Bayi Portalda yok", overview.portalMissingCount ? "warn" : "good"],
+    ["Listede yok", overview.portalMissingCount || 0, "Tipsterda var, aktif Bayi Portal Excelinde yok", overview.portalMissingCount ? "warn" : "good"],
     ["Tipstersiz", overview.portalUnassignedCount || 0, "Bayi Portalda var, tipsterda yok", overview.portalUnassignedCount ? "warn" : "good"],
     ["Aktif numara", overview.activeNumberCount || 0, "Secili Excelde oynayan benzersiz numara", "info"],
     ["Pasif numara", overview.passiveNumberCount || 0, "Tipsterda kayitli olup secili haftada gorunmeyen", overview.passiveNumberCount ? "warn" : "good"],
@@ -1179,11 +1183,11 @@ function renderPortalComparison(prefix = "portal") {
   document.getElementById(`${prefix}RegisteredCount`).textContent = registered.length;
   document.getElementById(`${prefix}UnregisteredCount`).textContent = unregistered.length;
   if (isMember) {
-    document.getElementById(`${prefix}RegisteredRows`).innerHTML = portalComparisonCards(registered, "Kayitli numara yok.");
-    document.getElementById(`${prefix}UnregisteredRows`).innerHTML = portalComparisonCards(unregistered, "Kayitsiz numara yok.");
+    document.getElementById(`${prefix}RegisteredRows`).innerHTML = portalComparisonCards(registered, "Listede eslesen numara yok.");
+    document.getElementById(`${prefix}UnregisteredRows`).innerHTML = portalComparisonCards(unregistered, "Liste disinda numara yok.");
   } else {
-    document.getElementById(`${prefix}RegisteredRows`).innerHTML = portalComparisonTableRows(registered, "Kayitli numara yok.");
-    document.getElementById(`${prefix}UnregisteredRows`).innerHTML = portalComparisonTableRows(unregistered, "Kayitsiz numara yok.");
+    document.getElementById(`${prefix}RegisteredRows`).innerHTML = portalComparisonTableRows(registered, "Listede eslesen numara yok.");
+    document.getElementById(`${prefix}UnregisteredRows`).innerHTML = portalComparisonTableRows(unregistered, "Liste disinda numara yok.");
   }
 }
 
