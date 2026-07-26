@@ -33,6 +33,9 @@ const PUBLIC_CONTACT_WINDOW_MS = 1000 * 60 * 15;
 const PUBLIC_CONTACT_MAX_ATTEMPTS = 3;
 const DEMO_WINDOW_MS = 1000 * 60 * 15;
 const DEMO_MAX_ATTEMPTS = 10;
+const PASSWORD_RESET_TTL_MS = 1000 * 60 * 15;
+const PASSWORD_RESET_WINDOW_MS = 1000 * 60 * 15;
+const PASSWORD_RESET_MAX_ATTEMPTS = 5;
 const OTP_ENABLED = process.env.EMAIL_OTP_ENABLED === "1";
 const FALLBACK_OTP_EMAIL = String(process.env.ADMIN_OTP_EMAIL || "").trim();
 const SMTP_HOST = String(process.env.SMTP_HOST || "").trim();
@@ -40,6 +43,7 @@ const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_USER = String(process.env.SMTP_USER || "").trim();
 const SMTP_PASS = String(process.env.SMTP_PASS || "");
 const SMTP_FROM = String(process.env.SMTP_FROM || SMTP_USER || "").trim();
+const APP_BASE_URL = String(process.env.APP_BASE_URL || "https://tipsterkontrolpaneli.com").trim().replace(/\/+$/, "");
 const PUSH_SUBJECT = String(process.env.PUSH_SUBJECT || SMTP_FROM || "mailto:admin@tipsterkontrolpaneli.com").trim();
 
 fs.mkdirSync(DATA, { recursive: true });
@@ -88,7 +92,8 @@ function defaultDb() {
     payments: [],
     portalLists: [],
     pushSubscriptions: [],
-    pushSettings: {}
+    pushSettings: {},
+    passwordResetTokens: []
   };
 }
 
@@ -214,6 +219,8 @@ function normalizeDb(db) {
   db.portalLists ||= [];
   db.pushSubscriptions ||= [];
   db.pushSettings ||= {};
+  db.passwordResetTokens ||= [];
+  db.passwordResetTokens = db.passwordResetTokens.filter(item => item?.userId && item?.tokenHash && Number(item.expiresAt) > Date.now());
   if (webPush && (!db.pushSettings.publicKey || !db.pushSettings.privateKey)) {
     db.pushSettings.vapidKeys ||= webPush.generateVAPIDKeys();
     db.pushSettings.publicKey = db.pushSettings.vapidKeys.publicKey;
@@ -321,6 +328,7 @@ const pendingOtps = new Map();
 const loginAttempts = new Map();
 const publicContactAttempts = new Map();
 const demoAttempts = new Map();
+const passwordResetAttempts = new Map();
 
 function saveSessions() {
   const now = Date.now();
@@ -408,6 +416,19 @@ function allowDemoSession(req) {
   }
   recent.push(now);
   demoAttempts.set(key, recent);
+  return true;
+}
+
+function allowPasswordResetRequest(req) {
+  const key = clientIp(req);
+  const now = Date.now();
+  const recent = (passwordResetAttempts.get(key) || []).filter(timestamp => now - timestamp < PASSWORD_RESET_WINDOW_MS);
+  if (recent.length >= PASSWORD_RESET_MAX_ATTEMPTS) {
+    passwordResetAttempts.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  passwordResetAttempts.set(key, recent);
   return true;
 }
 
@@ -574,7 +595,11 @@ function otpRecipientFor(user) {
 }
 
 function emailOtpConfigured() {
-  return OTP_ENABLED && SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && SMTP_FROM;
+  return OTP_ENABLED && emailConfigured();
+}
+
+function emailConfigured() {
+  return Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && SMTP_FROM);
 }
 
 function maskEmail(email) {
@@ -684,7 +709,7 @@ function emailMessage(to, subject, text) {
   ].join("\r\n");
 }
 
-async function sendOtpEmail(to, code) {
+async function sendTextEmail(to, subject, text) {
   let socket = await smtpConnect();
   try {
     await smtpRead(socket);
@@ -700,14 +725,32 @@ async function sendOtpEmail(to, code) {
     await smtpCommand(socket, `MAIL FROM:<${SMTP_FROM}>`);
     await smtpCommand(socket, `RCPT TO:<${to}>`);
     await smtpCommand(socket, "DATA", /^3/);
-    const text = `Tipster Kontrol Paneli admin giris kodunuz: ${code}\n\nBu kod 5 dakika gecerlidir. Bu istegi siz yapmadiysaniz sifrenizi degistirin.`;
-    socket.write(`${emailMessage(to, "Tipster Kontrol Paneli giris kodu", text)}\r\n.\r\n`);
+    socket.write(`${emailMessage(to, subject, text)}\r\n.\r\n`);
     const dataResponse = await smtpRead(socket);
     if (!/^[23]/.test(dataResponse)) throw new Error(dataResponse.trim());
     await smtpCommand(socket, "QUIT").catch(() => {});
   } finally {
     socket.end();
   }
+}
+
+async function sendOtpEmail(to, code) {
+  const text = `Tipster Kontrol Paneli admin giris kodunuz: ${code}\n\nBu kod 5 dakika gecerlidir. Bu istegi siz yapmadiysaniz sifrenizi degistirin.`;
+  return sendTextEmail(to, "Tipster Kontrol Paneli giris kodu", text);
+}
+
+async function sendPasswordResetEmail(to, user, token) {
+  const resetUrl = `${APP_BASE_URL}/?reset=${encodeURIComponent(token)}`;
+  const text = [
+    `Merhaba ${user.name || user.username},`,
+    "",
+    "Tipster Kontrol Paneli admin sifrenizi yenilemek icin asagidaki baglantiyi acin:",
+    resetUrl,
+    "",
+    "Bu baglanti 15 dakika gecerlidir ve yalnizca bir kez kullanilabilir.",
+    "Bu istegi siz yapmadiysaniz e-postayi dikkate almayin; sifreniz degismeyecektir."
+  ].join("\n");
+  return sendTextEmail(to, "Tipster Kontrol Paneli sifre yenileme", text);
 }
 
 function clearSession(req, res) {
@@ -2560,6 +2603,81 @@ function serveStatic(req, res) {
 async function handleApi(req, res) {
   const db = readDb();
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  if (req.method === "POST" && url.pathname === "/api/password-reset/request") {
+    if (!emailConfigured()) {
+      sendJson(res, 503, { error: "Sifre yenileme e-posta servisi su anda hazir degil." });
+      return;
+    }
+    if (!allowPasswordResetRequest(req)) {
+      sendJson(res, 429, { error: "Cok fazla sifre yenileme istegi yapildi. Lutfen 15 dakika sonra tekrar deneyin." });
+      return;
+    }
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const account = String(body.account || "").trim().toLowerCase();
+    const genericMessage = "Bilgiler bir admin hesabiyla eslesiyorsa sifre yenileme baglantisi kayitli e-posta adresine gonderildi.";
+    const user = db.users.find(item => isStaff(item) && (
+      String(item.username || "").trim().toLowerCase() === account || normalizeEmail(item.email) === account
+    ));
+    if (!account || !user || !validEmail(user.email)) {
+      sendJson(res, 200, { ok: true, message: genericMessage });
+      return;
+    }
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    db.passwordResetTokens = (db.passwordResetTokens || []).filter(item => item.userId !== user.id && Number(item.expiresAt) > Date.now());
+    db.passwordResetTokens.push({
+      id: crypto.randomUUID(),
+      userId: user.id,
+      tokenHash,
+      expiresAt: Date.now() + PASSWORD_RESET_TTL_MS,
+      createdAt: new Date().toISOString()
+    });
+    writeDb(db);
+    try {
+      await sendPasswordResetEmail(normalizeEmail(user.email), user, token);
+    } catch (error) {
+      db.passwordResetTokens = db.passwordResetTokens.filter(item => item.tokenHash !== tokenHash);
+      writeDb(db);
+      console.error("Sifre yenileme e-postasi gonderilemedi:", error.message);
+    }
+    sendJson(res, 200, { ok: true, message: genericMessage });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/password-reset/confirm") {
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const token = String(body.token || "").trim();
+    const newPassword = String(body.newPassword || "");
+    if (!/^[a-f0-9]{64}$/i.test(token)) {
+      sendJson(res, 400, { error: "Sifre yenileme baglantisi gecersiz veya suresi dolmus." });
+      return;
+    }
+    if (newPassword.length < 8) {
+      sendJson(res, 400, { error: "Yeni sifre en az 8 karakter olmali." });
+      return;
+    }
+    const now = Date.now();
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    db.passwordResetTokens = (db.passwordResetTokens || []).filter(item => Number(item.expiresAt) > now);
+    const reset = db.passwordResetTokens.find(item => safeEqual(item.tokenHash, tokenHash));
+    const user = reset ? db.users.find(item => item.id === reset.userId && isStaff(item)) : null;
+    if (!reset || !user) {
+      writeDb(db);
+      sendJson(res, 400, { error: "Sifre yenileme baglantisi gecersiz veya suresi dolmus." });
+      return;
+    }
+    user.passwordHash = hashPassword(newPassword);
+    db.passwordResetTokens = db.passwordResetTokens.filter(item => item.userId !== user.id);
+    for (const [sid, activeSession] of sessions.entries()) {
+      if (activeSession.userId === user.id) sessions.delete(sid);
+    }
+    saveSessions();
+    addAuditLog(db, user.id, user, "Admin sifresi yenilendi", "Kayitli e-posta baglantisi ile sifre yenilendi");
+    writeDb(db);
+    sendJson(res, 200, { ok: true, message: "Sifreniz yenilendi. Yeni sifrenizle giris yapabilirsiniz." });
+    return;
+  }
 
   if (req.method === "POST" && url.pathname === "/api/demo") {
     if (!allowDemoSession(req)) {
