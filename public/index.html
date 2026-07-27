@@ -11,9 +11,9 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=portal-match-audit-20260726a">
+  <link rel="stylesheet" href="/style.css?v=role-login-20260728a">
 </head>
-<body class="login-mode">
+<body class="login-mode login-role-admin">
   <main class="shell">
     <section class="login-view" id="loginView">
       <div class="cover">
@@ -35,24 +35,30 @@
       </div>
 
       <form class="login-card" id="loginForm">
+        <div class="login-card-brand">
+          <span class="login-brand-mark">TK</span>
+          <span><strong>Tipster Kontrol Paneli</strong><small id="loginSecurityText">Guvenli yonetim erisimi</small></span>
+          <span class="login-live-badge"><i></i> Sistem aktif</span>
+        </div>
         <div class="login-card-head">
-          <span class="login-eyebrow">Hesabiniza erisin</span>
-          <h2>Panele giris</h2>
-          <p>Rolunuzu secin ve guvenli oturumunuzu baslatin.</p>
+          <span class="login-eyebrow" id="loginEyebrow">Yonetim merkezi</span>
+          <h2 id="loginTitle">Admin paneline giris</h2>
+          <p id="loginDescription">Yetkili hesabinizla guvenli oturumunuzu baslatin.</p>
         </div>
         <div class="login-tabs" aria-label="Giris tipi">
-          <button class="tab active" type="button" data-login-type="admin">Admin Girisi</button>
-          <button class="tab" type="button" data-login-type="member">Tipster Girisi</button>
+          <button class="tab active" type="button" data-login-type="admin" aria-pressed="true"><span aria-hidden="true">A</span> Admin Girisi</button>
+          <button class="tab" type="button" data-login-type="member" aria-pressed="false"><span aria-hidden="true">T</span> Tipster Girisi</button>
         </div>
         <p id="loginHint">Admin hesabi icin size verilen guvenli sifreyi kullanin.</p>
-        <label>
-          Kullanici adi
-          <input id="username" autocomplete="username" required>
+        <label class="login-field">
+          <span class="field-label">Kullanici adi</span>
+          <span class="field-control"><i aria-hidden="true">@</i><input id="username" autocomplete="username" required placeholder="Kullanici adinizi girin"></span>
         </label>
-        <label>
-          Sifre
-          <input id="password" type="password" autocomplete="current-password" required>
+        <label class="login-field">
+          <span class="field-label">Sifre</span>
+          <span class="field-control password-control"><i aria-hidden="true">&#9679;</i><input id="password" type="password" autocomplete="current-password" required placeholder="Sifrenizi girin"><button class="password-visibility" id="togglePasswordBtn" type="button" aria-label="Sifreyi goster" aria-pressed="false">Goster</button></span>
         </label>
+        <span class="caps-lock-warning hidden" id="capsLockWarning">Caps Lock acik</span>
         <button class="forgot-password-link" id="openPasswordResetBtn" type="button">Sifremi unuttum</button>
         <label class="check-row login-remember-row">
           <input id="rememberMe" type="checkbox">
@@ -1380,6 +1386,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=portal-match-audit-20260726a"></script>
+  <script src="/app.js?v=role-login-20260728a"></script>
 </body>
 </html>

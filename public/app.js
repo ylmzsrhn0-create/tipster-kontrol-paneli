@@ -42,6 +42,10 @@ const adminPanel = document.getElementById("adminPanel");
 const ownerPanel = document.getElementById("ownerPanel");
 const memberPanel = document.getElementById("memberPanel");
 const loginHint = document.getElementById("loginHint");
+const loginEyebrow = document.getElementById("loginEyebrow");
+const loginTitle = document.getElementById("loginTitle");
+const loginDescription = document.getElementById("loginDescription");
+const loginSecurityText = document.getElementById("loginSecurityText");
 const detailModal = document.getElementById("memberDetailModal");
 const kvkkModal = document.getElementById("kvkkModal");
 const passwordResetModal = document.getElementById("passwordResetModal");
@@ -50,6 +54,7 @@ const pushPromptModal = document.getElementById("pushPromptModal");
 const mobileSelectModal = document.getElementById("mobileSelectModal");
 const notificationBadge = document.getElementById("notificationBadge");
 const rememberStorageKey = "tipsterPanelRememberLogin";
+const loginRoleStorageKey = "tipsterPanelLoginRole";
 const pushPromptSessionKey = "tipsterPanelPushPromptDismissed";
 
 const money = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
@@ -59,6 +64,38 @@ function setMessage(id, text, ok = false) {
   if (!el) return;
   el.textContent = text || "";
   el.style.color = ok ? "var(--ok)" : "var(--danger)";
+}
+
+function applyLoginType(type, { persist = true, resetFields = false } = {}) {
+  selectedLoginType = type === "member" ? "member" : "admin";
+  const isAdmin = selectedLoginType === "admin";
+  document.body.classList.toggle("login-role-admin", isAdmin);
+  document.body.classList.toggle("login-role-member", !isAdmin);
+  document.querySelectorAll("[data-login-type]").forEach(item => {
+    const active = item.dataset.loginType === selectedLoginType;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  loginEyebrow.textContent = isAdmin ? "Yonetim merkezi" : "Tipster performans merkezi";
+  loginTitle.textContent = isAdmin ? "Admin paneline giris" : "Tipster paneline giris";
+  loginDescription.textContent = isAdmin
+    ? "Yetkili hesabinizla guvenli oturumunuzu baslatin."
+    : "Raporlariniza ve kazanc bilgilerinize guvenle erisin.";
+  loginSecurityText.textContent = isAdmin ? "Guvenli yonetim erisimi" : "Guvenli tipster erisimi";
+  loginHint.textContent = isAdmin
+    ? "Admin hesabi icin size verilen guvenli sifreyi kullanin."
+    : "Tipster girisi icin adminin olusturdugu kullanici adi ve sifre kullanilir.";
+  document.getElementById("openPasswordResetBtn").classList.toggle("hidden", !isAdmin);
+  document.getElementById("username").placeholder = isAdmin ? "Admin kullanici adinizi girin" : "Tipster kullanici adinizi girin";
+  if (resetFields) {
+    const remembered = document.getElementById("rememberMe").checked;
+    if (!remembered) document.getElementById("username").value = isAdmin ? "admin" : "";
+    document.getElementById("password").value = "";
+    document.getElementById("capsLockWarning")?.classList.add("hidden");
+  }
+  if (persist) {
+    try { localStorage.setItem(loginRoleStorageKey, selectedLoginType); } catch (error) {}
+  }
 }
 
 function stopDemoCountdown() {
@@ -385,18 +422,16 @@ function rememberLoginChoice(user) {
 function restoreRememberedLogin() {
   try {
     const saved = JSON.parse(localStorage.getItem(rememberStorageKey) || "{}");
+    const savedRole = saved.loginType || localStorage.getItem(loginRoleStorageKey) || "admin";
+    applyLoginType(savedRole, { persist: false });
     if (!saved.username) {
-      document.getElementById("username").value = "admin";
+      document.getElementById("username").value = selectedLoginType === "admin" ? "admin" : "";
       return;
     }
-    selectedLoginType = saved.loginType === "member" ? "member" : "admin";
-    document.querySelectorAll("[data-login-type]").forEach(item => item.classList.toggle("active", item.dataset.loginType === selectedLoginType));
     document.getElementById("username").value = saved.username;
     document.getElementById("rememberMe").checked = true;
-    loginHint.textContent = selectedLoginType === "admin"
-      ? "Admin hesabi icin size verilen guvenli sifreyi kullanin."
-      : "Tipster girisi icin adminin olusturdugu kullanici adi ve sifre kullanilir.";
   } catch (error) {
+    applyLoginType("admin", { persist: false });
     document.getElementById("username").value = "admin";
   }
 }
@@ -1869,19 +1904,31 @@ async function submitFeedbackForm(event, prefix) {
   }
 }
 
+document.getElementById("togglePasswordBtn").addEventListener("click", event => {
+  const passwordInput = document.getElementById("password");
+  const showing = passwordInput.type === "text";
+  passwordInput.type = showing ? "password" : "text";
+  event.currentTarget.textContent = showing ? "Goster" : "Gizle";
+  event.currentTarget.setAttribute("aria-label", showing ? "Sifreyi goster" : "Sifreyi gizle");
+  event.currentTarget.setAttribute("aria-pressed", showing ? "false" : "true");
+  passwordInput.focus();
+});
+
+const loginPasswordInput = document.getElementById("password");
+const capsLockWarning = document.getElementById("capsLockWarning");
+const updateCapsLockWarning = event => {
+  const capsLockOn = typeof event.getModifierState === "function" && event.getModifierState("CapsLock");
+  capsLockWarning.classList.toggle("hidden", !capsLockOn);
+};
+loginPasswordInput.addEventListener("keydown", updateCapsLockWarning);
+loginPasswordInput.addEventListener("keyup", updateCapsLockWarning);
+loginPasswordInput.addEventListener("blur", () => capsLockWarning.classList.add("hidden"));
+
 document.querySelectorAll("[data-login-type]").forEach(button => {
   button.addEventListener("click", () => {
-    selectedLoginType = button.dataset.loginType;
-    document.querySelectorAll("[data-login-type]").forEach(item => item.classList.remove("active"));
-    button.classList.add("active");
     setMessage("loginMessage", "");
     resetOtpLogin();
-    loginHint.textContent = selectedLoginType === "admin"
-      ? "Admin hesabi icin size verilen guvenli sifreyi kullanin."
-      : "Tipster girisi icin adminin olusturdugu kullanici adi ve sifre kullanilir.";
-    const remembered = document.getElementById("rememberMe").checked;
-    if (!remembered) document.getElementById("username").value = selectedLoginType === "admin" ? "admin" : "";
-    document.getElementById("password").value = "";
+    applyLoginType(button.dataset.loginType, { resetFields: true });
   });
 });
 
@@ -1892,6 +1939,7 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
   const loginSubmitBtn = document.getElementById("loginSubmitBtn");
   const loginSubmitText = loginSubmitBtn.textContent;
   loginSubmitBtn.disabled = true;
+  loginSubmitBtn.classList.add("is-loading");
   loginSubmitBtn.textContent = pendingLoginToken ? "Kod kontrol ediliyor..." : "Giris kontrol ediliyor...";
   setMessage("loginMessage", "");
   try {
@@ -1966,6 +2014,7 @@ document.getElementById("loginForm").addEventListener("submit", async event => {
   } finally {
     loginSubmitting = false;
     loginSubmitBtn.disabled = false;
+    loginSubmitBtn.classList.remove("is-loading");
     loginSubmitBtn.textContent = loginSubmitText;
   }
 });
