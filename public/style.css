@@ -638,6 +638,15 @@ button { border: 0; cursor: pointer; }
 
 .field-control input:focus { box-shadow: none; }
 
+.field-control input:-webkit-autofill,
+.field-control input:-webkit-autofill:hover,
+.field-control input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink);
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  caret-color: var(--ink);
+  transition: background-color 9999s ease-out;
+}
+
 .password-control { grid-template-columns: auto minmax(0, 1fr) auto; }
 
 .password-visibility {
@@ -787,6 +796,13 @@ body.login-role-admin .field-control:focus-within {
 body.login-role-admin .field-control > i { color: #9cb6cf; }
 body.login-role-admin .field-control input { color: #fff; }
 body.login-role-admin .field-control input::placeholder { color: #708aa5; }
+body.login-role-admin .field-control input:-webkit-autofill,
+body.login-role-admin .field-control input:-webkit-autofill:hover,
+body.login-role-admin .field-control input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  -webkit-box-shadow: 0 0 0 1000px #0b203c inset;
+  caret-color: #fff;
+}
 body.login-role-admin .password-visibility,
 body.login-role-admin .forgot-password-link,
 body.login-role-admin .text-link { color: #5eead4; }
