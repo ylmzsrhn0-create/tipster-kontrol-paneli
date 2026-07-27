@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v49-role-login-20260728c";
+const CACHE_NAME = "tipster-panel-v50-role-login-20260728d";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=role-login-20260728c",
-  "/app.js?v=role-login-20260728c",
+  "/style.css?v=role-login-20260728d",
+  "/app.js?v=role-login-20260728d",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",

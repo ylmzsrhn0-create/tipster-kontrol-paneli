@@ -107,6 +107,10 @@ function applyLoginType(type, { persist = true, resetFields = false } = {}) {
   usernameInput.placeholder = isAdmin ? "Admin kullanici adinizi girin" : "Tipster kullanici adinizi girin";
   usernameInput.name = isAdmin ? "admin_username" : "tipster_username";
   passwordInput.name = isAdmin ? "admin_password" : "tipster_password";
+  usernameInput.autocomplete = isAdmin ? "username" : "off";
+  passwordInput.autocomplete = isAdmin ? "current-password" : "new-password";
+  usernameInput.readOnly = !isAdmin;
+  passwordInput.readOnly = !isAdmin;
   if (resetFields) {
     const rememberedUsername = readRememberedLogins()[selectedLoginType] || "";
     usernameInput.value = rememberedUsername || (isAdmin ? "admin" : "");
@@ -1936,7 +1940,19 @@ document.getElementById("togglePasswordBtn").addEventListener("click", event => 
 });
 
 const loginPasswordInput = document.getElementById("password");
+const loginUsernameInput = document.getElementById("username");
 const capsLockWarning = document.getElementById("capsLockWarning");
+const unlockTipsterLoginField = event => {
+  if (selectedLoginType !== "member") return;
+  const input = event.currentTarget;
+  input.readOnly = false;
+  if (input === loginPasswordInput) input.value = "";
+  if (input === loginUsernameInput && !readRememberedLogins().member) input.value = "";
+};
+[loginUsernameInput, loginPasswordInput].forEach(input => {
+  input.addEventListener("pointerdown", unlockTipsterLoginField);
+  input.addEventListener("focus", unlockTipsterLoginField);
+});
 const updateCapsLockWarning = event => {
   const capsLockOn = typeof event.getModifierState === "function" && event.getModifierState("CapsLock");
   capsLockWarning.classList.toggle("hidden", !capsLockOn);
