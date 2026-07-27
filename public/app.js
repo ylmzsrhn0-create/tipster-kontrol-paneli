@@ -66,6 +66,22 @@ function setMessage(id, text, ok = false) {
   el.style.color = ok ? "var(--ok)" : "var(--danger)";
 }
 
+function readRememberedLogins() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(rememberStorageKey) || "{}");
+    if (saved.username) {
+      const legacyRole = saved.loginType === "member" ? "member" : "admin";
+      return { admin: legacyRole === "admin" ? saved.username : "", member: legacyRole === "member" ? saved.username : "" };
+    }
+    return {
+      admin: String(saved.admin?.username || ""),
+      member: String(saved.member?.username || "")
+    };
+  } catch (error) {
+    return { admin: "", member: "" };
+  }
+}
+
 function applyLoginType(type, { persist = true, resetFields = false } = {}) {
   selectedLoginType = type === "member" ? "member" : "admin";
   const isAdmin = selectedLoginType === "admin";
@@ -86,11 +102,16 @@ function applyLoginType(type, { persist = true, resetFields = false } = {}) {
     ? "Admin hesabi icin size verilen guvenli sifreyi kullanin."
     : "Tipster girisi icin adminin olusturdugu kullanici adi ve sifre kullanilir.";
   document.getElementById("openPasswordResetBtn").classList.toggle("hidden", !isAdmin);
-  document.getElementById("username").placeholder = isAdmin ? "Admin kullanici adinizi girin" : "Tipster kullanici adinizi girin";
+  const usernameInput = document.getElementById("username");
+  const passwordInput = document.getElementById("password");
+  usernameInput.placeholder = isAdmin ? "Admin kullanici adinizi girin" : "Tipster kullanici adinizi girin";
+  usernameInput.name = isAdmin ? "admin_username" : "tipster_username";
+  passwordInput.name = isAdmin ? "admin_password" : "tipster_password";
   if (resetFields) {
-    const remembered = document.getElementById("rememberMe").checked;
-    if (!remembered) document.getElementById("username").value = isAdmin ? "admin" : "";
-    document.getElementById("password").value = "";
+    const rememberedUsername = readRememberedLogins()[selectedLoginType] || "";
+    usernameInput.value = rememberedUsername || (isAdmin ? "admin" : "");
+    passwordInput.value = "";
+    document.getElementById("rememberMe").checked = Boolean(rememberedUsername);
     document.getElementById("capsLockWarning")?.classList.add("hidden");
   }
   if (persist) {
@@ -408,28 +429,28 @@ function resetOtpLogin() {
 function rememberLoginChoice(user) {
   const rememberMe = document.getElementById("rememberMe")?.checked;
   try {
+    const remembered = readRememberedLogins();
     if (rememberMe) {
-      localStorage.setItem(rememberStorageKey, JSON.stringify({
-        loginType: selectedLoginType,
-        username: document.getElementById("username").value.trim()
-      }));
+      remembered[selectedLoginType] = document.getElementById("username").value.trim();
     } else {
-      localStorage.removeItem(rememberStorageKey);
+      remembered[selectedLoginType] = "";
     }
+    localStorage.setItem(rememberStorageKey, JSON.stringify({
+      admin: { username: remembered.admin || "" },
+      member: { username: remembered.member || "" }
+    }));
   } catch (error) {}
 }
 
 function restoreRememberedLogin() {
   try {
-    const saved = JSON.parse(localStorage.getItem(rememberStorageKey) || "{}");
-    const savedRole = saved.loginType || localStorage.getItem(loginRoleStorageKey) || "admin";
+    const savedRaw = JSON.parse(localStorage.getItem(rememberStorageKey) || "{}");
+    const savedRole = localStorage.getItem(loginRoleStorageKey) || savedRaw.loginType || "admin";
     applyLoginType(savedRole, { persist: false });
-    if (!saved.username) {
-      document.getElementById("username").value = selectedLoginType === "admin" ? "admin" : "";
-      return;
-    }
-    document.getElementById("username").value = saved.username;
-    document.getElementById("rememberMe").checked = true;
+    const rememberedUsername = readRememberedLogins()[selectedLoginType] || "";
+    document.getElementById("username").value = rememberedUsername || (selectedLoginType === "admin" ? "admin" : "");
+    document.getElementById("password").value = "";
+    document.getElementById("rememberMe").checked = Boolean(rememberedUsername);
   } catch (error) {
     applyLoginType("admin", { persist: false });
     document.getElementById("username").value = "admin";
