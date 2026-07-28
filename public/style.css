@@ -2927,6 +2927,7 @@ td:last-child, th:last-child { text-align: right; }
 
 .mobile-select-modal {
   display: none;
+  z-index: 100;
 }
 
 .mobile-select-trigger {
