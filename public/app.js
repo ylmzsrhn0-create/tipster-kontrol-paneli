@@ -889,7 +889,7 @@ function closeMobileSelect(fromHistory = false) {
 }
 
 function isMobilePanelMode() {
-  return true;
+  return window.matchMedia("(max-width: 760px)").matches;
 }
 
 function refreshMobilePanelState() {

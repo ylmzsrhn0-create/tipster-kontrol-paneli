@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v53-quality-security-20260731b";
+const CACHE_NAME = "tipster-panel-v53-quality-security-20260731c";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=quality-security-20260731b",
-  "/app.js?v=quality-security-20260731b",
+  "/style.css?v=quality-security-20260731c",
+  "/app.js?v=quality-security-20260731c",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
