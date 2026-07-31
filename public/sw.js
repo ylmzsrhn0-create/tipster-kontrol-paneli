@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v52-mobile-payment-select-20260728f";
+const CACHE_NAME = "tipster-panel-v53-quality-security-20260731b";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=mobile-payment-select-20260728f",
-  "/app.js?v=mobile-payment-select-20260728f",
+  "/style.css?v=quality-security-20260731b",
+  "/app.js?v=quality-security-20260731b",
   "/manifest.webmanifest",
   "/icon.svg",
   "/logo-watermark.png",
@@ -75,8 +75,8 @@ self.addEventListener("push", event => {
   const title = data.title || "Tipster Kontrol Paneli";
   const options = {
     body: data.body || "Yeni bildirim var.",
-    icon: data.icon || "/icon.svg",
-    badge: data.badge || "/icon.svg",
+    icon: data.icon || "/logo-watermark.png",
+    badge: data.badge || "/logo-watermark.png",
     data: { url: data.url || "/" }
   };
 

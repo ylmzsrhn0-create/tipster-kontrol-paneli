@@ -22,6 +22,7 @@ let activeChatMessages = [];
 let demoModeActive = false;
 let demoExpiresAt = 0;
 let demoCountdownTimer = null;
+let dashboardRequestSequence = 0;
 const expandedAdminNumbers = new Set();
 const mobileSelectIds = ["adminUploadSelect", "adminWeeklyResultsSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "numberListSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
@@ -54,6 +55,28 @@ const pushPromptModal = document.getElementById("pushPromptModal");
 const mobileSelectModal = document.getElementById("mobileSelectModal");
 const notificationBadge = document.getElementById("notificationBadge");
 const rememberStorageKey = "tipsterPanelRememberLogin";
+const modalReturnFocus = new WeakMap();
+
+function openDialog(modal, initialFocus) {
+  if (!modal) return;
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active !== document.body) modalReturnFocus.set(modal, active);
+  loginView.inert = true;
+  appView.inert = true;
+  modal.classList.remove("hidden");
+  const focusTarget = initialFocus || modal.querySelector("button, input, select, textarea, [tabindex]:not([tabindex='-1'])");
+  setTimeout(() => focusTarget?.focus(), 0);
+}
+
+function closeDialog(modal) {
+  if (!modal) return;
+  modal.classList.add("hidden");
+  loginView.inert = false;
+  appView.inert = false;
+  const returnTarget = modalReturnFocus.get(modal);
+  modalReturnFocus.delete(modal);
+  if (returnTarget?.isConnected) setTimeout(() => returnTarget.focus(), 0);
+}
 const loginRoleStorageKey = "tipsterPanelLoginRole";
 const pushPromptSessionKey = "tipsterPanelPushPromptDismissed";
 
@@ -107,13 +130,13 @@ function applyLoginType(type, { persist = true, resetFields = false } = {}) {
   usernameInput.placeholder = isAdmin ? "Admin kullanici adinizi girin" : "Tipster kullanici adinizi girin";
   usernameInput.name = isAdmin ? "admin_username" : "tipster_username";
   passwordInput.name = isAdmin ? "admin_password" : "tipster_password";
-  usernameInput.autocomplete = isAdmin ? "username" : "off";
-  passwordInput.autocomplete = isAdmin ? "current-password" : "new-password";
-  usernameInput.readOnly = !isAdmin;
-  passwordInput.readOnly = !isAdmin;
+  usernameInput.autocomplete = "username";
+  passwordInput.autocomplete = "current-password";
+  usernameInput.readOnly = false;
+  passwordInput.readOnly = false;
   if (resetFields) {
     const rememberedUsername = readRememberedLogins()[selectedLoginType] || "";
-    usernameInput.value = rememberedUsername || (isAdmin ? "admin" : "");
+    usernameInput.value = rememberedUsername;
     passwordInput.value = "";
     document.getElementById("rememberMe").checked = Boolean(rememberedUsername);
     document.getElementById("capsLockWarning")?.classList.add("hidden");
@@ -349,7 +372,7 @@ async function enablePushNotifications() {
 }
 
 function closePushPrompt(saveForSession = true) {
-  pushPromptModal?.classList.add("hidden");
+  closeDialog(pushPromptModal);
   if (saveForSession) {
     try { sessionStorage.setItem(pushPromptSessionKey, "1"); } catch (error) {}
   }
@@ -365,7 +388,7 @@ async function maybeShowPushPrompt() {
   const registration = await serviceWorkerRegistration();
   const subscription = await registration?.pushManager?.getSubscription?.();
   if (subscription) return;
-  pushPromptModal.classList.remove("hidden");
+  openDialog(pushPromptModal, document.getElementById("pushPromptEnableBtn"));
 }
 
 function showApp(user) {
@@ -452,12 +475,12 @@ function restoreRememberedLogin() {
     const savedRole = localStorage.getItem(loginRoleStorageKey) || savedRaw.loginType || "admin";
     applyLoginType(savedRole, { persist: false });
     const rememberedUsername = readRememberedLogins()[selectedLoginType] || "";
-    document.getElementById("username").value = rememberedUsername || (selectedLoginType === "admin" ? "admin" : "");
+    document.getElementById("username").value = rememberedUsername;
     document.getElementById("password").value = "";
     document.getElementById("rememberMe").checked = Boolean(rememberedUsername);
   } catch (error) {
     applyLoginType("admin", { persist: false });
-    document.getElementById("username").value = "admin";
+    document.getElementById("username").value = "";
   }
 }
 
@@ -539,11 +562,11 @@ function adminNumberSplitHtml(member, scope, query = "") {
       <div class="admin-number-list ${expanded ? "" : "hidden"}">
         <div class="number-split">
           <section>
-            <h4>Listede var <span>${registered.length}</span></h4>
+            <h3>Listede var <span>${registered.length}</span></h3>
             ${hasPortalList ? numberMiniList(registered, "Eslesen numara yok.") : `<p class="muted mini-empty">Liste yok.</p>`}
           </section>
           <section>
-            <h4>Listede yok <span>${unregistered.length}</span></h4>
+            <h3>Listede yok <span>${unregistered.length}</span></h3>
             ${numberMiniList(unregistered, hasPortalList ? "Liste disinda numara yok." : "Liste yok.")}
           </section>
         </div>
@@ -618,6 +641,9 @@ function searchMatches(haystack, query) {
   const digitQuery = searchDigits(query);
   if (!textQuery && !numberQuery && !digitQuery) return true;
   const textHaystack = searchText(haystack);
+  const phoneLikeQuery = /^[+\d\s().\-/*xX\u2022\u2023\u2027\u2219\u2217\u25CF\u25E6\u00B7]+$/.test(String(query || "").trim())
+    && (digitQuery.length >= 7 || /[*xX\u2022\u2023\u2027\u2219\u2217\u25CF\u25E6\u00B7]/.test(String(query || "")));
+  if (!phoneLikeQuery) return Boolean(textQuery && textHaystack.includes(textQuery));
   const numberHaystack = searchNumber(haystack);
   const digitHaystack = searchDigits(haystack);
   return (textQuery && textHaystack.includes(textQuery))
@@ -813,8 +839,19 @@ function updateMobileSelectTrigger(select) {
     trigger.dataset.mobileSelectTrigger = select.id;
     select.insertAdjacentElement("afterend", trigger);
   }
+  const mobileMode = isMobileSelectMode();
+  if (mobileMode) {
+    select.tabIndex = -1;
+    select.setAttribute("aria-hidden", "true");
+  } else {
+    select.removeAttribute("tabindex");
+    select.removeAttribute("aria-hidden");
+  }
   const selectedText = select.selectedOptions[0]?.textContent?.trim() || "Secim yap";
   trigger.innerHTML = `<span>${escapeHtml(selectedText)}</span><b>Sec</b>`;
+  trigger.setAttribute("aria-label", `${selectLabel(select)}: ${selectedText}`);
+  trigger.setAttribute("aria-haspopup", "dialog");
+  trigger.setAttribute("aria-controls", "mobileSelectModal");
   trigger.disabled = select.disabled || select.options.length <= 1;
 }
 
@@ -829,19 +866,18 @@ function openMobileSelect(select) {
   document.getElementById("mobileSelectSubtitle").textContent = select.selectedOptions[0]?.textContent?.trim() || "Listeden bir kayit sec.";
   document.getElementById("mobileSelectSearch").value = "";
   renderMobileSelectOptions();
-  mobileSelectModal.classList.remove("hidden");
+  openDialog(mobileSelectModal, document.getElementById("mobileSelectSearch"));
   document.body.classList.add("mobile-select-open");
   if (!mobileSelectHistoryOpen) {
     history.pushState({ mobileSelect: true }, "");
     mobileSelectHistoryOpen = true;
   }
-  setTimeout(() => document.getElementById("mobileSelectSearch").focus(), 50);
   return true;
 }
 
 function closeMobileSelect(fromHistory = false) {
   if (mobileSelectModal.classList.contains("hidden")) return;
-  mobileSelectModal.classList.add("hidden");
+  closeDialog(mobileSelectModal);
   document.body.classList.remove("mobile-select-open");
   mobileSelectTarget = null;
   if (!fromHistory && mobileSelectHistoryOpen) {
@@ -1859,11 +1895,13 @@ function clearNormalCalc() {
 }
 
 async function loadDashboard(uploadId = selectedUploadId, dailyUploadId = selectedDailyUploadId) {
+  const requestSequence = ++dashboardRequestSequence;
   const params = new URLSearchParams();
   if (uploadId) params.set("uploadId", uploadId);
   if (dailyUploadId) params.set("dailyUploadId", dailyUploadId);
   const query = params.toString() ? `?${params.toString()}` : "";
   const data = await api(`/api/dashboard${query}`);
+  if (requestSequence !== dashboardRequestSequence) return;
   applyBranding(data.branding);
   if (data.role === "owner") renderOwner(data);
   else if (data.role === "admin") renderAdmin(data);
@@ -1875,7 +1913,7 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
   detailUploadId = uploadId;
   const data = await api(`/api/members/${encodeURIComponent(memberId)}/details?uploadId=${encodeURIComponent(uploadId)}`);
   detailUploadId = data.selectedUploadId;
-  detailModal.classList.remove("hidden");
+  openDialog(detailModal, document.getElementById("closeDetailBtn"));
   document.getElementById("detailTitle").textContent = data.member.name;
   const detailCount = numberRecordsOf(data.member).length;
   document.getElementById("detailSubtitle").textContent = `${data.member.username} - ${detailCount} uye/numara - ${numberRecordText(data.member) || "Numara yok"}`;
@@ -2096,11 +2134,11 @@ document.getElementById("pushPromptLaterBtn").addEventListener("click", () => cl
 
 function openKvkk() {
   document.getElementById("accountMenu")?.removeAttribute("open");
-  kvkkModal.classList.remove("hidden");
+  openDialog(kvkkModal, document.getElementById("closeKvkkBtn"));
 }
 
 function closeKvkk() {
-  kvkkModal.classList.add("hidden");
+  closeDialog(kvkkModal);
 }
 
 function clearPasswordResetTokenFromUrl() {
@@ -2119,24 +2157,22 @@ function openPasswordReset(token = "") {
     ? "Yeni admin sifrenizi belirleyin. Bu baglanti yalnizca bir kez kullanilabilir."
     : "Kayitli e-posta adresinize 15 dakika gecerli bir baglanti gonderilir.";
   passwordResetModal.dataset.token = hasToken ? token : "";
-  passwordResetModal.classList.remove("hidden");
-  setTimeout(() => document.getElementById(hasToken ? "passwordResetNewPassword" : "passwordResetAccount").focus(), 50);
+  openDialog(passwordResetModal, document.getElementById(hasToken ? "passwordResetNewPassword" : "passwordResetAccount"));
 }
 
 function closePasswordReset(removeToken = true) {
-  passwordResetModal.classList.add("hidden");
+  closeDialog(passwordResetModal);
   passwordResetModal.dataset.token = "";
   if (removeToken && new URLSearchParams(window.location.search).has("reset")) clearPasswordResetTokenFromUrl();
 }
 
 function openPublicContact() {
   setMessage("publicContactMessage", "");
-  publicContactModal.classList.remove("hidden");
-  document.getElementById("publicContactName").focus();
+  openDialog(publicContactModal, document.getElementById("publicContactName"));
 }
 
 function closePublicContact() {
-  publicContactModal.classList.add("hidden");
+  closeDialog(publicContactModal);
 }
 
 document.getElementById("openKvkkLoginBtn").addEventListener("click", openKvkk);
@@ -2914,6 +2950,7 @@ document.addEventListener("click", event => {
 });
 
 window.addEventListener("resize", () => {
+  refreshMobileSelectTriggers();
   if (isMobilePanelMode()) {
     refreshMobilePanelState();
     return;
@@ -3106,11 +3143,39 @@ document.getElementById("detailEditForm").addEventListener("submit", async event
 });
 
 document.getElementById("closeDetailBtn").addEventListener("click", () => {
-  detailModal.classList.add("hidden");
+  closeDialog(detailModal);
 });
 
 detailModal.addEventListener("click", event => {
-  if (event.target === detailModal) detailModal.classList.add("hidden");
+  if (event.target === detailModal) closeDialog(detailModal);
+});
+
+document.addEventListener("keydown", event => {
+  const visibleModal = Array.from(document.querySelectorAll(".modal:not(.hidden)")).at(-1);
+  if (!visibleModal) return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    if (visibleModal === mobileSelectModal) closeMobileSelect();
+    else if (visibleModal === detailModal) closeDialog(detailModal);
+    else if (visibleModal === kvkkModal) closeKvkk();
+    else if (visibleModal === passwordResetModal) closePasswordReset();
+    else if (visibleModal === publicContactModal) closePublicContact();
+    else if (visibleModal === pushPromptModal) closePushPrompt(true);
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusable = Array.from(visibleModal.querySelectorAll("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex='-1'])"))
+    .filter(item => item.getClientRects().length);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 });
 
 kvkkModal.addEventListener("click", event => {

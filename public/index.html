@@ -1,17 +1,27 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f4c81">
+  <meta name="description" content="Tipster performansi, haftalik Excel sonuclari ve komisyon hesaplarini tek panelden guvenle yonetin.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://tipsterkontrolpaneli.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="tr_TR">
+  <meta property="og:title" content="Tipster Kontrol Paneli">
+  <meta property="og:description" content="Tipster performansi, haftalik sonuclar ve komisyon takibi tek merkezde.">
+  <meta property="og:url" content="https://tipsterkontrolpaneli.com/">
+  <meta property="og:image" content="https://tipsterkontrolpaneli.com/logo-watermark.png">
+  <meta name="twitter:card" content="summary">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Tipster Panel">
   <title>Tipster Kontrol Paneli</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
-  <link rel="apple-touch-icon" href="/icon.svg">
-  <link rel="stylesheet" href="/style.css?v=mobile-payment-select-20260728f">
+  <link rel="apple-touch-icon" href="/logo-watermark.png">
+  <link rel="stylesheet" href="/style.css?v=quality-security-20260731b">
 </head>
 <body class="login-mode login-role-admin">
   <main class="shell">
@@ -25,7 +35,7 @@
           <h1>Tipster Kontrol Paneli</h1>
           <p class="cover-lead">Operasyonlariniz tek merkezde</p>
           <span class="cover-accent" aria-hidden="true"></span>
-          <div class="cover-features" aria-label="Panel ozellikleri">
+          <div class="cover-features" role="group" aria-label="Panel ozellikleri">
             <span><b aria-hidden="true">↗</b><em><strong>Performansi izleyin</strong><small>Tipster performanslarini ve KPI'lari anlik takip edin.</small></em></span>
             <span><b aria-hidden="true">◎</b><em><strong>Operasyonlari yonetin</strong><small>Tipsterlari, yetkileri ve surecleri tek yerden yonetin.</small></em></span>
             <span><b aria-hidden="true">✓</b><em><strong>Guvenli ve kontrol sizde</strong><small>Guclu yetkilendirme ve detayli kayitlarla tam kontrol.</small></em></span>
@@ -45,19 +55,19 @@
           <h2 id="loginTitle">Admin paneline giris</h2>
           <p id="loginDescription">Yetkili hesabinizla guvenli oturumunuzu baslatin.</p>
         </div>
-        <div class="login-tabs" aria-label="Giris tipi">
+        <div class="login-tabs" role="group" aria-label="Giris tipi">
           <button class="tab active" type="button" data-login-type="admin" aria-pressed="true"><span aria-hidden="true">A</span> Admin Girisi</button>
           <button class="tab" type="button" data-login-type="member" aria-pressed="false"><span aria-hidden="true">T</span> Tipster Girisi</button>
         </div>
         <p id="loginHint">Admin hesabi icin size verilen guvenli sifreyi kullanin.</p>
         <label class="login-field">
           <span class="field-label">Kullanici adi</span>
-          <span class="field-control"><i aria-hidden="true">@</i><input id="username" autocomplete="username" required placeholder="Kullanici adinizi girin"></span>
+          <span class="field-control"><i aria-hidden="true">@</i><input type="text" id="username" autocomplete="username" required placeholder="Kullanici adinizi girin"></span>
         </label>
-        <label class="login-field">
-          <span class="field-label">Sifre</span>
+        <div class="login-field">
+          <label class="field-label" for="password">Sifre</label>
           <span class="field-control password-control"><i aria-hidden="true">&#9679;</i><input id="password" type="password" autocomplete="current-password" required placeholder="Sifrenizi girin"><button class="password-visibility" id="togglePasswordBtn" type="button" aria-label="Sifreyi goster" aria-pressed="false">Goster</button></span>
-        </label>
+        </div>
         <span class="caps-lock-warning hidden" id="capsLockWarning">Caps Lock acik</span>
         <button class="forgot-password-link" id="openPasswordResetBtn" type="button">Sifremi unuttum</button>
         <label class="check-row login-remember-row">
@@ -68,7 +78,7 @@
           <p id="otpHint">E-posta adresine gelen 6 haneli kodu gir.</p>
           <label>
             E-posta onay kodu
-            <input id="otpCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6 haneli kod">
+            <input type="text" id="otpCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6 haneli kod">
           </label>
           <button class="ghost" id="restartLoginBtn" type="button">Bilgileri yeniden gir</button>
         </div>
@@ -99,7 +109,7 @@
       </div>
       <header class="topbar">
         <div>
-          <strong id="panelTitle">Panel</strong>
+          <h1 id="panelTitle">Panel</h1>
           <span id="panelSubtitle">Guvenli oturum acik.</span>
         </div>
         <div class="top-actions">
@@ -206,15 +216,15 @@
             <form class="payment-form" id="paymentForm">
               <label>
                 Hafta
-                <input id="paymentWeekLabel" readonly>
+                <input type="text" id="paymentWeekLabel" readonly>
               </label>
               <label>
                 Tipster
-                <select id="paymentMemberSelect" required></select>
+                <select id="paymentMemberSelect" required><option value="">Yukleniyor...</option></select>
               </label>
               <label>
                 Odenen tutar
-                <input id="paymentAmount" inputmode="decimal" required placeholder="Orn. 1250">
+                <input type="text" id="paymentAmount" inputmode="decimal" required placeholder="Orn. 1250">
               </label>
               <label>
                 Odeme tarihi
@@ -222,7 +232,7 @@
               </label>
               <label class="wide-field">
                 Not
-                <input id="paymentNote" maxlength="240" placeholder="Orn. IBAN'a gonderildi">
+                <input type="text" id="paymentNote" maxlength="240" placeholder="Orn. IBAN'a gonderildi">
               </label>
               <button class="primary" type="submit">Odeme kaydet</button>
             </form>
@@ -341,7 +351,7 @@
           </summary>
           <div class="section-head collapsible-tools">
             <div class="search-actions">
-              <input id="sharedNumberSearch" placeholder="Numara veya tipster ara">
+              <input type="text" id="sharedNumberSearch" aria-label="Numara veya tipster ara" placeholder="Numara veya tipster ara">
               <button class="primary small" id="sharedNumberSearchBtn" type="button">Ara</button>
               <button class="ghost small" id="sharedNumberClearBtn" type="button">Temizle</button>
             </div>
@@ -383,7 +393,7 @@
             <b id="calculatorSummary">0</b>
           </summary>
           <div class="calculator-shell">
-            <div class="calculator-tabs" aria-label="Hesap makinesi tipi">
+            <div class="calculator-tabs" role="group" aria-label="Hesap makinesi tipi">
               <button class="tab active" id="commissionCalcTab" type="button">Komisyon</button>
               <button class="tab" id="normalCalcTab" type="button">Normal hesap</button>
             </div>
@@ -391,15 +401,15 @@
               <div class="calculator-body">
                 <label>
                   Toplam tutar
-                  <input id="calculatorAmount" inputmode="decimal" placeholder="Orn. 12500">
+                  <input type="text" id="calculatorAmount" inputmode="decimal" placeholder="Orn. 12500">
                 </label>
                 <label>
                   Yuzde
-                  <input id="calculatorPercent" inputmode="decimal" placeholder="Orn. 20">
+                  <input type="text" id="calculatorPercent" inputmode="decimal" placeholder="Orn. 20">
                 </label>
                 <label>
                   Komisyon tutari
-                  <input id="calculatorCommissionInput" inputmode="decimal" placeholder="Orn. 2500">
+                  <input type="text" id="calculatorCommissionInput" inputmode="decimal" placeholder="Orn. 2500">
                 </label>
                 <div class="calculator-result">
                   <span>Komisyon</span>
@@ -418,7 +428,7 @@
             </div>
             <div class="calculator-pane hidden" id="normalCalcPane">
               <div class="normal-calculator">
-                <input id="normalCalcDisplay" inputmode="decimal" readonly value="0" aria-label="Normal hesap sonucu">
+                <input type="text" id="normalCalcDisplay" inputmode="decimal" readonly value="0" aria-label="Normal hesap sonucu">
                 <div class="normal-calc-keys">
                   <button class="ghost" data-calc-clear type="button">C</button>
                   <button class="ghost" data-calc-back type="button">Sil</button>
@@ -455,19 +465,19 @@
             <form class="collapsible-body" id="memberForm">
             <label>
               Ad soyad
-              <input id="memberName" required placeholder="Orn. Mehmet Kaya">
+              <input type="text" id="memberName" required placeholder="Orn. Mehmet Kaya">
             </label>
             <label>
               Kullanici adi
-              <input id="memberUsername" required placeholder="orn. mehmet">
+              <input type="text" id="memberUsername" required placeholder="orn. mehmet">
             </label>
             <label>
               Gecici sifre
-              <input id="memberPassword" required minlength="6" placeholder="En az 6 karakter">
+              <input type="text" id="memberPassword" required minlength="6" placeholder="En az 6 karakter">
             </label>
             <label>
               Ilk Excel GSM
-              <input id="memberGsm" required placeholder="Orn. 05321234567 veya 0532***4567">
+              <input type="text" id="memberGsm" required placeholder="Orn. 05321234567 veya 0532***4567">
             </label>
             <label>
               Yuzde
@@ -498,7 +508,7 @@
                   <form class="upload-inner collapsible-body" id="weeklyUploadForm">
                     <label>
                       Hafta adi
-                      <input id="weeklyWeekLabel" placeholder="Bos kalirsa dosya adi kullanilir">
+                      <input type="text" id="weeklyWeekLabel" placeholder="Bos kalirsa dosya adi kullanilir">
                     </label>
                     <label>
                       Haftalik Excel dosyalari
@@ -522,7 +532,7 @@
                     </label>
                     <label>
                       Gun adi
-                      <input id="dailyWeekLabel" placeholder="Orn. Pazartesi veya 06.07.2026">
+                      <input type="text" id="dailyWeekLabel" placeholder="Orn. Pazartesi veya 06.07.2026">
                     </label>
                     <label>
                       Gunluk Excel dosyalari
@@ -542,7 +552,7 @@
                   <form class="upload-inner collapsible-body" id="portalListForm">
                     <label>
                       Hafta adi
-                      <input id="portalWeekLabel" placeholder="Orn. 08.07.2026 haftasi">
+                      <input type="text" id="portalWeekLabel" placeholder="Orn. 08.07.2026 haftasi">
                     </label>
                     <label>
                       Telefon listesi Excel
@@ -640,7 +650,7 @@
           <form class="collapsible-body" id="messageForm">
             <label>
               Baslik
-              <input id="messageTitle" required maxlength="90" placeholder="Orn. Bu hafta odeme bilgilendirmesi">
+              <input type="text" id="messageTitle" required maxlength="90" placeholder="Orn. Bu hafta odeme bilgilendirmesi">
             </label>
             <label>
               Mesaj
@@ -683,7 +693,7 @@
             </label>
             <label>
               Baslik
-              <input id="adminFeedbackTitle" required maxlength="90" placeholder="Kisa baslik">
+              <input type="text" id="adminFeedbackTitle" required maxlength="90" placeholder="Kisa baslik">
             </label>
             <label>
               Mesaj
@@ -708,7 +718,7 @@
             </label>
             <button class="primary small" id="adminWeeklyResultsApplyBtn" type="button">Sec</button>
             <div class="search-actions">
-              <input id="search" placeholder="Tipster veya numara ara">
+              <input type="text" id="search" aria-label="Tipster veya numara ara" placeholder="Tipster veya numara ara">
               <button class="primary small" id="searchBtn" type="button">Ara</button>
               <button class="ghost small" id="searchClearBtn" type="button">Temizle</button>
             </div>
@@ -812,11 +822,11 @@
                 <h2>Admin olustur</h2>
                 <label>
                   Admin adi
-                  <input id="adminName" required placeholder="Orn. Ahmet Yilmaz">
+                  <input type="text" id="adminName" required placeholder="Orn. Ahmet Yilmaz">
                 </label>
                 <label>
                   Kullanici adi
-                  <input id="adminUsername" required placeholder="orn. ahmetadmin">
+                  <input type="text" id="adminUsername" required placeholder="orn. ahmetadmin">
                 </label>
                 <label>
                   E-posta
@@ -824,7 +834,7 @@
                 </label>
                 <label>
                   Telefon numarasi
-                  <input id="adminCreatePhone" inputmode="tel" autocomplete="tel" required placeholder="Orn. 05XXXXXXXXX">
+                  <input type="text" id="adminCreatePhone" inputmode="tel" autocomplete="tel" required placeholder="Orn. 05XXXXXXXXX">
                 </label>
                 <label>
                   Ilk sifre
@@ -894,7 +904,7 @@
             </label>
             <label>
               Baslik
-              <input id="memberFeedbackTitle" required maxlength="90" placeholder="Kisa baslik">
+              <input type="text" id="memberFeedbackTitle" required maxlength="90" placeholder="Kisa baslik">
             </label>
             <label>
               Mesaj
@@ -1037,11 +1047,11 @@
             <p class="muted">Excelde gorunen maskeli GSM formatini gir. Ornek: <strong>0505***0794</strong></p>
             <label>
               Isim
-              <input id="newGsmName" placeholder="Orn. Ali Yilmaz">
+              <input type="text" id="newGsmName" placeholder="Orn. Ali Yilmaz">
             </label>
             <label>
               GSM
-              <input id="newGsm" required placeholder="05321234567 veya 0532***4567">
+              <input type="text" id="newGsm" required placeholder="05321234567 veya 0532***4567">
             </label>
             <button class="primary" type="submit">Numarayi kaydet</button>
             <div class="message" id="numberMessage"></div>
@@ -1059,7 +1069,7 @@
             </summary>
             <div class="section-head compact-body">
               <div class="search-actions">
-                <input id="numberSearch" placeholder="Numara veya isim ara">
+                <input type="text" id="numberSearch" placeholder="Numara veya isim ara">
                 <button class="primary small" id="numberSearchBtn" type="button">Ara</button>
                 <button class="ghost small" id="numberClearBtn" type="button">Temizle</button>
               </div>
@@ -1133,11 +1143,11 @@
       </div>
     </section>
 
-    <section class="modal hidden" id="kvkkModal" aria-modal="true" role="dialog">
+    <section class="modal hidden" id="kvkkModal" aria-modal="true" role="dialog" aria-labelledby="kvkkTitle">
       <div class="modal-panel legal-modal">
         <div class="section-head">
           <div>
-            <h2>KVKK Aydinlatma Metni</h2>
+            <h2 id="kvkkTitle">KVKK Aydinlatma Metni</h2>
             <p class="muted">Tipster Kontrol Paneli veri isleme bilgilendirmesi</p>
           </div>
           <button class="ghost" id="closeKvkkBtn" type="button">Kapat</button>
@@ -1185,7 +1195,7 @@
         <form class="password-reset-form" id="passwordResetRequestForm">
           <label>
             Admin kullanici adi veya e-posta
-            <input id="passwordResetAccount" autocomplete="username" maxlength="120" required placeholder="Kullanici adi veya e-posta">
+            <input type="text" id="passwordResetAccount" autocomplete="username" maxlength="120" required placeholder="Kullanici adi veya e-posta">
           </label>
           <button class="primary" id="passwordResetRequestBtn" type="submit">Yenileme baglantisi gonder</button>
           <div class="message" id="passwordResetRequestMessage"></div>
@@ -1219,25 +1229,24 @@
           <div class="contact-form-grid">
             <label>
               Adiniz
-              <input id="publicContactName" maxlength="80" autocomplete="name" required placeholder="Ad soyad">
+              <input type="text" id="publicContactName" maxlength="80" autocomplete="name" required placeholder="Ad soyad">
             </label>
             <label>
               Telefon veya e-posta
-              <input id="publicContactAddress" maxlength="120" autocomplete="email" required placeholder="05XXXXXXXXX veya ornek@mail.com">
+              <input type="text" id="publicContactAddress" maxlength="120" autocomplete="email" required placeholder="05XXXXXXXXX veya ornek@mail.com">
             </label>
           </div>
           <label>
             Konu
-            <input id="publicContactTitleInput" maxlength="90" required placeholder="Orn. Hesap acma talebi">
+            <input type="text" id="publicContactTitleInput" maxlength="90" required placeholder="Orn. Hesap acma talebi">
           </label>
           <label>
             Mesajiniz
             <textarea id="publicContactBody" maxlength="1200" required placeholder="Talebinizi kisaca anlatin"></textarea>
           </label>
-          <label class="contact-honeypot" aria-hidden="true" hidden>
-            Sirket
-            <input id="publicContactCompany" tabindex="-1" autocomplete="off">
-          </label>
+          <div class="contact-honeypot" hidden>
+            <input type="text" id="publicContactCompany" tabindex="-1" autocomplete="off" aria-label="Sirket">
+          </div>
           <label class="check-row contact-consent">
             <input id="publicContactConsent" type="checkbox" required>
             <span>Iletisim bilgilerimin bu talebe donus yapilmasi amaciyla islenmesini kabul ediyorum.</span>
@@ -1248,11 +1257,11 @@
       </div>
     </section>
 
-    <section class="modal hidden" id="pushPromptModal" aria-modal="true" role="dialog">
+    <section class="modal hidden" id="pushPromptModal" aria-modal="true" role="dialog" aria-labelledby="pushPromptTitle">
       <div class="modal-panel push-prompt-modal">
         <div class="section-head">
           <div>
-            <h2>Bildirimleri ac</h2>
+            <h2 id="pushPromptTitle">Bildirimleri ac</h2>
             <p class="muted">Yeni mesajlar ve panel hareketleri telefonuna bildirim olarak gelsin.</p>
           </div>
         </div>
@@ -1264,7 +1273,7 @@
       </div>
     </section>
 
-    <section class="modal mobile-select-modal hidden" id="mobileSelectModal" aria-modal="true" role="dialog">
+    <section class="modal mobile-select-modal hidden" id="mobileSelectModal" aria-modal="true" role="dialog" aria-labelledby="mobileSelectTitle">
       <div class="mobile-select-page">
         <div class="mobile-select-head">
           <button class="ghost" id="mobileSelectBackBtn" type="button">Geri</button>
@@ -1273,12 +1282,12 @@
             <p class="muted" id="mobileSelectSubtitle">Listeden bir kayit sec.</p>
           </div>
         </div>
-        <input id="mobileSelectSearch" placeholder="Ara">
+        <input type="text" id="mobileSelectSearch" placeholder="Ara">
         <div class="mobile-select-list" id="mobileSelectList"></div>
       </div>
     </section>
 
-    <section class="modal hidden" id="memberDetailModal" aria-modal="true" role="dialog">
+    <section class="modal hidden" id="memberDetailModal" aria-modal="true" role="dialog" aria-labelledby="detailTitle">
       <div class="modal-panel">
         <div class="section-head">
           <div>
@@ -1292,11 +1301,11 @@
             <h2>Bilgileri duzenle</h2>
             <label>
               Ad soyad
-              <input id="detailName" required>
+              <input type="text" id="detailName" required>
             </label>
             <label>
               Ana GSM
-              <input id="detailGsm" required placeholder="05321234567 veya 0532***4567">
+              <input type="text" id="detailGsm" required placeholder="05321234567 veya 0532***4567">
             </label>
             <label>
               Yuzde
@@ -1304,7 +1313,7 @@
             </label>
             <label>
               Yeni sifre
-              <input id="detailPassword" type="password" minlength="6" placeholder="Bos birakirsan degismez">
+              <input id="detailPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Bos birakirsan degismez">
             </label>
             <p class="muted">Guvenlik icin mevcut sifre goruntulenmez. Buradan tipstere yeni sifre verebilirsin.</p>
             <button class="primary" type="submit">Kaydet</button>
@@ -1386,6 +1395,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=mobile-payment-select-20260728f"></script>
+  <script src="/app.js?v=quality-security-20260731b"></script>
 </body>
 </html>
