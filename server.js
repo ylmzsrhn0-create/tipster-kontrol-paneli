@@ -2482,6 +2482,8 @@ function serveStatic(req, res) {
     const types = {
       ".css": "text/css",
       ".js": "text/javascript",
+      ".txt": "text/plain",
+      ".xml": "application/xml",
       ".json": "application/json",
       ".webmanifest": "application/manifest+json",
       ".png": "image/png",
@@ -2489,7 +2491,7 @@ function serveStatic(req, res) {
       ".html": "text/html"
     };
     const type = types[ext] || "application/octet-stream";
-    const charset = type.startsWith("text/") || type.includes("json") || type.includes("svg") ? "; charset=utf-8" : "";
+    const charset = type.startsWith("text/") || type.includes("json") || type.includes("svg") || type.includes("xml") ? "; charset=utf-8" : "";
     const isRevalidatedAsset = ext === ".html" || requested === "/sw.js" || requested === "/manifest.webmanifest";
     const cacheControl = isRevalidatedAsset
       ? "no-cache"
