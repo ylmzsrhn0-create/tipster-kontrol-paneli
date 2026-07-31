@@ -1,12 +1,16 @@
-const CACHE_NAME = "tipster-panel-v53-quality-security-20260731c";
+const CACHE_NAME = "tipster-panel-v54-quality-security-20260731d";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=quality-security-20260731c",
-  "/app.js?v=quality-security-20260731c",
+  "/style.css?v=quality-security-20260731d",
+  "/app.js?v=quality-security-20260731d",
   "/manifest.webmanifest",
   "/icon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-maskable-512.png",
+  "/apple-touch-icon.png",
   "/logo-watermark.png",
   "/watermark.svg"
 ];
@@ -75,8 +79,8 @@ self.addEventListener("push", event => {
   const title = data.title || "Tipster Kontrol Paneli";
   const options = {
     body: data.body || "Yeni bildirim var.",
-    icon: data.icon || "/logo-watermark.png",
-    badge: data.badge || "/logo-watermark.png",
+    icon: data.icon || "/icon-192.png",
+    badge: data.badge || "/icon-192.png",
     data: { url: data.url || "/" }
   };
 
