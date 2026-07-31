@@ -775,6 +775,28 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+function applySecurityHeaders(res) {
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  res.setHeader("Content-Security-Policy", [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "img-src 'self' data: blob:",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self'",
+    "connect-src 'self'",
+    "font-src 'self'",
+    "manifest-src 'self'",
+    "worker-src 'self'"
+  ].join("; "));
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+}
+
 function pushConfigured(db) {
   return Boolean(webPush && db.pushSettings?.publicKey && db.pushSettings?.privateKey);
 }
@@ -952,9 +974,12 @@ function demoDashboard(url, session) {
   const weekTwo = { id: "demo-week-2", filename: "ornek-hafta-2.xlsx", weekLabel: "Demo - 2. Hafta", rowCount: 142, uploadType: "weekly", createdAt };
   const daily = { id: "demo-day-1", filename: "ornek-gunluk.xlsx", weekLabel: "Bugunun Demo Sonuclari", uploadDate: createdAt.slice(0, 10), rowCount: 38, uploadType: "daily", createdAt };
   const uploads = [weekTwo, weekOne];
-  const selectedUploadId = uploads.some(item => item.id === url.searchParams.get("uploadId")) ? url.searchParams.get("uploadId") : weekTwo.id;
+  const requestedUploadId = url.searchParams.get("uploadId");
+  const selectedUploadId = requestedUploadId === "all" || uploads.some(item => item.id === requestedUploadId)
+    ? requestedUploadId
+    : weekTwo.id;
   const selectedDailyUploadId = daily.id;
-  const members = [
+  const baseMembers = [
     {
       id: "demo-member-1", role: "member", username: "ornek_tipster_1", name: "Ornek Tipster 1", percentage: 30,
       gsmMasked: "0532***1201", gsmList: ["0532***1201", "0533***3402"],
@@ -980,7 +1005,23 @@ function demoDashboard(url, session) {
       allWeeklyTotal: 27150, allWeeklyCalculated: 5430, allWeeklyRowCount: 58
     }
   ];
-  const dailyMembers = members.map((member, index) => ({
+  const members = baseMembers.map(member => {
+    if (selectedUploadId === "all") {
+      return {
+        ...member,
+        rowCount: member.allWeeklyRowCount,
+        total: member.allWeeklyTotal,
+        calculated: member.allWeeklyCalculated
+      };
+    }
+    if (selectedUploadId === weekOne.id) {
+      const rowCount = member.allWeeklyRowCount - member.rowCount;
+      const total = member.allWeeklyTotal - member.total;
+      return { ...member, rowCount, total, calculated: total * member.percentage / 100 };
+    }
+    return member;
+  });
+  const dailyMembers = baseMembers.map((member, index) => ({
     ...member,
     dailyRowCount: [14, 11, 8][index],
     dailyTotal: [7200, 5100, 3650][index],
@@ -988,6 +1029,12 @@ function demoDashboard(url, session) {
   }));
   const totalAmount = members.reduce((sum, item) => sum + item.total, 0);
   const totalCommission = members.reduce((sum, item) => sum + item.calculated, 0);
+  const selectedUploads = selectedUploadId === "all"
+    ? uploads
+    : uploads.filter(item => item.id === selectedUploadId);
+  const selectedWeekLabels = selectedUploads.map(item => item.weekLabel);
+  const selectedRowCount = selectedUploads.reduce((sum, item) => sum + item.rowCount, 0);
+  const selectedMemberOne = members[0];
   const currentAdmin = demoPublicUser(session);
   return {
     role: "admin",
@@ -1021,13 +1068,43 @@ function demoDashboard(url, session) {
       recipients: members.map((member, index) => ({ id: member.id, name: member.name, username: member.username, readAt: index < 2 ? createdAt : "" }))
     }],
     chatThreads: [], chatUnreadCount: 0,
-    unmatchedNumbers: [{ number: "0505***7788", rowCount: 3, total: 1250, uploads: ["Demo - 2. Hafta"] }],
+    unmatchedNumbers: [{
+      number: "0505***7788",
+      rowCount: selectedUploadId === weekOne.id ? 2 : selectedUploadId === "all" ? 5 : 3,
+      total: selectedUploadId === weekOne.id ? 900 : selectedUploadId === "all" ? 2150 : 1250,
+      uploads: selectedWeekLabels
+    }],
     passiveNumbers: [{ memberId: "demo-member-3", memberName: "Ornek Tipster 3", memberUsername: "ornek_tipster_3", number: "0555***4504", name: "Ornek Uye D", passiveSince: "1 hafta", statusText: "Gecen hafta aktifti" }],
     sharedNumbers: [],
-    uploadReports: [{ uploadType: "weekly", weekLabel: "Demo - 2. Hafta", filename: weekTwo.filename, createdAt, rowCount: 142, activeNumberCount: 4, passiveCount: 1, unmatchedCount: 1, totalAmount, totalCommission }],
-    auditLogs: [{ id: "demo-log-1", action: "Haftalik Excel yuklendi", actorName: "Demo Yonetici", actorUsername: "demo", actorRole: "admin", details: "142 satirlik ornek dosya islendi.", createdAt }],
-    payments: [{ id: "demo-payment-1", uploadId: weekTwo.id, paymentDate: createdAt.slice(0, 10), weekLabel: weekTwo.weekLabel, memberName: members[0].name, memberUsername: members[0].username, calculatedAmount: members[0].calculated, paidAmount: 8000, note: "Ornek odeme" }],
-    paymentSummary: { count: 1, totalPaid: 8000, totalCalculated: members[0].calculated },
+    uploadReports: selectedUploads.map(upload => ({
+      uploadType: "weekly",
+      weekLabel: upload.weekLabel,
+      filename: upload.filename,
+      createdAt,
+      rowCount: upload.rowCount,
+      activeNumberCount: 4,
+      passiveCount: upload.id === weekTwo.id ? 1 : 0,
+      unmatchedCount: 1,
+      totalAmount: upload.id === weekTwo.id ? 62500 : 58750,
+      totalCommission: upload.id === weekTwo.id ? 16332.5 : 15382.5
+    })),
+    auditLogs: [{ id: "demo-log-1", action: "Haftalik Excel yuklendi", actorName: "Demo Yonetici", actorUsername: "demo", actorRole: "admin", details: `${selectedRowCount} satirlik ornek veri goruntuleniyor.`, createdAt }],
+    payments: [{
+      id: "demo-payment-1",
+      uploadId: selectedUploadId === "all" ? weekTwo.id : selectedUploadId,
+      paymentDate: createdAt.slice(0, 10),
+      weekLabel: selectedUploadId === "all" ? "Tum demo haftalari" : selectedUploads[0].weekLabel,
+      memberName: selectedMemberOne.name,
+      memberUsername: selectedMemberOne.username,
+      calculatedAmount: selectedMemberOne.calculated,
+      paidAmount: selectedUploadId === weekOne.id ? 7500 : selectedUploadId === "all" ? 15500 : 8000,
+      note: "Ornek odeme"
+    }],
+    paymentSummary: {
+      count: 1,
+      totalPaid: selectedUploadId === weekOne.id ? 7500 : selectedUploadId === "all" ? 15500 : 8000,
+      totalCalculated: selectedMemberOne.calculated
+    },
     selectedUploadId,
     selectedDailyUploadId
   };
@@ -4022,6 +4099,7 @@ async function handleApi(req, res) {
 }
 
 const server = http.createServer((req, res) => {
+  applySecurityHeaders(res);
   if (req.url.startsWith("/branding/")) {
     serveBrandingLogo(req, res);
     return;
