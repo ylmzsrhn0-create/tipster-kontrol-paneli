@@ -71,8 +71,8 @@ function openDialog(modal, initialFocus) {
 function closeDialog(modal) {
   if (!modal) return;
   modal.classList.add("hidden");
-  loginView.inert = false;
-  appView.inert = false;
+  loginView.inert = loginView.classList.contains("hidden");
+  appView.inert = appView.classList.contains("hidden");
   const returnTarget = modalReturnFocus.get(modal);
   modalReturnFocus.delete(modal);
   if (returnTarget?.isConnected) setTimeout(() => returnTarget.focus(), 0);
@@ -115,19 +115,19 @@ function applyLoginType(type, { persist = true, resetFields = false } = {}) {
     item.classList.toggle("active", active);
     item.setAttribute("aria-pressed", active ? "true" : "false");
   });
-  loginEyebrow.textContent = isAdmin ? "Yonetim merkezi" : "Tipster performans merkezi";
-  loginTitle.textContent = isAdmin ? "Admin paneline giris" : "Tipster paneline giris";
+  loginEyebrow.textContent = isAdmin ? "Yönetim merkezi" : "Tipster performans merkezi";
+  loginTitle.textContent = isAdmin ? "Admin paneline giriş" : "Tipster paneline giriş";
   loginDescription.textContent = isAdmin
-    ? "Yetkili hesabinizla guvenli oturumunuzu baslatin."
-    : "Raporlariniza ve kazanc bilgilerinize guvenle erisin.";
-  loginSecurityText.textContent = isAdmin ? "Guvenli yonetim erisimi" : "Guvenli tipster erisimi";
+    ? "Yetkili hesabınızla güvenli oturumunuzu başlatın."
+    : "Raporlarınıza ve kazanç bilgilerinize güvenle erişin.";
+  loginSecurityText.textContent = isAdmin ? "Güvenli yönetim erişimi" : "Güvenli tipster erişimi";
   loginHint.textContent = isAdmin
-    ? "Admin hesabi icin size verilen guvenli sifreyi kullanin."
-    : "Tipster girisi icin adminin olusturdugu kullanici adi ve sifre kullanilir.";
+    ? "Admin hesabı için size verilen güvenli şifreyi kullanın."
+    : "Tipster girişi için adminin oluşturduğu kullanıcı adı ve şifre kullanılır.";
   document.getElementById("openPasswordResetBtn").classList.toggle("hidden", !isAdmin);
   const usernameInput = document.getElementById("username");
   const passwordInput = document.getElementById("password");
-  usernameInput.placeholder = isAdmin ? "Admin kullanici adinizi girin" : "Tipster kullanici adinizi girin";
+  usernameInput.placeholder = isAdmin ? "Admin kullanıcı adınızı girin" : "Tipster kullanıcı adınızı girin";
   usernameInput.name = isAdmin ? "admin_username" : "tipster_username";
   passwordInput.name = isAdmin ? "admin_password" : "tipster_password";
   usernameInput.autocomplete = "username";
@@ -395,6 +395,10 @@ function showApp(user) {
   demoModeActive = Boolean(user.demo);
   loginView.classList.add("hidden");
   appView.classList.remove("hidden");
+  loginView.inert = true;
+  loginView.setAttribute("aria-hidden", "true");
+  appView.inert = false;
+  appView.setAttribute("aria-hidden", "false");
   document.body.classList.remove("login-mode");
   document.body.classList.add("app-mode");
   document.body.classList.toggle("demo-mode", demoModeActive);
@@ -424,6 +428,10 @@ function showLogin() {
   stopDemoCountdown();
   appView.classList.add("hidden");
   loginView.classList.remove("hidden");
+  appView.inert = true;
+  appView.setAttribute("aria-hidden", "true");
+  loginView.inert = false;
+  loginView.setAttribute("aria-hidden", "false");
   document.body.classList.remove("app-mode");
   document.body.classList.remove("demo-mode");
   document.body.classList.add("login-mode");
@@ -1573,15 +1581,14 @@ function renderMember(data) {
 }
 
 function renderMemberMessages(messages) {
-  const panel = document.getElementById("memberMessagesPanel");
   const unreadCount = messages.filter(message => message.unread).length + chatUnreadCount(currentDashboard);
   notificationBadge.classList.toggle("hidden", unreadCount === 0);
   notificationBadge.textContent = unreadCount ? `${unreadCount} yeni mesaj` : "Yeni mesaj";
   document.title = unreadCount ? `(${unreadCount}) Tipster Kontrol Paneli` : "Tipster Kontrol Paneli";
   document.getElementById("memberMessageSummary").textContent = messages.length
-    ? `${unreadCount} okunmamis, ${messages.length} toplam mesaj`
+    ? `${unreadCount} okunmamış, ${messages.length} toplam mesaj`
     : "Mesaj bulunmuyor";
-  if (unreadCount) panel.open = true;
+  // Okunmamış mesajı rozetle bildir; Tipster'ın açık bölümünü zorla değiştirme.
   document.getElementById("memberMessageRows").innerHTML = messages.map(message => `
     <article class="message-card ${message.unread ? "is-unread" : ""}">
       <div class="message-card-head">
