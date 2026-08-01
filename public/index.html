@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f4c81">
-  <meta name="description" content="Tipster performansi, haftalik Excel sonuclari ve komisyon hesaplarini tek panelden guvenle yonetin.">
-  <meta name="robots" content="index,follow,max-image-preview:large">
+  <meta name="description" content="Tipster performansı, haftalık Excel sonuçları ve komisyon hesaplarını tek panelden güvenle yönetin.">
+  <meta name="robots" content="noindex,nofollow,noarchive">
   <link rel="canonical" href="https://tipsterkontrolpaneli.com/">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="tr_TR">
   <meta property="og:title" content="Tipster Kontrol Paneli">
-  <meta property="og:description" content="Tipster performansi, haftalik sonuclar ve komisyon takibi tek merkezde.">
+  <meta property="og:description" content="Tipster performansı, haftalık sonuçlar ve komisyon takibi tek merkezde.">
   <meta property="og:url" content="https://tipsterkontrolpaneli.com/">
   <meta property="og:image" content="https://tipsterkontrolpaneli.com/logo-watermark.png">
   <meta name="twitter:card" content="summary">
@@ -21,7 +21,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/style.css?v=quality-security-20260731d">
+  <link rel="stylesheet" href="/style.css?v=tipster-navigation-20260802a">
 </head>
 <body class="login-mode login-role-admin">
   <main class="shell">
@@ -29,11 +29,11 @@
       <div class="cover">
         <div class="cover-top">
           <div class="brand"><span class="brand-mark">TK</span></div>
-          <span class="service-status"><i></i> Guvenli panel erisimi</span>
+          <span class="service-status"><i></i> Güvenli panel erişimi</span>
         </div>
         <div class="cover-copy">
-          <h1>Tipster Kontrol Paneli</h1>
-          <p class="cover-lead">Operasyonlariniz tek merkezde</p>
+          <p class="cover-title">Tipster Kontrol Paneli</p>
+          <p class="cover-lead">Operasyonlarınız tek merkezde</p>
           <span class="cover-accent" aria-hidden="true"></span>
           <div class="cover-features" role="group" aria-label="Panel ozellikleri">
             <span><b aria-hidden="true">↗</b><em><strong>Performansi izleyin</strong><small>Tipster performanslarini ve KPI'lari anlik takip edin.</small></em></span>
@@ -44,35 +44,35 @@
         <p class="cover-footnote">tipsterkontrolpaneli.com</p>
       </div>
 
-      <form class="login-card" id="loginForm">
+      <form class="login-card" id="loginForm" method="post" action="/api/login">
         <div class="login-card-brand">
           <span class="login-brand-mark">TK</span>
-          <span><strong>Tipster Kontrol Paneli</strong><small id="loginSecurityText">Guvenli yonetim erisimi</small></span>
-          <span class="login-live-badge"><i></i> Sistem aktif</span>
+          <span><strong>Tipster Kontrol Paneli</strong><small id="loginSecurityText">Güvenli yönetim erişimi</small></span>
+          <span class="login-live-badge"><i></i> Güvenli bağlantı</span>
         </div>
         <div class="login-card-head">
-          <span class="login-eyebrow" id="loginEyebrow">Yonetim merkezi</span>
-          <h2 id="loginTitle">Admin paneline giris</h2>
-          <p id="loginDescription">Yetkili hesabinizla guvenli oturumunuzu baslatin.</p>
+          <span class="login-eyebrow" id="loginEyebrow">Yönetim merkezi</span>
+          <h1 id="loginTitle">Admin paneline giriş</h1>
+          <p id="loginDescription">Yetkili hesabınızla güvenli oturumunuzu başlatın.</p>
         </div>
-        <div class="login-tabs" role="group" aria-label="Giris tipi">
-          <button class="tab active" type="button" data-login-type="admin" aria-pressed="true"><span aria-hidden="true">A</span> Admin Girisi</button>
-          <button class="tab" type="button" data-login-type="member" aria-pressed="false"><span aria-hidden="true">T</span> Tipster Girisi</button>
+        <div class="login-tabs" role="group" aria-label="Giriş tipi">
+          <button class="tab active" type="button" data-login-type="admin" aria-pressed="true"><span aria-hidden="true">A</span> Admin Girişi</button>
+          <button class="tab" type="button" data-login-type="member" aria-pressed="false"><span aria-hidden="true">T</span> Tipster Girişi</button>
         </div>
-        <p id="loginHint">Admin hesabi icin size verilen guvenli sifreyi kullanin.</p>
+        <p id="loginHint">Admin hesabı için size verilen güvenli şifreyi kullanın.</p>
         <label class="login-field">
-          <span class="field-label">Kullanici adi</span>
-          <span class="field-control"><i aria-hidden="true">@</i><input type="text" id="username" autocomplete="username" required placeholder="Kullanici adinizi girin"></span>
+          <span class="field-label">Kullanıcı adı</span>
+          <span class="field-control"><i aria-hidden="true">@</i><input type="text" id="username" autocomplete="username" required placeholder="Kullanıcı adınızı girin"></span>
         </label>
         <div class="login-field">
-          <label class="field-label" for="password">Sifre</label>
-          <span class="field-control password-control"><i aria-hidden="true">&#9679;</i><input id="password" type="password" autocomplete="current-password" required placeholder="Sifrenizi girin"><button class="password-visibility" id="togglePasswordBtn" type="button" aria-label="Sifreyi goster" aria-pressed="false">Goster</button></span>
+          <label class="field-label" for="password">Şifre</label>
+          <span class="field-control password-control"><i aria-hidden="true">&#9679;</i><input id="password" type="password" autocomplete="current-password" required placeholder="Şifrenizi girin"><button class="password-visibility" id="togglePasswordBtn" type="button" aria-label="Şifreyi göster" aria-pressed="false">Göster</button></span>
         </div>
-        <span class="caps-lock-warning hidden" id="capsLockWarning">Caps Lock acik</span>
-        <button class="forgot-password-link" id="openPasswordResetBtn" type="button">Sifremi unuttum</button>
+        <span class="caps-lock-warning hidden" id="capsLockWarning">Caps Lock açık</span>
+        <button class="forgot-password-link" id="openPasswordResetBtn" type="button">Şifremi unuttum</button>
         <label class="check-row login-remember-row">
           <input id="rememberMe" type="checkbox">
-          <span>Beni hatirla</span>
+          <span>Beni hatırla</span>
         </label>
         <div class="otp-panel hidden" id="otpPanel">
           <p id="otpHint">E-posta adresine gelen 6 haneli kodu gir.</p>
@@ -82,27 +82,27 @@
           </label>
           <button class="ghost" id="restartLoginBtn" type="button">Bilgileri yeniden gir</button>
         </div>
-        <button class="primary" id="loginSubmitBtn" type="submit">Giris yap</button>
+        <button class="primary" id="loginSubmitBtn" type="submit">Giriş yap</button>
         <div class="demo-divider"><span>veya</span></div>
         <button class="demo-entry" id="demoLoginBtn" type="button">
           <span class="demo-entry-icon">20</span>
-          <span><strong>20 dakikalik demoyu ac</strong><small>Ornek verilerle paneli guvenle inceleyin. Degisiklik yapilamaz.</small></span>
+          <span><strong>20 dakikalık demoyu aç</strong><small>Örnek verilerle paneli güvenle inceleyin. Değişiklik yapılamaz.</small></span>
           <b aria-hidden="true">&rarr;</b>
         </button>
         <button class="contact-entry" id="openPublicContactBtn" type="button">
           <span class="contact-entry-icon">?</span>
-          <span><strong>Admine ulasin</strong><small>Hesabiniz yoksa veya destek almak istiyorsaniz mesaj gonderin.</small></span>
+          <span><strong>Admine ulaşın</strong><small>Hesabınız yoksa veya destek almak istiyorsanız mesaj gönderin.</small></span>
           <b aria-hidden="true">&rarr;</b>
         </button>
         <div class="login-legal-row">
-          <span>Verileriniz guvenli baglanti ile iletilir.</span>
+          <span>Verileriniz güvenli bağlantı ile iletilir.</span>
           <button class="text-link" id="openKvkkLoginBtn" type="button">KVKK metni</button>
         </div>
         <div class="message" id="loginMessage"></div>
       </form>
     </section>
 
-    <section class="app-view hidden" id="appView">
+    <section class="app-view hidden" id="appView" inert aria-hidden="true">
       <div class="page-watermarks" aria-hidden="true">
         <img class="page-watermark page-watermark-main" src="/logo-watermark.png" alt="">
         <img class="page-watermark page-watermark-soft" src="/logo-watermark.png" alt="">
@@ -1395,6 +1395,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=quality-security-20260731d"></script>
+  <script src="/app.js?v=tipster-navigation-20260802a"></script>
 </body>
 </html>
