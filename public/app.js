@@ -1148,7 +1148,10 @@ function renderBackups(backups) {
         <strong>${escapeHtml(formatDateTime(backup.createdAt))}</strong>
         <span>${escapeHtml(backup.filename)} - ${escapeHtml(formatFileSize(backup.size))}</span>
       </div>
-      <button class="ghost small" data-backup-download="${encodeURIComponent(backup.filename)}" type="button">Indir</button>
+      <div class="button-row">
+        <button class="ghost small" data-backup-download="${encodeURIComponent(backup.filename)}" type="button">Indir</button>
+        <button class="ghost small" data-backup-restore="${encodeURIComponent(backup.filename)}" type="button">Tipster geri yukle</button>
+      </div>
     </article>
   `).join("") || `<p class="muted">Henuz yedek bulunmuyor.</p>`;
 }
@@ -2613,10 +2616,36 @@ document.getElementById("createBackupBtn").addEventListener("click", async () =>
   }
 });
 
-document.getElementById("backupRows").addEventListener("click", event => {
+document.getElementById("backupRows").addEventListener("click", async event => {
   const button = event.target.closest("button[data-backup-download]");
-  if (!button) return;
-  window.location.href = `/api/backups/download?file=${button.dataset.backupDownload}`;
+  if (button) {
+    window.location.href = `/api/backups/download?file=${button.dataset.backupDownload}`;
+    return;
+  }
+
+  const restoreButton = event.target.closest("button[data-backup-restore]");
+  if (!restoreButton) return;
+  const username = prompt("Geri yuklenecek tipster kullanici adini girin:");
+  if (!username?.trim()) return;
+  if (!confirm(`${username.trim()} bu yedekten geri yuklensin mi? Mevcut veriler korunur ve once guvenlik yedegi alinir.`)) return;
+  setMessage("backupMessage", "Tipster geri yukleniyor...");
+  restoreButton.disabled = true;
+  try {
+    const data = await api("/api/backups/restore-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: decodeURIComponent(restoreButton.dataset.backupRestore),
+        username: username.trim()
+      })
+    });
+    setMessage("backupMessage", `${data.member?.name || username.trim()} yedekten geri yuklendi.`, true);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+  } catch (error) {
+    setMessage("backupMessage", error.message);
+  } finally {
+    restoreButton.disabled = false;
+  }
 });
 
 document.getElementById("adminPasswordForm").addEventListener("submit", async event => {
