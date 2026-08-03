@@ -3268,29 +3268,30 @@ async function handleApi(req, res) {
       return;
     }
 
+    const restoredMember = JSON.parse(JSON.stringify(backupMember));
+    let skippedConflicts = [];
     if (!sharedNumbersEnabledForOwner(db, session.userId)) {
       const conflicts = getUserGsms(backupMember)
         .map(number => ({ number, owner: findNumberOwner(db, session.userId, number, backupMember.id) }))
         .filter(item => item.owner);
       if (conflicts.length) {
-        sendJson(res, 409, {
-          error: `${conflicts.length} numara baska bir tipstera kaydedilmis. Geri yukleme yapilmadi.`
-        });
-        return;
+        skippedConflicts = conflicts.map(item => item.number);
+        const conflictSet = new Set(skippedConflicts);
+        setUserNumberRecords(restoredMember, getUserNumberRecords(backupMember).filter(record => !conflictSet.has(record.number)));
       }
     }
 
     const actor = db.users.find(item => item.id === session.userId);
     const safetyBackup = createBackupFile(db, "geri-yukleme-oncesi", actor?.username || "admin");
-    const restoredMember = JSON.parse(JSON.stringify(backupMember));
     db.users.push(restoredMember);
-    addAuditLog(db, session.userId, actor, "Tipster yedekten geri yuklendi", `${restoredMember.name || restoredMember.username} (${restoredMember.username}) ${filename} yedeginden geri yuklendi`, {
+    const conflictNote = skippedConflicts.length ? `; ${skippedConflicts.length} cakisan numara mevcut tipsterda birakildi` : "";
+    addAuditLog(db, session.userId, actor, "Tipster yedekten geri yuklendi", `${restoredMember.name || restoredMember.username} (${restoredMember.username}) ${filename} yedeginden geri yuklendi${conflictNote}`, {
       memberId: restoredMember.id,
       memberName: restoredMember.name || restoredMember.username,
       memberUsername: restoredMember.username
     });
     writeDb(db);
-    sendJson(res, 200, { ok: true, member: publicUser(restoredMember), safetyBackup });
+    sendJson(res, 200, { ok: true, member: publicUser(restoredMember), safetyBackup, skippedConflictCount: skippedConflicts.length });
     return;
   }
 
