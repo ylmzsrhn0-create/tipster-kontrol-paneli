@@ -3219,6 +3219,81 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/backups/restore-member") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    if (session.role !== "owner") {
+      sendJson(res, 403, { error: "Tipster geri yukleme islemini yalnizca ana admin yapabilir." });
+      return;
+    }
+
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const filename = path.basename(String(body.filename || ""));
+    const wantedUsername = String(body.username || "").trim();
+    const filePath = path.join(BACKUP_DIR, filename);
+    if (!wantedUsername || !filename.endsWith(".json.gz") || !filePath.startsWith(BACKUP_DIR) || !fs.existsSync(filePath)) {
+      sendJson(res, 400, { error: "Gecerli bir yedek ve tipster kullanici adi gerekli." });
+      return;
+    }
+
+    let backupDb;
+    try {
+      const payload = JSON.parse(zlib.gunzipSync(fs.readFileSync(filePath)).toString("utf8"));
+      backupDb = payload?.database;
+    } catch {
+      sendJson(res, 400, { error: "Yedek dosyasi okunamadi." });
+      return;
+    }
+    if (!backupDb || !Array.isArray(backupDb.users)) {
+      sendJson(res, 400, { error: "Yedek dosyasinda gecerli veritabani bulunamadi." });
+      return;
+    }
+
+    const usernameKey = wantedUsername.toLocaleLowerCase("tr-TR");
+    const backupMember = backupDb.users.find(item =>
+      item.role === "member" &&
+      item.ownerId === session.userId &&
+      String(item.username || "").trim().toLocaleLowerCase("tr-TR") === usernameKey
+    );
+    if (!backupMember) {
+      sendJson(res, 404, { error: "Bu yedekte belirtilen tipster bulunamadi." });
+      return;
+    }
+    const alreadyExists = db.users.find(item =>
+      item.id === backupMember.id ||
+      (item.ownerId === session.userId && String(item.username || "").trim().toLocaleLowerCase("tr-TR") === usernameKey)
+    );
+    if (alreadyExists) {
+      sendJson(res, 409, { error: "Bu tipster zaten mevcut. Geri yukleme yapilmadi." });
+      return;
+    }
+
+    if (!sharedNumbersEnabledForOwner(db, session.userId)) {
+      const conflicts = getUserGsms(backupMember)
+        .map(number => ({ number, owner: findNumberOwner(db, session.userId, number, backupMember.id) }))
+        .filter(item => item.owner);
+      if (conflicts.length) {
+        sendJson(res, 409, {
+          error: `${conflicts.length} numara baska bir tipstera kaydedilmis. Geri yukleme yapilmadi.`
+        });
+        return;
+      }
+    }
+
+    const actor = db.users.find(item => item.id === session.userId);
+    const safetyBackup = createBackupFile(db, "geri-yukleme-oncesi", actor?.username || "admin");
+    const restoredMember = JSON.parse(JSON.stringify(backupMember));
+    db.users.push(restoredMember);
+    addAuditLog(db, session.userId, actor, "Tipster yedekten geri yuklendi", `${restoredMember.name || restoredMember.username} (${restoredMember.username}) ${filename} yedeginden geri yuklendi`, {
+      memberId: restoredMember.id,
+      memberName: restoredMember.name || restoredMember.username,
+      memberUsername: restoredMember.username
+    });
+    writeDb(db);
+    sendJson(res, 200, { ok: true, member: publicUser(restoredMember), safetyBackup });
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/members") {
     const session = requireStaff(req, res);
     if (!session) return;
