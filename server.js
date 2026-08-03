@@ -100,7 +100,8 @@ function defaultDb() {
     portalLists: [],
     pushSubscriptions: [],
     pushSettings: {},
-    passwordResetTokens: []
+    passwordResetTokens: [],
+    deletedItems: []
   };
 }
 
@@ -227,6 +228,7 @@ function normalizeDb(db) {
   db.pushSubscriptions ||= [];
   db.pushSettings ||= {};
   db.passwordResetTokens ||= [];
+  db.deletedItems ||= [];
   db.passwordResetTokens = db.passwordResetTokens.filter(item => item?.userId && item?.tokenHash && Number(item.expiresAt) > Date.now());
   if (webPush && (!db.pushSettings.publicKey || !db.pushSettings.privateKey)) {
     db.pushSettings.vapidKeys ||= webPush.generateVAPIDKeys();
@@ -326,6 +328,13 @@ function normalizeDb(db) {
       keys: item.keys,
       createdAt: item.createdAt || new Date().toISOString(),
       lastSeenAt: item.lastSeenAt || new Date().toISOString()
+    }));
+  db.deletedItems = db.deletedItems
+    .filter(item => item?.id && item?.ownerId && item?.type && item?.payload)
+    .map(item => ({
+      ...item,
+      status: item.status === "pending_approval" ? "pending_approval" : "ready",
+      deletedAt: item.deletedAt || new Date().toISOString()
     }));
   return db;
 }
@@ -942,6 +951,53 @@ function publicUser(user) {
     , brandingLogoUrl: isStaff(user) ? logoUrlFor(user) : ""
     , hasCustomLogo: isStaff(user) ? Boolean(user.brandingLogoFile) : false
   };
+}
+
+function publicDeletedItem(item) {
+  const member = item.payload?.member;
+  const record = item.payload?.record;
+  return {
+    id: item.id,
+    type: item.type,
+    status: item.status,
+    deletedAt: item.deletedAt,
+    deletedByRole: item.deletedByRole || "",
+    deletedByName: item.deletedByName || "",
+    memberId: item.payload?.memberId || member?.id || "",
+    memberName: item.payload?.memberName || member?.name || member?.username || "",
+    memberUsername: item.payload?.memberUsername || member?.username || "",
+    number: record?.number || "",
+    numberName: record?.name || ""
+  };
+}
+
+function recentDeletedItems(db, ownerId, memberId = "") {
+  return (db.deletedItems || [])
+    .filter(item => item.ownerId === ownerId && (!memberId || item.payload?.memberId === memberId))
+    .slice()
+    .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)))
+    .slice(0, 50)
+    .map(publicDeletedItem);
+}
+
+function addDeletedNumberItem(db, user, record) {
+  db.deletedItems = (db.deletedItems || []).filter(item => !(item.type === "number" && item.payload?.memberId === user.id && item.payload?.record?.number === record.number));
+  db.deletedItems.push({
+    id: crypto.randomUUID(),
+    ownerId: user.ownerId,
+    type: "number",
+    status: "pending_approval",
+    deletedById: user.id,
+    deletedByRole: "member",
+    deletedByName: user.name || user.username,
+    deletedAt: new Date().toISOString(),
+    payload: {
+      memberId: user.id,
+      memberName: user.name || user.username,
+      memberUsername: user.username,
+      record
+    }
+  });
 }
 
 function demoPublicUser(session) {
@@ -3140,7 +3196,7 @@ async function handleApi(req, res) {
         .map(payment => publicPayment(db, payment));
       const selectedPayments = ownerPayments.filter(payment => payment.uploadId === uploadId);
       const chatThreads = chatThreadsForAdmin(db, user);
-      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, chatThreads, chatUnreadCount: chatThreads.reduce((sum, item) => sum + item.unreadCount, 0), unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), deletedItems: recentDeletedItems(db, user.id), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, chatThreads, chatUnreadCount: chatThreads.reduce((sum, item) => sum + item.unreadCount, 0), unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -3171,6 +3227,7 @@ async function handleApi(req, res) {
       allWeeklyNumberSummaries: allWeeklySummary.numberSummaries,
       dailySummaries: memberDailySummaries(db, user, user.ownerId),
       passiveNumbers: passiveNumberSummary(db, uploadId, user.ownerId).filter(item => item.memberId === user.id),
+      deletedItems: recentDeletedItems(db, user.ownerId, user.id),
       chatMessages: chatMessagesFor(db, user.ownerId, user.id, user.id),
       chatUnreadCount: unreadChatCountForUser(db, user),
       messages: db.messages
@@ -3893,6 +3950,23 @@ async function handleApi(req, res) {
       sendJson(res, 404, { error: "Üye bulunamadı." });
       return;
     }
+    db.deletedItems = (db.deletedItems || []).filter(item => !(item.type === "member" && item.payload?.memberId === deletedMember.id));
+    db.deletedItems.push({
+      id: crypto.randomUUID(),
+      ownerId: session.userId,
+      type: "member",
+      status: "ready",
+      deletedById: session.userId,
+      deletedByRole: session.role,
+      deletedByName: db.users.find(item => item.id === session.userId)?.name || "Admin",
+      deletedAt: new Date().toISOString(),
+      payload: {
+        memberId: deletedMember.id,
+        memberName: deletedMember.name || deletedMember.username,
+        memberUsername: deletedMember.username,
+        member: deletedMember
+      }
+    });
     addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Tipster silindi", `${deletedMember?.name || deletedMember?.username || "Tipster"} silindi`, {
       memberId: deletedMember?.id || "",
       memberName: deletedMember?.name || deletedMember?.username || "Tipster",
@@ -3900,6 +3974,71 @@ async function handleApi(req, res) {
     });
     writeDb(db);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && /^\/api\/deleted-items\/[^/]+\/restore$/.test(url.pathname)) {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const id = url.pathname.split("/")[3];
+    const item = (db.deletedItems || []).find(entry => entry.id === id && entry.ownerId === session.userId);
+    if (!item) {
+      sendJson(res, 404, { error: "Silinen kayit bulunamadi." });
+      return;
+    }
+    const actor = db.users.find(entry => entry.id === session.userId);
+    if (item.type === "member") {
+      const restoredMember = item.payload?.member;
+      if (!restoredMember || db.users.some(entry => entry.id === restoredMember.id || (entry.role === "member" && entry.ownerId === session.userId && entry.username === restoredMember.username))) {
+        sendJson(res, 409, { error: "Bu tipster hesabi zaten mevcut veya kullanici adi kullaniliyor." });
+        return;
+      }
+      if (!sharedNumbersEnabledForOwner(db, session.userId)) {
+        const conflict = getUserGsms(restoredMember)
+          .map(number => findNumberOwner(db, session.userId, number, restoredMember.id))
+          .find(Boolean);
+        if (conflict) {
+          sendJson(res, 409, { error: `Hesaptaki bir numara su anda ${conflict.name || conflict.username} tipsterinda kayitli. Once numara cakismasini duzeltin.` });
+          return;
+        }
+      }
+      db.users.push(restoredMember);
+      addAuditLog(db, session.userId, actor, "Tipster geri yuklendi", `${restoredMember.name || restoredMember.username} Son Silinenler bolumunden geri yuklendi`, {
+        memberId: restoredMember.id,
+        memberName: restoredMember.name || restoredMember.username,
+        memberUsername: restoredMember.username
+      });
+    } else if (item.type === "number") {
+      const member = db.users.find(entry => entry.id === item.payload?.memberId && entry.role === "member" && entry.ownerId === session.userId);
+      const record = item.payload?.record;
+      if (!member || !record?.number) {
+        sendJson(res, 409, { error: "Numaranin ait oldugu tipster hesabi bulunamadi." });
+        return;
+      }
+      if (getUserGsms(member).includes(record.number)) {
+        sendJson(res, 409, { error: "Bu numara tipster hesabinda zaten kayitli." });
+        return;
+      }
+      if (!sharedNumbersEnabledForOwner(db, session.userId)) {
+        const numberOwner = findNumberOwner(db, session.userId, record.number, member.id);
+        if (numberOwner) {
+          sendJson(res, 409, { error: duplicateNumberMessage(numberOwner) });
+          return;
+        }
+      }
+      setUserNumberRecords(member, [...getUserNumberRecords(member), record]);
+      addAuditLog(db, session.userId, actor, "Numara geri yuklendi", `${record.number} numarasi ${member.name || member.username} hesabina admin onayiyla geri yuklendi`, {
+        memberId: member.id,
+        memberName: member.name || member.username,
+        memberUsername: member.username
+      });
+    } else {
+      sendJson(res, 400, { error: "Bu kayit turu geri yuklenemiyor." });
+      return;
+    }
+    db.deletedItems = db.deletedItems.filter(entry => entry.id !== item.id);
+    writeDb(db);
+    sendJson(res, 200, { ok: true, message: item.type === "member" ? "Tipster hesabi geri yuklendi." : "Numara admin onayiyla geri yuklendi." });
     return;
   }
 
@@ -3995,10 +4134,9 @@ async function handleApi(req, res) {
       sendJson(res, 404, { error: "Numara bulunamadi." });
       return;
     }
-    user.numberRecords = records;
-    user.gsmMasked = records[0]?.number || "";
-    user.gsmName = records[0]?.name || "";
-    user.gsmList = records.slice(1).map(record => record.name || record.createdAt ? { number: record.number, name: record.name, createdAt: record.createdAt } : record.number);
+    const deletedRecord = oldRecords.find(item => item.number === gsm);
+    setUserNumberRecords(user, records);
+    addDeletedNumberItem(db, user, deletedRecord);
     addAuditLog(db, user.ownerId, user, "Numara silindi", `${gsm} numarasi silindi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, numbers: getUserGsms(user), numberRecords: getUserNumberRecords(user) });
@@ -4010,16 +4148,18 @@ async function handleApi(req, res) {
     if (!session) return;
     const gsm = normalizeGsm(decodeURIComponent(url.pathname.split("/").pop()));
     const user = db.users.find(item => item.id === session.userId);
-    const numbers = getUserGsms(user).filter(item => item !== gsm);
-    if (numbers.length === getUserGsms(user).length) {
+    const oldRecords = getUserNumberRecords(user);
+    const records = oldRecords.filter(item => item.number !== gsm);
+    if (records.length === oldRecords.length) {
       sendJson(res, 404, { error: "Numara bulunamadı." });
       return;
     }
-    user.gsmMasked = numbers[0] || "";
-    user.gsmList = numbers.slice(1);
+    const deletedRecord = oldRecords.find(item => item.number === gsm);
+    setUserNumberRecords(user, records);
+    addDeletedNumberItem(db, user, deletedRecord);
     addAuditLog(db, user.ownerId, user, "Numara silindi", `${gsm} numarasi silindi`);
     writeDb(db);
-    sendJson(res, 200, { ok: true, numbers });
+    sendJson(res, 200, { ok: true, numbers: getUserGsms(user), numberRecords: getUserNumberRecords(user) });
     return;
   }
 
