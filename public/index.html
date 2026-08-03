@@ -209,6 +209,21 @@
           <div class="backup-list collapsible-body" id="backupRows"></div>
         </details>
 
+        <details class="panel wide collapsible" id="deletedItemsAdminPanel">
+          <summary>
+            <span>
+              <strong>Son Silinenler</strong>
+              <small>Silinen tipsterlari ve tipsterlarin sildigi numaralari geri yukle</small>
+            </span>
+            <b id="deletedItemsAdminCount">0</b>
+          </summary>
+          <div class="collapsible-body">
+            <p class="muted">Tipsterlarin sildigi numaralar yalnizca admin onayiyla geri yuklenir.</p>
+            <div class="message" id="deletedItemsAdminMessage"></div>
+            <div class="backup-list" id="deletedItemsAdminRows"></div>
+          </div>
+        </details>
+
         <details class="panel wide collapsible">
           <summary>
             <span>
@@ -891,6 +906,20 @@
           <div class="message-list collapsible-body" id="memberMessageRows"></div>
         </details>
 
+        <details class="panel wide collapsible" id="deletedItemsMemberPanel">
+          <summary>
+            <span>
+              <strong>Son Silinenler</strong>
+              <small>Sildigin numaralarin geri yukleme durumunu takip et</small>
+            </span>
+            <b id="deletedItemsMemberCount">0</b>
+          </summary>
+          <div class="collapsible-body">
+            <p class="muted">Silinen numaralar admin onayina gonderilir. Geri yukleme islemini yalnizca admin yapabilir.</p>
+            <div class="backup-list" id="deletedItemsMemberRows"></div>
+          </div>
+        </details>
+
         <details class="panel wide collapsible">
           <summary>
             <span>
@@ -1399,6 +1428,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=tipster-restore-20260803b"></script>
+  <script src="/app.js?v=recent-deletions-20260803a"></script>
 </body>
 </html>

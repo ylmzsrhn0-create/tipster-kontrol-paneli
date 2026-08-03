@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v57-tipster-restore-20260803b";
+const CACHE_NAME = "tipster-panel-v58-recent-deletions-20260803a";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
   "/style.css?v=tipster-navigation-20260802a",
-  "/app.js?v=tipster-restore-20260803b",
+  "/app.js?v=recent-deletions-20260803a",
   "/manifest.webmanifest",
   "/icon.svg",
   "/icon-192.png",

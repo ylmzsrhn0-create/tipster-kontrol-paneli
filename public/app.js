@@ -949,6 +949,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   document.getElementById("totalCommission").textContent = money.format(data.summary.totalCommission || 0);
   renderOverview(data.overview || {});
   renderBackups(data.backups || []);
+  renderDeletedItems(data.deletedItems || [], true);
   renderMembers();
   renderDailyMembers();
   renderPaymentPanel();
@@ -1154,6 +1155,28 @@ function renderBackups(backups) {
       </div>
     </article>
   `).join("") || `<p class="muted">Henuz yedek bulunmuyor.</p>`;
+}
+
+function renderDeletedItems(items, isAdmin) {
+  const prefix = isAdmin ? "deletedItemsAdmin" : "deletedItemsMember";
+  document.getElementById(`${prefix}Count`).textContent = items.length;
+  document.getElementById(`${prefix}Rows`).innerHTML = items.map(item => {
+    const isMember = item.type === "member";
+    const title = isMember
+      ? `${item.memberName || "Tipster"} (${item.memberUsername || "-"})`
+      : `${item.numberName || "Isimsiz"} - ${item.number || "-"}`;
+    const detail = isMember
+      ? "Admin tarafindan silinen tipster hesabi"
+      : `${item.memberName || item.memberUsername || "Tipster"} tarafindan silindi - admin onayi bekliyor`;
+    return `
+      <article class="backup-item">
+        <div>
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(detail)} - ${escapeHtml(formatDateTime(item.deletedAt))}</span>
+        </div>
+        ${isAdmin ? `<button class="primary small" data-deleted-item-restore="${escapeHtml(item.id)}" type="button">${isMember ? "Geri yukle" : "Onayla ve geri yukle"}</button>` : `<span class="status-pill passive">Admin onayi bekliyor</span>`}
+      </article>`;
+  }).join("") || `<p class="muted">Son silinen kayit bulunmuyor.</p>`;
 }
 
 function renderMembers() {
@@ -1577,6 +1600,7 @@ function renderMember(data) {
   renderCommissionRows(data.numberSummaries || []);
   renderDailyEarnings(data.dailySummaries || []);
   renderMemberPassiveNumbers(data.passiveNumbers || []);
+  renderDeletedItems(data.deletedItems || [], false);
   renderNumbers(numbers);
   renderMyRows(data.rows || []);
   renderMemberMessages(data.messages || []);
@@ -2650,6 +2674,22 @@ document.getElementById("backupRows").addEventListener("click", async event => {
   }
 });
 
+document.getElementById("deletedItemsAdminRows").addEventListener("click", async event => {
+  const button = event.target.closest("button[data-deleted-item-restore]");
+  if (!button) return;
+  if (!confirm("Bu kayit geri yuklensin mi?")) return;
+  setMessage("deletedItemsAdminMessage", "Kayit geri yukleniyor...");
+  button.disabled = true;
+  try {
+    const data = await api(`/api/deleted-items/${encodeURIComponent(button.dataset.deletedItemRestore)}/restore`, { method: "POST" });
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+    setMessage("deletedItemsAdminMessage", data.message || "Kayit geri yuklendi.", true);
+  } catch (error) {
+    setMessage("deletedItemsAdminMessage", error.message);
+    button.disabled = false;
+  }
+});
+
 document.getElementById("adminPasswordForm").addEventListener("submit", async event => {
   event.preventDefault();
   setMessage("passwordMessage", "");
@@ -2903,7 +2943,7 @@ document.getElementById("numberList").addEventListener("click", async event => {
   const button = event.target.closest("button[data-number-delete]");
   if (!button) return;
   await api(`/api/my-numbers/${button.dataset.numberDelete}`, { method: "DELETE" });
-  setMessage("numberMessage", "Numara silindi.", true);
+  setMessage("numberMessage", "Numara silindi ve admin onayina gonderildi.", true);
   await loadDashboard();
 });
 
