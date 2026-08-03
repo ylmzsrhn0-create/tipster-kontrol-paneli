@@ -2625,9 +2625,11 @@ document.getElementById("backupRows").addEventListener("click", async event => {
 
   const restoreButton = event.target.closest("button[data-backup-restore]");
   if (!restoreButton) return;
-  const username = prompt("Geri yuklenecek tipster kullanici adini girin:");
-  if (!username?.trim()) return;
-  if (!confirm(`${username.trim()} bu yedekten geri yuklensin mi? Mevcut veriler korunur ve once guvenlik yedegi alinir.`)) return;
+  const username = document.getElementById("backupRestoreUsername").value.trim();
+  if (!username) {
+    setMessage("backupMessage", "Geri yuklenecek tipster kullanici adini girin.");
+    return;
+  }
   setMessage("backupMessage", "Tipster geri yukleniyor...");
   restoreButton.disabled = true;
   try {
@@ -2636,10 +2638,10 @@ document.getElementById("backupRows").addEventListener("click", async event => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         filename: decodeURIComponent(restoreButton.dataset.backupRestore),
-        username: username.trim()
+        username
       })
     });
-    setMessage("backupMessage", `${data.member?.name || username.trim()} yedekten geri yuklendi.`, true);
+    setMessage("backupMessage", `${data.member?.name || username} yedekten geri yuklendi.`, true);
     await loadDashboard(selectedUploadId, selectedDailyUploadId);
   } catch (error) {
     setMessage("backupMessage", error.message);
