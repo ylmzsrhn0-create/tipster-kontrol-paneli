@@ -22,6 +22,7 @@ let activeChatMessages = [];
 let demoModeActive = false;
 let demoExpiresAt = 0;
 let demoCountdownTimer = null;
+let dashboardRequestSequence = 0;
 const expandedAdminNumbers = new Set();
 const mobileSelectIds = ["adminUploadSelect", "adminWeeklyResultsSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "numberListSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
@@ -54,6 +55,28 @@ const pushPromptModal = document.getElementById("pushPromptModal");
 const mobileSelectModal = document.getElementById("mobileSelectModal");
 const notificationBadge = document.getElementById("notificationBadge");
 const rememberStorageKey = "tipsterPanelRememberLogin";
+const modalReturnFocus = new WeakMap();
+
+function openDialog(modal, initialFocus) {
+  if (!modal) return;
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active !== document.body) modalReturnFocus.set(modal, active);
+  loginView.inert = true;
+  appView.inert = true;
+  modal.classList.remove("hidden");
+  const focusTarget = initialFocus || modal.querySelector("button, input, select, textarea, [tabindex]:not([tabindex='-1'])");
+  setTimeout(() => focusTarget?.focus(), 0);
+}
+
+function closeDialog(modal) {
+  if (!modal) return;
+  modal.classList.add("hidden");
+  loginView.inert = loginView.classList.contains("hidden");
+  appView.inert = appView.classList.contains("hidden");
+  const returnTarget = modalReturnFocus.get(modal);
+  modalReturnFocus.delete(modal);
+  if (returnTarget?.isConnected) setTimeout(() => returnTarget.focus(), 0);
+}
 const loginRoleStorageKey = "tipsterPanelLoginRole";
 const pushPromptSessionKey = "tipsterPanelPushPromptDismissed";
 
@@ -92,28 +115,28 @@ function applyLoginType(type, { persist = true, resetFields = false } = {}) {
     item.classList.toggle("active", active);
     item.setAttribute("aria-pressed", active ? "true" : "false");
   });
-  loginEyebrow.textContent = isAdmin ? "Yonetim merkezi" : "Tipster performans merkezi";
-  loginTitle.textContent = isAdmin ? "Admin paneline giris" : "Tipster paneline giris";
+  loginEyebrow.textContent = isAdmin ? "Yönetim merkezi" : "Tipster performans merkezi";
+  loginTitle.textContent = isAdmin ? "Admin paneline giriş" : "Tipster paneline giriş";
   loginDescription.textContent = isAdmin
-    ? "Yetkili hesabinizla guvenli oturumunuzu baslatin."
-    : "Raporlariniza ve kazanc bilgilerinize guvenle erisin.";
-  loginSecurityText.textContent = isAdmin ? "Guvenli yonetim erisimi" : "Guvenli tipster erisimi";
+    ? "Yetkili hesabınızla güvenli oturumunuzu başlatın."
+    : "Raporlarınıza ve kazanç bilgilerinize güvenle erişin.";
+  loginSecurityText.textContent = isAdmin ? "Güvenli yönetim erişimi" : "Güvenli tipster erişimi";
   loginHint.textContent = isAdmin
-    ? "Admin hesabi icin size verilen guvenli sifreyi kullanin."
-    : "Tipster girisi icin adminin olusturdugu kullanici adi ve sifre kullanilir.";
+    ? "Admin hesabı için size verilen güvenli şifreyi kullanın."
+    : "Tipster girişi için adminin oluşturduğu kullanıcı adı ve şifre kullanılır.";
   document.getElementById("openPasswordResetBtn").classList.toggle("hidden", !isAdmin);
   const usernameInput = document.getElementById("username");
   const passwordInput = document.getElementById("password");
-  usernameInput.placeholder = isAdmin ? "Admin kullanici adinizi girin" : "Tipster kullanici adinizi girin";
+  usernameInput.placeholder = isAdmin ? "Admin kullanıcı adınızı girin" : "Tipster kullanıcı adınızı girin";
   usernameInput.name = isAdmin ? "admin_username" : "tipster_username";
   passwordInput.name = isAdmin ? "admin_password" : "tipster_password";
-  usernameInput.autocomplete = isAdmin ? "username" : "off";
-  passwordInput.autocomplete = isAdmin ? "current-password" : "new-password";
-  usernameInput.readOnly = !isAdmin;
-  passwordInput.readOnly = !isAdmin;
+  usernameInput.autocomplete = "username";
+  passwordInput.autocomplete = "current-password";
+  usernameInput.readOnly = false;
+  passwordInput.readOnly = false;
   if (resetFields) {
     const rememberedUsername = readRememberedLogins()[selectedLoginType] || "";
-    usernameInput.value = rememberedUsername || (isAdmin ? "admin" : "");
+    usernameInput.value = rememberedUsername;
     passwordInput.value = "";
     document.getElementById("rememberMe").checked = Boolean(rememberedUsername);
     document.getElementById("capsLockWarning")?.classList.add("hidden");
@@ -349,7 +372,7 @@ async function enablePushNotifications() {
 }
 
 function closePushPrompt(saveForSession = true) {
-  pushPromptModal?.classList.add("hidden");
+  closeDialog(pushPromptModal);
   if (saveForSession) {
     try { sessionStorage.setItem(pushPromptSessionKey, "1"); } catch (error) {}
   }
@@ -365,13 +388,17 @@ async function maybeShowPushPrompt() {
   const registration = await serviceWorkerRegistration();
   const subscription = await registration?.pushManager?.getSubscription?.();
   if (subscription) return;
-  pushPromptModal.classList.remove("hidden");
+  openDialog(pushPromptModal, document.getElementById("pushPromptEnableBtn"));
 }
 
 function showApp(user) {
   demoModeActive = Boolean(user.demo);
   loginView.classList.add("hidden");
   appView.classList.remove("hidden");
+  loginView.inert = true;
+  loginView.setAttribute("aria-hidden", "true");
+  appView.inert = false;
+  appView.setAttribute("aria-hidden", "false");
   document.body.classList.remove("login-mode");
   document.body.classList.add("app-mode");
   document.body.classList.toggle("demo-mode", demoModeActive);
@@ -401,6 +428,10 @@ function showLogin() {
   stopDemoCountdown();
   appView.classList.add("hidden");
   loginView.classList.remove("hidden");
+  appView.inert = true;
+  appView.setAttribute("aria-hidden", "true");
+  loginView.inert = false;
+  loginView.setAttribute("aria-hidden", "false");
   document.body.classList.remove("app-mode");
   document.body.classList.remove("demo-mode");
   document.body.classList.add("login-mode");
@@ -452,12 +483,12 @@ function restoreRememberedLogin() {
     const savedRole = localStorage.getItem(loginRoleStorageKey) || savedRaw.loginType || "admin";
     applyLoginType(savedRole, { persist: false });
     const rememberedUsername = readRememberedLogins()[selectedLoginType] || "";
-    document.getElementById("username").value = rememberedUsername || (selectedLoginType === "admin" ? "admin" : "");
+    document.getElementById("username").value = rememberedUsername;
     document.getElementById("password").value = "";
     document.getElementById("rememberMe").checked = Boolean(rememberedUsername);
   } catch (error) {
     applyLoginType("admin", { persist: false });
-    document.getElementById("username").value = "admin";
+    document.getElementById("username").value = "";
   }
 }
 
@@ -539,11 +570,11 @@ function adminNumberSplitHtml(member, scope, query = "") {
       <div class="admin-number-list ${expanded ? "" : "hidden"}">
         <div class="number-split">
           <section>
-            <h4>Listede var <span>${registered.length}</span></h4>
+            <h3>Listede var <span>${registered.length}</span></h3>
             ${hasPortalList ? numberMiniList(registered, "Eslesen numara yok.") : `<p class="muted mini-empty">Liste yok.</p>`}
           </section>
           <section>
-            <h4>Listede yok <span>${unregistered.length}</span></h4>
+            <h3>Listede yok <span>${unregistered.length}</span></h3>
             ${numberMiniList(unregistered, hasPortalList ? "Liste disinda numara yok." : "Liste yok.")}
           </section>
         </div>
@@ -618,6 +649,9 @@ function searchMatches(haystack, query) {
   const digitQuery = searchDigits(query);
   if (!textQuery && !numberQuery && !digitQuery) return true;
   const textHaystack = searchText(haystack);
+  const phoneLikeQuery = /^[+\d\s().\-/*xX\u2022\u2023\u2027\u2219\u2217\u25CF\u25E6\u00B7]+$/.test(String(query || "").trim())
+    && (digitQuery.length >= 7 || /[*xX\u2022\u2023\u2027\u2219\u2217\u25CF\u25E6\u00B7]/.test(String(query || "")));
+  if (!phoneLikeQuery) return Boolean(textQuery && textHaystack.includes(textQuery));
   const numberHaystack = searchNumber(haystack);
   const digitHaystack = searchDigits(haystack);
   return (textQuery && textHaystack.includes(textQuery))
@@ -813,8 +847,19 @@ function updateMobileSelectTrigger(select) {
     trigger.dataset.mobileSelectTrigger = select.id;
     select.insertAdjacentElement("afterend", trigger);
   }
+  const mobileMode = isMobileSelectMode();
+  if (mobileMode) {
+    select.tabIndex = -1;
+    select.setAttribute("aria-hidden", "true");
+  } else {
+    select.removeAttribute("tabindex");
+    select.removeAttribute("aria-hidden");
+  }
   const selectedText = select.selectedOptions[0]?.textContent?.trim() || "Secim yap";
   trigger.innerHTML = `<span>${escapeHtml(selectedText)}</span><b>Sec</b>`;
+  trigger.setAttribute("aria-label", `${selectLabel(select)}: ${selectedText}`);
+  trigger.setAttribute("aria-haspopup", "dialog");
+  trigger.setAttribute("aria-controls", "mobileSelectModal");
   trigger.disabled = select.disabled || select.options.length <= 1;
 }
 
@@ -829,19 +874,18 @@ function openMobileSelect(select) {
   document.getElementById("mobileSelectSubtitle").textContent = select.selectedOptions[0]?.textContent?.trim() || "Listeden bir kayit sec.";
   document.getElementById("mobileSelectSearch").value = "";
   renderMobileSelectOptions();
-  mobileSelectModal.classList.remove("hidden");
+  openDialog(mobileSelectModal, document.getElementById("mobileSelectSearch"));
   document.body.classList.add("mobile-select-open");
   if (!mobileSelectHistoryOpen) {
     history.pushState({ mobileSelect: true }, "");
     mobileSelectHistoryOpen = true;
   }
-  setTimeout(() => document.getElementById("mobileSelectSearch").focus(), 50);
   return true;
 }
 
 function closeMobileSelect(fromHistory = false) {
   if (mobileSelectModal.classList.contains("hidden")) return;
-  mobileSelectModal.classList.add("hidden");
+  closeDialog(mobileSelectModal);
   document.body.classList.remove("mobile-select-open");
   mobileSelectTarget = null;
   if (!fromHistory && mobileSelectHistoryOpen) {
@@ -853,7 +897,7 @@ function closeMobileSelect(fromHistory = false) {
 }
 
 function isMobilePanelMode() {
-  return true;
+  return window.matchMedia("(max-width: 760px)").matches;
 }
 
 function refreshMobilePanelState() {
@@ -905,6 +949,7 @@ function renderAdmin(data, keepOwnerPanel = false) {
   document.getElementById("totalCommission").textContent = money.format(data.summary.totalCommission || 0);
   renderOverview(data.overview || {});
   renderBackups(data.backups || []);
+  renderDeletedItems(data.deletedItems || [], true);
   renderMembers();
   renderDailyMembers();
   renderPaymentPanel();
@@ -1104,9 +1149,34 @@ function renderBackups(backups) {
         <strong>${escapeHtml(formatDateTime(backup.createdAt))}</strong>
         <span>${escapeHtml(backup.filename)} - ${escapeHtml(formatFileSize(backup.size))}</span>
       </div>
-      <button class="ghost small" data-backup-download="${encodeURIComponent(backup.filename)}" type="button">Indir</button>
+      <div class="button-row">
+        <button class="ghost small" data-backup-download="${encodeURIComponent(backup.filename)}" type="button">Indir</button>
+        <button class="ghost small" data-backup-restore="${encodeURIComponent(backup.filename)}" type="button">Tipster geri yukle</button>
+      </div>
     </article>
   `).join("") || `<p class="muted">Henuz yedek bulunmuyor.</p>`;
+}
+
+function renderDeletedItems(items, isAdmin) {
+  const prefix = isAdmin ? "deletedItemsAdmin" : "deletedItemsMember";
+  document.getElementById(`${prefix}Count`).textContent = items.length;
+  document.getElementById(`${prefix}Rows`).innerHTML = items.map(item => {
+    const isMember = item.type === "member";
+    const title = isMember
+      ? `${item.memberName || "Tipster"} (${item.memberUsername || "-"})`
+      : `${item.numberName || "Isimsiz"} - ${item.number || "-"}`;
+    const detail = isMember
+      ? "Admin tarafindan silinen tipster hesabi"
+      : `${item.memberName || item.memberUsername || "Tipster"} tarafindan silindi - admin onayi bekliyor`;
+    return `
+      <article class="backup-item">
+        <div>
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(detail)} - ${escapeHtml(formatDateTime(item.deletedAt))}</span>
+        </div>
+        ${isAdmin ? `<button class="primary small" data-deleted-item-restore="${escapeHtml(item.id)}" type="button">${isMember ? "Geri yukle" : "Onayla ve geri yukle"}</button>` : `<span class="status-pill passive">Admin onayi bekliyor</span>`}
+      </article>`;
+  }).join("") || `<p class="muted">Son silinen kayit bulunmuyor.</p>`;
 }
 
 function renderMembers() {
@@ -1530,6 +1600,7 @@ function renderMember(data) {
   renderCommissionRows(data.numberSummaries || []);
   renderDailyEarnings(data.dailySummaries || []);
   renderMemberPassiveNumbers(data.passiveNumbers || []);
+  renderDeletedItems(data.deletedItems || [], false);
   renderNumbers(numbers);
   renderMyRows(data.rows || []);
   renderMemberMessages(data.messages || []);
@@ -1537,15 +1608,14 @@ function renderMember(data) {
 }
 
 function renderMemberMessages(messages) {
-  const panel = document.getElementById("memberMessagesPanel");
   const unreadCount = messages.filter(message => message.unread).length + chatUnreadCount(currentDashboard);
   notificationBadge.classList.toggle("hidden", unreadCount === 0);
   notificationBadge.textContent = unreadCount ? `${unreadCount} yeni mesaj` : "Yeni mesaj";
   document.title = unreadCount ? `(${unreadCount}) Tipster Kontrol Paneli` : "Tipster Kontrol Paneli";
   document.getElementById("memberMessageSummary").textContent = messages.length
-    ? `${unreadCount} okunmamis, ${messages.length} toplam mesaj`
+    ? `${unreadCount} okunmamış, ${messages.length} toplam mesaj`
     : "Mesaj bulunmuyor";
-  if (unreadCount) panel.open = true;
+  // Okunmamış mesajı rozetle bildir; Tipster'ın açık bölümünü zorla değiştirme.
   document.getElementById("memberMessageRows").innerHTML = messages.map(message => `
     <article class="message-card ${message.unread ? "is-unread" : ""}">
       <div class="message-card-head">
@@ -1873,11 +1943,13 @@ function clearNormalCalc() {
 }
 
 async function loadDashboard(uploadId = selectedUploadId, dailyUploadId = selectedDailyUploadId) {
+  const requestSequence = ++dashboardRequestSequence;
   const params = new URLSearchParams();
   if (uploadId) params.set("uploadId", uploadId);
   if (dailyUploadId) params.set("dailyUploadId", dailyUploadId);
   const query = params.toString() ? `?${params.toString()}` : "";
   const data = await api(`/api/dashboard${query}`);
+  if (requestSequence !== dashboardRequestSequence) return;
   applyBranding(data.branding);
   if (data.role === "owner") renderOwner(data);
   else if (data.role === "admin") renderAdmin(data);
@@ -1889,7 +1961,7 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
   detailUploadId = uploadId;
   const data = await api(`/api/members/${encodeURIComponent(memberId)}/details?uploadId=${encodeURIComponent(uploadId)}`);
   detailUploadId = data.selectedUploadId;
-  detailModal.classList.remove("hidden");
+  openDialog(detailModal, document.getElementById("closeDetailBtn"));
   document.getElementById("detailTitle").textContent = data.member.name;
   const detailCount = numberRecordsOf(data.member).length;
   document.getElementById("detailSubtitle").textContent = `${data.member.username} - ${detailCount} uye/numara - ${numberRecordText(data.member) || "Numara yok"}`;
@@ -2110,11 +2182,11 @@ document.getElementById("pushPromptLaterBtn").addEventListener("click", () => cl
 
 function openKvkk() {
   document.getElementById("accountMenu")?.removeAttribute("open");
-  kvkkModal.classList.remove("hidden");
+  openDialog(kvkkModal, document.getElementById("closeKvkkBtn"));
 }
 
 function closeKvkk() {
-  kvkkModal.classList.add("hidden");
+  closeDialog(kvkkModal);
 }
 
 function clearPasswordResetTokenFromUrl() {
@@ -2133,24 +2205,22 @@ function openPasswordReset(token = "") {
     ? "Yeni admin sifrenizi belirleyin. Bu baglanti yalnizca bir kez kullanilabilir."
     : "Kayitli e-posta adresinize 15 dakika gecerli bir baglanti gonderilir.";
   passwordResetModal.dataset.token = hasToken ? token : "";
-  passwordResetModal.classList.remove("hidden");
-  setTimeout(() => document.getElementById(hasToken ? "passwordResetNewPassword" : "passwordResetAccount").focus(), 50);
+  openDialog(passwordResetModal, document.getElementById(hasToken ? "passwordResetNewPassword" : "passwordResetAccount"));
 }
 
 function closePasswordReset(removeToken = true) {
-  passwordResetModal.classList.add("hidden");
+  closeDialog(passwordResetModal);
   passwordResetModal.dataset.token = "";
   if (removeToken && new URLSearchParams(window.location.search).has("reset")) clearPasswordResetTokenFromUrl();
 }
 
 function openPublicContact() {
   setMessage("publicContactMessage", "");
-  publicContactModal.classList.remove("hidden");
-  document.getElementById("publicContactName").focus();
+  openDialog(publicContactModal, document.getElementById("publicContactName"));
 }
 
 function closePublicContact() {
-  publicContactModal.classList.add("hidden");
+  closeDialog(publicContactModal);
 }
 
 document.getElementById("openKvkkLoginBtn").addEventListener("click", openKvkk);
@@ -2584,10 +2654,54 @@ document.getElementById("createBackupBtn").addEventListener("click", async () =>
   }
 });
 
-document.getElementById("backupRows").addEventListener("click", event => {
+document.getElementById("backupRows").addEventListener("click", async event => {
   const button = event.target.closest("button[data-backup-download]");
+  if (button) {
+    window.location.href = `/api/backups/download?file=${button.dataset.backupDownload}`;
+    return;
+  }
+
+  const restoreButton = event.target.closest("button[data-backup-restore]");
+  if (!restoreButton) return;
+  const username = document.getElementById("backupRestoreUsername").value.trim();
+  if (!username) {
+    setMessage("backupMessage", "Geri yuklenecek tipster kullanici adini girin.");
+    return;
+  }
+  setMessage("backupMessage", "Tipster geri yukleniyor...");
+  restoreButton.disabled = true;
+  try {
+    const data = await api("/api/backups/restore-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: decodeURIComponent(restoreButton.dataset.backupRestore),
+        username
+      })
+    });
+    setMessage("backupMessage", `${data.member?.name || username} yedekten geri yuklendi.`, true);
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+  } catch (error) {
+    setMessage("backupMessage", error.message);
+  } finally {
+    restoreButton.disabled = false;
+  }
+});
+
+document.getElementById("deletedItemsAdminRows").addEventListener("click", async event => {
+  const button = event.target.closest("button[data-deleted-item-restore]");
   if (!button) return;
-  window.location.href = `/api/backups/download?file=${button.dataset.backupDownload}`;
+  if (!confirm("Bu kayit geri yuklensin mi?")) return;
+  setMessage("deletedItemsAdminMessage", "Kayit geri yukleniyor...");
+  button.disabled = true;
+  try {
+    const data = await api(`/api/deleted-items/${encodeURIComponent(button.dataset.deletedItemRestore)}/restore`, { method: "POST" });
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+    setMessage("deletedItemsAdminMessage", data.message || "Kayit geri yuklendi.", true);
+  } catch (error) {
+    setMessage("deletedItemsAdminMessage", error.message);
+    button.disabled = false;
+  }
 });
 
 document.getElementById("adminPasswordForm").addEventListener("submit", async event => {
@@ -2843,7 +2957,7 @@ document.getElementById("numberList").addEventListener("click", async event => {
   const button = event.target.closest("button[data-number-delete]");
   if (!button) return;
   await api(`/api/my-numbers/${button.dataset.numberDelete}`, { method: "DELETE" });
-  setMessage("numberMessage", "Numara silindi.", true);
+  setMessage("numberMessage", "Numara silindi ve admin onayina gonderildi.", true);
   await loadDashboard();
 });
 
@@ -2928,6 +3042,7 @@ document.addEventListener("click", event => {
 });
 
 window.addEventListener("resize", () => {
+  refreshMobileSelectTriggers();
   if (isMobilePanelMode()) {
     refreshMobilePanelState();
     return;
@@ -3120,11 +3235,39 @@ document.getElementById("detailEditForm").addEventListener("submit", async event
 });
 
 document.getElementById("closeDetailBtn").addEventListener("click", () => {
-  detailModal.classList.add("hidden");
+  closeDialog(detailModal);
 });
 
 detailModal.addEventListener("click", event => {
-  if (event.target === detailModal) detailModal.classList.add("hidden");
+  if (event.target === detailModal) closeDialog(detailModal);
+});
+
+document.addEventListener("keydown", event => {
+  const visibleModal = Array.from(document.querySelectorAll(".modal:not(.hidden)")).at(-1);
+  if (!visibleModal) return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    if (visibleModal === mobileSelectModal) closeMobileSelect();
+    else if (visibleModal === detailModal) closeDialog(detailModal);
+    else if (visibleModal === kvkkModal) closeKvkk();
+    else if (visibleModal === passwordResetModal) closePasswordReset();
+    else if (visibleModal === publicContactModal) closePublicContact();
+    else if (visibleModal === pushPromptModal) closePushPrompt(true);
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusable = Array.from(visibleModal.querySelectorAll("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex='-1'])"))
+    .filter(item => item.getClientRects().length);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 });
 
 kvkkModal.addEventListener("click", event => {
@@ -3164,3 +3307,4 @@ setInterval(() => {
   if (currentDashboard?.role !== "member" || document.hidden) return;
   loadDashboard(selectedUploadId, selectedDailyUploadId).catch(() => {});
 }, 60000);
+
