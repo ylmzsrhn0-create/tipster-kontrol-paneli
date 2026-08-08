@@ -1,16 +1,12 @@
-const CACHE_NAME = "tipster-panel-v58-recent-deletions-20260803a";
+const CACHE_NAME = "tipster-panel-v53-daily-number-breakdown-20260808a";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=tipster-navigation-20260802a",
-  "/app.js?v=recent-deletions-20260803a",
+  "/style.css?v=mobile-payment-select-20260728f",
+  "/app.js?v=daily-number-breakdown-20260808a",
   "/manifest.webmanifest",
   "/icon.svg",
-  "/icon-192.png",
-  "/icon-512.png",
-  "/icon-maskable-512.png",
-  "/apple-touch-icon.png",
   "/logo-watermark.png",
   "/watermark.svg"
 ];
@@ -79,8 +75,8 @@ self.addEventListener("push", event => {
   const title = data.title || "Tipster Kontrol Paneli";
   const options = {
     body: data.body || "Yeni bildirim var.",
-    icon: data.icon || "/icon-192.png",
-    badge: data.badge || "/icon-192.png",
+    icon: data.icon || "/icon.svg",
+    badge: data.badge || "/icon.svg",
     data: { url: data.url || "/" }
   };
 
