@@ -100,7 +100,8 @@ function defaultDb() {
     portalLists: [],
     pushSubscriptions: [],
     pushSettings: {},
-    passwordResetTokens: []
+    passwordResetTokens: [],
+    deletedItems: []
   };
 }
 
@@ -227,6 +228,7 @@ function normalizeDb(db) {
   db.pushSubscriptions ||= [];
   db.pushSettings ||= {};
   db.passwordResetTokens ||= [];
+  db.deletedItems ||= [];
   db.passwordResetTokens = db.passwordResetTokens.filter(item => item?.userId && item?.tokenHash && Number(item.expiresAt) > Date.now());
   if (webPush && (!db.pushSettings.publicKey || !db.pushSettings.privateKey)) {
     db.pushSettings.vapidKeys ||= webPush.generateVAPIDKeys();
@@ -326,6 +328,13 @@ function normalizeDb(db) {
       keys: item.keys,
       createdAt: item.createdAt || new Date().toISOString(),
       lastSeenAt: item.lastSeenAt || new Date().toISOString()
+    }));
+  db.deletedItems = db.deletedItems
+    .filter(item => item?.id && item?.ownerId && item?.type && item?.payload)
+    .map(item => ({
+      ...item,
+      status: item.status === "pending_approval" ? "pending_approval" : "ready",
+      deletedAt: item.deletedAt || new Date().toISOString()
     }));
   return db;
 }
@@ -775,6 +784,28 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+function applySecurityHeaders(res) {
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  res.setHeader("Content-Security-Policy", [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "img-src 'self' data: blob:",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self'",
+    "connect-src 'self'",
+    "font-src 'self'",
+    "manifest-src 'self'",
+    "worker-src 'self'"
+  ].join("; "));
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+}
+
 function pushConfigured(db) {
   return Boolean(webPush && db.pushSettings?.publicKey && db.pushSettings?.privateKey);
 }
@@ -922,6 +953,53 @@ function publicUser(user) {
   };
 }
 
+function publicDeletedItem(item) {
+  const member = item.payload?.member;
+  const record = item.payload?.record;
+  return {
+    id: item.id,
+    type: item.type,
+    status: item.status,
+    deletedAt: item.deletedAt,
+    deletedByRole: item.deletedByRole || "",
+    deletedByName: item.deletedByName || "",
+    memberId: item.payload?.memberId || member?.id || "",
+    memberName: item.payload?.memberName || member?.name || member?.username || "",
+    memberUsername: item.payload?.memberUsername || member?.username || "",
+    number: record?.number || "",
+    numberName: record?.name || ""
+  };
+}
+
+function recentDeletedItems(db, ownerId, memberId = "") {
+  return (db.deletedItems || [])
+    .filter(item => item.ownerId === ownerId && (!memberId || item.payload?.memberId === memberId))
+    .slice()
+    .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)))
+    .slice(0, 50)
+    .map(publicDeletedItem);
+}
+
+function addDeletedNumberItem(db, user, record) {
+  db.deletedItems = (db.deletedItems || []).filter(item => !(item.type === "number" && item.payload?.memberId === user.id && item.payload?.record?.number === record.number));
+  db.deletedItems.push({
+    id: crypto.randomUUID(),
+    ownerId: user.ownerId,
+    type: "number",
+    status: "pending_approval",
+    deletedById: user.id,
+    deletedByRole: "member",
+    deletedByName: user.name || user.username,
+    deletedAt: new Date().toISOString(),
+    payload: {
+      memberId: user.id,
+      memberName: user.name || user.username,
+      memberUsername: user.username,
+      record
+    }
+  });
+}
+
 function demoPublicUser(session) {
   return {
     id: "demo-admin",
@@ -952,9 +1030,12 @@ function demoDashboard(url, session) {
   const weekTwo = { id: "demo-week-2", filename: "ornek-hafta-2.xlsx", weekLabel: "Demo - 2. Hafta", rowCount: 142, uploadType: "weekly", createdAt };
   const daily = { id: "demo-day-1", filename: "ornek-gunluk.xlsx", weekLabel: "Bugunun Demo Sonuclari", uploadDate: createdAt.slice(0, 10), rowCount: 38, uploadType: "daily", createdAt };
   const uploads = [weekTwo, weekOne];
-  const selectedUploadId = uploads.some(item => item.id === url.searchParams.get("uploadId")) ? url.searchParams.get("uploadId") : weekTwo.id;
+  const requestedUploadId = url.searchParams.get("uploadId");
+  const selectedUploadId = requestedUploadId === "all" || uploads.some(item => item.id === requestedUploadId)
+    ? requestedUploadId
+    : weekTwo.id;
   const selectedDailyUploadId = daily.id;
-  const members = [
+  const baseMembers = [
     {
       id: "demo-member-1", role: "member", username: "ornek_tipster_1", name: "Ornek Tipster 1", percentage: 30,
       gsmMasked: "0532***1201", gsmList: ["0532***1201", "0533***3402"],
@@ -980,7 +1061,23 @@ function demoDashboard(url, session) {
       allWeeklyTotal: 27150, allWeeklyCalculated: 5430, allWeeklyRowCount: 58
     }
   ];
-  const dailyMembers = members.map((member, index) => ({
+  const members = baseMembers.map(member => {
+    if (selectedUploadId === "all") {
+      return {
+        ...member,
+        rowCount: member.allWeeklyRowCount,
+        total: member.allWeeklyTotal,
+        calculated: member.allWeeklyCalculated
+      };
+    }
+    if (selectedUploadId === weekOne.id) {
+      const rowCount = member.allWeeklyRowCount - member.rowCount;
+      const total = member.allWeeklyTotal - member.total;
+      return { ...member, rowCount, total, calculated: total * member.percentage / 100 };
+    }
+    return member;
+  });
+  const dailyMembers = baseMembers.map((member, index) => ({
     ...member,
     dailyRowCount: [14, 11, 8][index],
     dailyTotal: [7200, 5100, 3650][index],
@@ -988,6 +1085,12 @@ function demoDashboard(url, session) {
   }));
   const totalAmount = members.reduce((sum, item) => sum + item.total, 0);
   const totalCommission = members.reduce((sum, item) => sum + item.calculated, 0);
+  const selectedUploads = selectedUploadId === "all"
+    ? uploads
+    : uploads.filter(item => item.id === selectedUploadId);
+  const selectedWeekLabels = selectedUploads.map(item => item.weekLabel);
+  const selectedRowCount = selectedUploads.reduce((sum, item) => sum + item.rowCount, 0);
+  const selectedMemberOne = members[0];
   const currentAdmin = demoPublicUser(session);
   return {
     role: "admin",
@@ -1021,13 +1124,43 @@ function demoDashboard(url, session) {
       recipients: members.map((member, index) => ({ id: member.id, name: member.name, username: member.username, readAt: index < 2 ? createdAt : "" }))
     }],
     chatThreads: [], chatUnreadCount: 0,
-    unmatchedNumbers: [{ number: "0505***7788", rowCount: 3, total: 1250, uploads: ["Demo - 2. Hafta"] }],
+    unmatchedNumbers: [{
+      number: "0505***7788",
+      rowCount: selectedUploadId === weekOne.id ? 2 : selectedUploadId === "all" ? 5 : 3,
+      total: selectedUploadId === weekOne.id ? 900 : selectedUploadId === "all" ? 2150 : 1250,
+      uploads: selectedWeekLabels
+    }],
     passiveNumbers: [{ memberId: "demo-member-3", memberName: "Ornek Tipster 3", memberUsername: "ornek_tipster_3", number: "0555***4504", name: "Ornek Uye D", passiveSince: "1 hafta", statusText: "Gecen hafta aktifti" }],
     sharedNumbers: [],
-    uploadReports: [{ uploadType: "weekly", weekLabel: "Demo - 2. Hafta", filename: weekTwo.filename, createdAt, rowCount: 142, activeNumberCount: 4, passiveCount: 1, unmatchedCount: 1, totalAmount, totalCommission }],
-    auditLogs: [{ id: "demo-log-1", action: "Haftalik Excel yuklendi", actorName: "Demo Yonetici", actorUsername: "demo", actorRole: "admin", details: "142 satirlik ornek dosya islendi.", createdAt }],
-    payments: [{ id: "demo-payment-1", uploadId: weekTwo.id, paymentDate: createdAt.slice(0, 10), weekLabel: weekTwo.weekLabel, memberName: members[0].name, memberUsername: members[0].username, calculatedAmount: members[0].calculated, paidAmount: 8000, note: "Ornek odeme" }],
-    paymentSummary: { count: 1, totalPaid: 8000, totalCalculated: members[0].calculated },
+    uploadReports: selectedUploads.map(upload => ({
+      uploadType: "weekly",
+      weekLabel: upload.weekLabel,
+      filename: upload.filename,
+      createdAt,
+      rowCount: upload.rowCount,
+      activeNumberCount: 4,
+      passiveCount: upload.id === weekTwo.id ? 1 : 0,
+      unmatchedCount: 1,
+      totalAmount: upload.id === weekTwo.id ? 62500 : 58750,
+      totalCommission: upload.id === weekTwo.id ? 16332.5 : 15382.5
+    })),
+    auditLogs: [{ id: "demo-log-1", action: "Haftalik Excel yuklendi", actorName: "Demo Yonetici", actorUsername: "demo", actorRole: "admin", details: `${selectedRowCount} satirlik ornek veri goruntuleniyor.`, createdAt }],
+    payments: [{
+      id: "demo-payment-1",
+      uploadId: selectedUploadId === "all" ? weekTwo.id : selectedUploadId,
+      paymentDate: createdAt.slice(0, 10),
+      weekLabel: selectedUploadId === "all" ? "Tum demo haftalari" : selectedUploads[0].weekLabel,
+      memberName: selectedMemberOne.name,
+      memberUsername: selectedMemberOne.username,
+      calculatedAmount: selectedMemberOne.calculated,
+      paidAmount: selectedUploadId === weekOne.id ? 7500 : selectedUploadId === "all" ? 15500 : 8000,
+      note: "Ornek odeme"
+    }],
+    paymentSummary: {
+      count: 1,
+      totalPaid: selectedUploadId === weekOne.id ? 7500 : selectedUploadId === "all" ? 15500 : 8000,
+      totalCalculated: selectedMemberOne.calculated
+    },
     selectedUploadId,
     selectedDailyUploadId
   };
@@ -2406,6 +2539,8 @@ function serveStatic(req, res) {
     const types = {
       ".css": "text/css",
       ".js": "text/javascript",
+      ".txt": "text/plain",
+      ".xml": "application/xml",
       ".json": "application/json",
       ".webmanifest": "application/manifest+json",
       ".png": "image/png",
@@ -2413,7 +2548,7 @@ function serveStatic(req, res) {
       ".html": "text/html"
     };
     const type = types[ext] || "application/octet-stream";
-    const charset = type.startsWith("text/") || type.includes("json") || type.includes("svg") ? "; charset=utf-8" : "";
+    const charset = type.startsWith("text/") || type.includes("json") || type.includes("svg") || type.includes("xml") ? "; charset=utf-8" : "";
     const isRevalidatedAsset = ext === ".html" || requested === "/sw.js" || requested === "/manifest.webmanifest";
     const cacheControl = isRevalidatedAsset
       ? "no-cache"
@@ -3062,7 +3197,7 @@ async function handleApi(req, res) {
         .map(payment => publicPayment(db, payment));
       const selectedPayments = ownerPayments.filter(payment => payment.uploadId === uploadId);
       const chatThreads = chatThreadsForAdmin(db, user);
-      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, chatThreads, chatUnreadCount: chatThreads.reduce((sum, item) => sum + item.unreadCount, 0), unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), deletedItems: recentDeletedItems(db, user.id), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, chatThreads, chatUnreadCount: chatThreads.reduce((sum, item) => sum + item.unreadCount, 0), unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -3093,6 +3228,7 @@ async function handleApi(req, res) {
       allWeeklyNumberSummaries: allWeeklySummary.numberSummaries,
       dailySummaries: memberDailySummaries(db, user, user.ownerId),
       passiveNumbers: passiveNumberSummary(db, uploadId, user.ownerId).filter(item => item.memberId === user.id),
+      deletedItems: recentDeletedItems(db, user.ownerId, user.id),
       chatMessages: chatMessagesFor(db, user.ownerId, user.id, user.id),
       chatUnreadCount: unreadChatCountForUser(db, user),
       messages: db.messages
@@ -3138,6 +3274,82 @@ async function handleApi(req, res) {
       "Cache-Control": "no-store"
     });
     fs.createReadStream(filePath).pipe(res);
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/backups/restore-member") {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    if (session.role !== "owner") {
+      sendJson(res, 403, { error: "Tipster geri yukleme islemini yalnizca ana admin yapabilir." });
+      return;
+    }
+
+    const body = JSON.parse((await readBody(req, 1024 * 20)).toString("utf8"));
+    const filename = path.basename(String(body.filename || ""));
+    const wantedUsername = String(body.username || "").trim();
+    const filePath = path.join(BACKUP_DIR, filename);
+    if (!wantedUsername || !filename.endsWith(".json.gz") || !filePath.startsWith(BACKUP_DIR) || !fs.existsSync(filePath)) {
+      sendJson(res, 400, { error: "Gecerli bir yedek ve tipster kullanici adi gerekli." });
+      return;
+    }
+
+    let backupDb;
+    try {
+      const payload = JSON.parse(zlib.gunzipSync(fs.readFileSync(filePath)).toString("utf8"));
+      backupDb = payload?.database;
+    } catch {
+      sendJson(res, 400, { error: "Yedek dosyasi okunamadi." });
+      return;
+    }
+    if (!backupDb || !Array.isArray(backupDb.users)) {
+      sendJson(res, 400, { error: "Yedek dosyasinda gecerli veritabani bulunamadi." });
+      return;
+    }
+
+    const usernameKey = wantedUsername.toLocaleLowerCase("tr-TR");
+    const backupMember = backupDb.users.find(item =>
+      item.role === "member" &&
+      item.ownerId === session.userId &&
+      String(item.username || "").trim().toLocaleLowerCase("tr-TR") === usernameKey
+    );
+    if (!backupMember) {
+      sendJson(res, 404, { error: "Bu yedekte belirtilen tipster bulunamadi." });
+      return;
+    }
+    const alreadyExists = db.users.find(item =>
+      item.id === backupMember.id ||
+      (item.ownerId === session.userId && String(item.username || "").trim().toLocaleLowerCase("tr-TR") === usernameKey)
+    );
+    if (alreadyExists) {
+      sendJson(res, 409, { error: "Bu tipster zaten mevcut. Geri yukleme yapilmadi." });
+      return;
+    }
+
+    const restoredMember = JSON.parse(JSON.stringify(backupMember));
+    let skippedConflicts = [];
+    if (!sharedNumbersEnabledForOwner(db, session.userId)) {
+      const conflicts = getUserGsms(backupMember)
+        .map(number => ({ number, owner: findNumberOwner(db, session.userId, number, backupMember.id) }))
+        .filter(item => item.owner);
+      if (conflicts.length) {
+        skippedConflicts = conflicts.map(item => item.number);
+        const conflictSet = new Set(skippedConflicts);
+        setUserNumberRecords(restoredMember, getUserNumberRecords(backupMember).filter(record => !conflictSet.has(record.number)));
+      }
+    }
+
+    const actor = db.users.find(item => item.id === session.userId);
+    const safetyBackup = createBackupFile(db, "geri-yukleme-oncesi", actor?.username || "admin");
+    db.users.push(restoredMember);
+    const conflictNote = skippedConflicts.length ? `; ${skippedConflicts.length} cakisan numara mevcut tipsterda birakildi` : "";
+    addAuditLog(db, session.userId, actor, "Tipster yedekten geri yuklendi", `${restoredMember.name || restoredMember.username} (${restoredMember.username}) ${filename} yedeginden geri yuklendi${conflictNote}`, {
+      memberId: restoredMember.id,
+      memberName: restoredMember.name || restoredMember.username,
+      memberUsername: restoredMember.username
+    });
+    writeDb(db);
+    sendJson(res, 200, { ok: true, member: publicUser(restoredMember), safetyBackup, skippedConflictCount: skippedConflicts.length });
     return;
   }
 
@@ -3739,6 +3951,23 @@ async function handleApi(req, res) {
       sendJson(res, 404, { error: "Üye bulunamadı." });
       return;
     }
+    db.deletedItems = (db.deletedItems || []).filter(item => !(item.type === "member" && item.payload?.memberId === deletedMember.id));
+    db.deletedItems.push({
+      id: crypto.randomUUID(),
+      ownerId: session.userId,
+      type: "member",
+      status: "ready",
+      deletedById: session.userId,
+      deletedByRole: session.role,
+      deletedByName: db.users.find(item => item.id === session.userId)?.name || "Admin",
+      deletedAt: new Date().toISOString(),
+      payload: {
+        memberId: deletedMember.id,
+        memberName: deletedMember.name || deletedMember.username,
+        memberUsername: deletedMember.username,
+        member: deletedMember
+      }
+    });
     addAuditLog(db, session.userId, db.users.find(item => item.id === session.userId), "Tipster silindi", `${deletedMember?.name || deletedMember?.username || "Tipster"} silindi`, {
       memberId: deletedMember?.id || "",
       memberName: deletedMember?.name || deletedMember?.username || "Tipster",
@@ -3746,6 +3975,71 @@ async function handleApi(req, res) {
     });
     writeDb(db);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && /^\/api\/deleted-items\/[^/]+\/restore$/.test(url.pathname)) {
+    const session = requireStaff(req, res);
+    if (!session) return;
+    const id = url.pathname.split("/")[3];
+    const item = (db.deletedItems || []).find(entry => entry.id === id && entry.ownerId === session.userId);
+    if (!item) {
+      sendJson(res, 404, { error: "Silinen kayit bulunamadi." });
+      return;
+    }
+    const actor = db.users.find(entry => entry.id === session.userId);
+    if (item.type === "member") {
+      const restoredMember = item.payload?.member;
+      if (!restoredMember || db.users.some(entry => entry.id === restoredMember.id || (entry.role === "member" && entry.ownerId === session.userId && entry.username === restoredMember.username))) {
+        sendJson(res, 409, { error: "Bu tipster hesabi zaten mevcut veya kullanici adi kullaniliyor." });
+        return;
+      }
+      if (!sharedNumbersEnabledForOwner(db, session.userId)) {
+        const conflict = getUserGsms(restoredMember)
+          .map(number => findNumberOwner(db, session.userId, number, restoredMember.id))
+          .find(Boolean);
+        if (conflict) {
+          sendJson(res, 409, { error: `Hesaptaki bir numara su anda ${conflict.name || conflict.username} tipsterinda kayitli. Once numara cakismasini duzeltin.` });
+          return;
+        }
+      }
+      db.users.push(restoredMember);
+      addAuditLog(db, session.userId, actor, "Tipster geri yuklendi", `${restoredMember.name || restoredMember.username} Son Silinenler bolumunden geri yuklendi`, {
+        memberId: restoredMember.id,
+        memberName: restoredMember.name || restoredMember.username,
+        memberUsername: restoredMember.username
+      });
+    } else if (item.type === "number") {
+      const member = db.users.find(entry => entry.id === item.payload?.memberId && entry.role === "member" && entry.ownerId === session.userId);
+      const record = item.payload?.record;
+      if (!member || !record?.number) {
+        sendJson(res, 409, { error: "Numaranin ait oldugu tipster hesabi bulunamadi." });
+        return;
+      }
+      if (getUserGsms(member).includes(record.number)) {
+        sendJson(res, 409, { error: "Bu numara tipster hesabinda zaten kayitli." });
+        return;
+      }
+      if (!sharedNumbersEnabledForOwner(db, session.userId)) {
+        const numberOwner = findNumberOwner(db, session.userId, record.number, member.id);
+        if (numberOwner) {
+          sendJson(res, 409, { error: duplicateNumberMessage(numberOwner) });
+          return;
+        }
+      }
+      setUserNumberRecords(member, [...getUserNumberRecords(member), record]);
+      addAuditLog(db, session.userId, actor, "Numara geri yuklendi", `${record.number} numarasi ${member.name || member.username} hesabina admin onayiyla geri yuklendi`, {
+        memberId: member.id,
+        memberName: member.name || member.username,
+        memberUsername: member.username
+      });
+    } else {
+      sendJson(res, 400, { error: "Bu kayit turu geri yuklenemiyor." });
+      return;
+    }
+    db.deletedItems = db.deletedItems.filter(entry => entry.id !== item.id);
+    writeDb(db);
+    sendJson(res, 200, { ok: true, message: item.type === "member" ? "Tipster hesabi geri yuklendi." : "Numara admin onayiyla geri yuklendi." });
     return;
   }
 
@@ -3841,10 +4135,9 @@ async function handleApi(req, res) {
       sendJson(res, 404, { error: "Numara bulunamadi." });
       return;
     }
-    user.numberRecords = records;
-    user.gsmMasked = records[0]?.number || "";
-    user.gsmName = records[0]?.name || "";
-    user.gsmList = records.slice(1).map(record => record.name || record.createdAt ? { number: record.number, name: record.name, createdAt: record.createdAt } : record.number);
+    const deletedRecord = oldRecords.find(item => item.number === gsm);
+    setUserNumberRecords(user, records);
+    addDeletedNumberItem(db, user, deletedRecord);
     addAuditLog(db, user.ownerId, user, "Numara silindi", `${gsm} numarasi silindi`);
     writeDb(db);
     sendJson(res, 200, { ok: true, numbers: getUserGsms(user), numberRecords: getUserNumberRecords(user) });
@@ -3856,16 +4149,18 @@ async function handleApi(req, res) {
     if (!session) return;
     const gsm = normalizeGsm(decodeURIComponent(url.pathname.split("/").pop()));
     const user = db.users.find(item => item.id === session.userId);
-    const numbers = getUserGsms(user).filter(item => item !== gsm);
-    if (numbers.length === getUserGsms(user).length) {
+    const oldRecords = getUserNumberRecords(user);
+    const records = oldRecords.filter(item => item.number !== gsm);
+    if (records.length === oldRecords.length) {
       sendJson(res, 404, { error: "Numara bulunamadı." });
       return;
     }
-    user.gsmMasked = numbers[0] || "";
-    user.gsmList = numbers.slice(1);
+    const deletedRecord = oldRecords.find(item => item.number === gsm);
+    setUserNumberRecords(user, records);
+    addDeletedNumberItem(db, user, deletedRecord);
     addAuditLog(db, user.ownerId, user, "Numara silindi", `${gsm} numarasi silindi`);
     writeDb(db);
-    sendJson(res, 200, { ok: true, numbers });
+    sendJson(res, 200, { ok: true, numbers: getUserGsms(user), numberRecords: getUserNumberRecords(user) });
     return;
   }
 
@@ -4023,6 +4318,7 @@ async function handleApi(req, res) {
 }
 
 const server = http.createServer((req, res) => {
+  applySecurityHeaders(res);
   if (req.url.startsWith("/branding/")) {
     serveBrandingLogo(req, res);
     return;
@@ -4037,3 +4333,4 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`Üye sistemi hazır: http://localhost:${PORT}`);
 });
+
