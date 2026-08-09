@@ -1744,7 +1744,12 @@ function parseExcel(buffer, options = {}) {
       sheet.normalizedHeaders.includes("tutar") &&
       sheet.normalizedHeaders.includes("islem tipi"))
     : [];
-  const sheetsToRead = dailyDetailSheets.length ? dailyDetailSheets : preparedSheets;
+  const dailySummarySheets = options.uploadType === "daily" && selectedDailyHeader
+    ? preparedSheets.filter(sheet => sheet.headers.some(header => String(header).trim() === selectedDailyHeader))
+    : [];
+  const sheetsToRead = dailySummarySheets.length
+    ? dailySummarySheets
+    : (dailyDetailSheets.length ? dailyDetailSheets : preparedSheets);
   for (const { sheetName, rows, headers, normalizedHeaders } of sheetsToRead) {
     const gsmIndex = normalizedHeaders.findIndex(h => h === "oyuncu gsm");
     const totalIndex = normalizedHeaders.findIndex(h => h === "toplam tutar");
@@ -4333,4 +4338,3 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`Üye sistemi hazır: http://localhost:${PORT}`);
 });
-
