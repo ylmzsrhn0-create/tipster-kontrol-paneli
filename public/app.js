@@ -28,12 +28,15 @@ const mobileSelectIds = ["adminUploadSelect", "adminWeeklyResultsSelect", "admin
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    swRegistrationPromise = navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" })
-      .then(async registration => {
-        await registration.update().catch(() => {});
-        return registration;
-      })
-      .catch(() => null);
+    const registerWorker = () => {
+      swRegistrationPromise = navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" })
+        .catch(() => null);
+    };
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(registerWorker, { timeout: 4000 });
+    } else {
+      setTimeout(registerWorker, 2500);
+    }
   });
 }
 
@@ -3307,4 +3310,3 @@ setInterval(() => {
   if (currentDashboard?.role !== "member" || document.hidden) return;
   loadDashboard(selectedUploadId, selectedDailyUploadId).catch(() => {});
 }, 60000);
-

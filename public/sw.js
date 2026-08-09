@@ -1,4 +1,4 @@
-const CACHE_NAME = "tipster-panel-v59-daily-number-breakdown-20260808b";
+const CACHE_NAME = "tipster-panel-v60-faster-startup-20260809a";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -7,12 +7,7 @@ const APP_SHELL = [
   "/app.js?v=daily-number-breakdown-20260808b",
   "/manifest.webmanifest",
   "/icon.svg",
-  "/icon-192.png",
-  "/icon-512.png",
-  "/icon-maskable-512.png",
-  "/apple-touch-icon.png",
-  "/logo-watermark.png",
-  "/watermark.svg"
+  "/logo-watermark.png"
 ];
 
 self.addEventListener("install", event => {
@@ -103,4 +98,3 @@ self.addEventListener("notificationclick", event => {
       })
   );
 });
-
