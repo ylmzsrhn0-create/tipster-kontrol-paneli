@@ -776,12 +776,19 @@ function clearSession(req, res) {
 }
 
 function sendJson(res, status, body) {
+  const payload = Buffer.from(JSON.stringify(body), "utf8");
+  const acceptsGzip = /\bgzip\b/i.test(String(res.req?.headers?.["accept-encoding"] || ""));
+  const shouldCompress = acceptsGzip && payload.length >= 1024;
+  const responseBody = shouldCompress ? zlib.gzipSync(payload) : payload;
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "X-Content-Type-Options": "nosniff",
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    "Vary": "Accept-Encoding",
+    ...(shouldCompress ? { "Content-Encoding": "gzip" } : {}),
+    "Content-Length": responseBody.length
   });
-  res.end(JSON.stringify(body));
+  res.end(responseBody);
 }
 
 function applySecurityHeaders(res) {
@@ -2560,12 +2567,19 @@ function serveStatic(req, res) {
       : requestUrl.searchParams.has("v")
         ? "public, max-age=31536000, immutable"
         : "public, max-age=86400";
+    const compressible = type.startsWith("text/") || type.includes("json") || type.includes("svg") || type.includes("xml") || type.includes("javascript");
+    const acceptsGzip = /\bgzip\b/i.test(String(req.headers["accept-encoding"] || ""));
+    const shouldCompress = compressible && acceptsGzip && data.length >= 1024;
+    const responseBody = shouldCompress ? zlib.gzipSync(data) : data;
     res.writeHead(200, {
       "Content-Type": `${type}${charset}`,
       "X-Content-Type-Options": "nosniff",
-      "Cache-Control": cacheControl
+      "Cache-Control": cacheControl,
+      "Vary": "Accept-Encoding",
+      ...(shouldCompress ? { "Content-Encoding": "gzip" } : {}),
+      "Content-Length": responseBody.length
     });
-    res.end(data);
+    res.end(responseBody);
   });
 }
 
