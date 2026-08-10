@@ -1,13 +1,12 @@
-const CACHE_NAME = "tipster-panel-v61-daily-cycle-20260811a";
+const CACHE_NAME = "tipster-panel-v62-fast-dashboard-20260811a";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=tipster-navigation-20260802a",
-  "/app.js?v=daily-cycle-20260811a",
+  "/style.css?v=fast-dashboard-20260811a",
+  "/app.js?v=fast-dashboard-20260811a",
   "/manifest.webmanifest",
-  "/icon.svg",
-  "/logo-watermark.png"
+  "/icon.svg"
 ];
 
 self.addEventListener("install", event => {

@@ -30,7 +30,8 @@ body::before {
   inset: -90px;
   z-index: 0;
   pointer-events: none;
-  background-image: var(--panel-logo-url, url("/logo-watermark.png"));
+  display: none;
+  background-image: none;
   background-repeat: repeat;
   background-size: 154px 154px;
   background-position: 12px 18px;
@@ -53,8 +54,34 @@ body::after {
 }
 
 body.app-mode::before {
-  opacity: .22;
+  opacity: 0;
 }
+
+.dashboard-loading {
+  width: min(1180px, calc(100% - 32px));
+  margin: 18px auto;
+  padding: 16px 18px;
+  border: 1px solid rgba(23, 105, 170, .18);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 12px 32px rgba(23, 32, 51, .08);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--brand-dark);
+  font-weight: 700;
+}
+
+.dashboard-loading i {
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(23, 105, 170, .2);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: dashboard-spin .75s linear infinite;
+}
+
+@keyframes dashboard-spin { to { transform: rotate(360deg); } }
 
 body.app-mode::after {
   opacity: 1;
@@ -959,7 +986,7 @@ body.login-role-admin .login-card-brand { display: grid; }
 body.login-role-admin .login-card-brand small { color: #8fb3d1; }
 body.login-role-admin .login-card-head { text-align: center; }
 body.login-role-admin .login-card-head .login-eyebrow { color: #5eead4; }
-body.login-role-admin .login-card h1 { color: #fff; }
+body.login-role-admin .login-card h2 { color: #fff; }
 body.login-role-admin .login-card-head p,
 body.login-role-admin #loginHint,
 body.login-role-admin .login-legal-row { color: #96abc2; }
@@ -1234,8 +1261,7 @@ input:focus, select:focus, textarea:focus {
   backdrop-filter: blur(12px);
 }
 
-.topbar strong,
-.topbar h1 { display: block; margin: 0; font-size: 18px; line-height: 1.3; }
+.topbar strong { display: block; font-size: 18px; }
 .topbar span { color: var(--muted); font-size: 13px; }
 
 .top-actions {
@@ -2185,7 +2211,7 @@ details.collapsible.mobile-panel-page > section {
   padding: 10px;
 }
 
-.number-split h3 {
+.number-split h4 {
   align-items: center;
   display: flex;
   font-size: 13px;
@@ -2193,7 +2219,7 @@ details.collapsible.mobile-panel-page > section {
   margin: 0 0 8px;
 }
 
-.number-split h3 span {
+.number-split h4 span {
   color: var(--muted);
   font-size: 12px;
 }
@@ -3054,8 +3080,7 @@ body.mobile-select-open {
   body.login-role-admin .login-view { padding: 24px 12px; }
   .cover { min-height: 520px; padding: 30px; }
   .cover-copy { padding: 64px 0 42px; }
-  .stats, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid, .payment-form, .brand-preview-card { grid-template-columns: 1fr; }
-  .stats-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats, .stats-four, .grid, .owner-grid, .detail-grid, .inline-form, .admin-item, .reset-admin-form, .date-grid, .message-recipient-list, .calculator-body, .report-grid, .payment-form, .brand-preview-card { grid-template-columns: 1fr; }
   .brand-preview-pattern { min-height: 96px; }
   .payment-form .wide-field { grid-column: auto; }
   .section-head { align-items: stretch; flex-direction: column; }
@@ -3156,14 +3181,9 @@ body.mobile-select-open {
     inset: -70px;
     z-index: 0;
     pointer-events: none;
-    background-image: var(--panel-logo-url, url("/logo-watermark.png"));
-    background-repeat: repeat;
-    background-size: 132px 132px;
-    background-position: 8px 12px;
-    opacity: .18;
-    filter: grayscale(1) brightness(1.08) contrast(.72);
-    mix-blend-mode: multiply;
-    transform: rotate(-8deg);
+    display: none;
+    background-image: none;
+    opacity: 0;
   }
 
   details.collapsible.mobile-panel-page > * {
@@ -3279,10 +3299,7 @@ body.mobile-select-open {
     right: 14px;
     width: min(260px, calc(100vw - 28px));
   }
-  .admin-panel, .member-panel, .owner-panel {
-    width: min(100% - 20px, 1200px);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom));
-  }
+  .admin-panel, .member-panel, .owner-panel { width: min(100% - 20px, 1200px); }
   .notification-panel { grid-template-columns: 1fr; }
   .notification-actions { align-items: stretch; flex-direction: column; }
   .notification-actions .small { width: 100%; }
@@ -3290,14 +3307,9 @@ body.mobile-select-open {
   .period-banner { align-items: flex-start; flex-direction: column; }
   .calculator-panel {
     right: 10px;
-    bottom: max(10px, env(safe-area-inset-bottom));
+    bottom: 10px;
     width: calc(100vw - 20px);
     max-height: calc(100dvh - 20px);
-  }
-  .calculator-panel[open] {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding-bottom: env(safe-area-inset-bottom);
   }
   .chat-widget {
     right: 76px;

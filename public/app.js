@@ -223,12 +223,19 @@ function cssUrl(value) {
 }
 
 function applyBranding(branding) {
-  const logoUrl = branding?.logoUrl || "/logo-watermark.png";
-  document.documentElement.style.setProperty("--panel-logo-url", cssUrl(logoUrl));
+  document.documentElement.style.removeProperty("--panel-logo-url");
   const preview = document.getElementById("brandPreviewPattern");
-  if (preview) preview.style.setProperty("--panel-logo-url", cssUrl(logoUrl));
+  if (preview) preview.style.removeProperty("--panel-logo-url");
   const status = document.getElementById("brandLogoStatus");
-  if (status) status.textContent = branding?.hasCustomLogo ? "Ozel logo kullaniliyor" : "Varsayilan amblem kullaniliyor";
+  if (status) status.textContent = "Arka plan logosu kapali";
+}
+
+function setDashboardLoading(loading, text = "Panel verileri hazirlaniyor...") {
+  const banner = document.getElementById("dashboardLoadingBanner");
+  if (!banner) return;
+  banner.classList.toggle("hidden", !loading);
+  const label = banner.querySelector("span");
+  if (label) label.textContent = text;
 }
 
 function setPushMessage(text, ok = false) {
@@ -1213,7 +1220,8 @@ function renderMembers() {
 function renderDailyMembers() {
   const query = document.getElementById("search").value;
   const sort = document.getElementById("adminDailyMemberSort")?.value || "default";
-  const filteredRows = (currentDashboard.dailyMembers || []).filter(member => {
+  const dailyMembers = currentDashboard.dailyMembers || currentDashboard.members || [];
+  const filteredRows = dailyMembers.filter(member => {
     const text = `${member.name} ${member.username} ${numberRecordText(member)}`;
     return searchMatches(text, query);
   });
@@ -1222,9 +1230,9 @@ function renderDailyMembers() {
     : sort === "cycleAsc"
       ? filteredRows.slice().sort((a, b) => Number(a.cycleDailyTotal || 0) - Number(b.cycleDailyTotal || 0))
       : sortByAmount(filteredRows, sort, "dailyTotal");
-  const dailyPlayedTotal = (currentDashboard.dailyMembers || []).reduce((sum, member) => sum + Number(member.dailyTotal || 0), 0);
-  const cyclePlayedTotal = (currentDashboard.dailyMembers || []).reduce((sum, member) => sum + Number(member.cycleDailyTotal || 0), 0);
-  const cycleCalculatedTotal = (currentDashboard.dailyMembers || []).reduce((sum, member) => sum + Number(member.cycleDailyCalculated || 0), 0);
+  const dailyPlayedTotal = dailyMembers.reduce((sum, member) => sum + Number(member.dailyTotal || 0), 0);
+  const cyclePlayedTotal = dailyMembers.reduce((sum, member) => sum + Number(member.cycleDailyTotal || 0), 0);
+  const cycleCalculatedTotal = dailyMembers.reduce((sum, member) => sum + Number(member.cycleDailyCalculated || 0), 0);
   const cycle = currentDashboard.dailyCycle || {};
   document.getElementById("dailyPlayedGrandTotal").textContent = money.format(dailyPlayedTotal);
   document.getElementById("adminDailyCycleSummary").innerHTML = `
@@ -1968,16 +1976,22 @@ function clearNormalCalc() {
 
 async function loadDashboard(uploadId = selectedUploadId, dailyUploadId = selectedDailyUploadId) {
   const requestSequence = ++dashboardRequestSequence;
+  const firstLoad = !currentDashboard;
+  if (firstLoad) setDashboardLoading(true);
   const params = new URLSearchParams();
   if (uploadId) params.set("uploadId", uploadId);
   if (dailyUploadId) params.set("dailyUploadId", dailyUploadId);
   const query = params.toString() ? `?${params.toString()}` : "";
-  const data = await api(`/api/dashboard${query}`);
-  if (requestSequence !== dashboardRequestSequence) return;
-  applyBranding(data.branding);
-  if (data.role === "owner") renderOwner(data);
-  else if (data.role === "admin") renderAdmin(data);
-  else renderMember(data);
+  try {
+    const data = await api(`/api/dashboard${query}`);
+    if (requestSequence !== dashboardRequestSequence) return;
+    applyBranding(data.branding);
+    if (data.role === "owner") renderOwner(data);
+    else if (data.role === "admin") renderAdmin(data);
+    else renderMember(data);
+  } finally {
+    if (requestSequence === dashboardRequestSequence) setDashboardLoading(false);
+  }
 }
 
 async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedUploadId || "all") {
@@ -2762,38 +2776,6 @@ document.getElementById("adminEmailForm").addEventListener("submit", async event
     await loadDashboard(selectedUploadId);
   } catch (error) {
     setMessage("emailMessage", error.message);
-  }
-});
-
-document.getElementById("brandingLogoForm").addEventListener("submit", async event => {
-  event.preventDefault();
-  const fileInput = document.getElementById("brandingLogoFile");
-  const file = fileInput.files?.[0];
-  if (!file) {
-    setMessage("brandingLogoMessage", "Logo dosyasi secilmeli.");
-    return;
-  }
-  try {
-    const form = new FormData();
-    form.append("logo", file);
-    const data = await api("/api/branding/logo", { method: "POST", body: form });
-    applyBranding(data.branding);
-    if (currentDashboard) currentDashboard.branding = data.branding;
-    fileInput.value = "";
-    setMessage("brandingLogoMessage", "Logo kaydedildi. Bu adminin tipsterlarinda da gorunecek.", true);
-  } catch (error) {
-    setMessage("brandingLogoMessage", error.message);
-  }
-});
-
-document.getElementById("brandingLogoRemoveBtn").addEventListener("click", async () => {
-  try {
-    const data = await api("/api/branding/logo", { method: "DELETE" });
-    applyBranding(data.branding);
-    if (currentDashboard) currentDashboard.branding = data.branding;
-    setMessage("brandingLogoMessage", "Varsayilan ambleme donuldu.", true);
-  } catch (error) {
-    setMessage("brandingLogoMessage", error.message);
   }
 });
 

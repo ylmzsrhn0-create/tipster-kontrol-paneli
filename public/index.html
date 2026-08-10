@@ -12,7 +12,6 @@
   <meta property="og:title" content="Tipster Kontrol Paneli">
   <meta property="og:description" content="Tipster performansı, haftalık sonuçlar ve komisyon takibi tek merkezde.">
   <meta property="og:url" content="https://tipsterkontrolpaneli.com/">
-  <meta property="og:image" content="https://tipsterkontrolpaneli.com/logo-watermark.png">
   <meta name="twitter:card" content="summary">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -21,7 +20,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/style.css?v=tipster-navigation-20260802a">
+  <link rel="stylesheet" href="/style.css?v=fast-dashboard-20260811a">
 </head>
 <body class="login-mode login-role-admin">
   <main class="shell">
@@ -103,10 +102,6 @@
     </section>
 
     <section class="app-view hidden" id="appView" inert aria-hidden="true">
-      <div class="page-watermarks" aria-hidden="true">
-        <img class="page-watermark page-watermark-main" src="/logo-watermark.png" alt="">
-        <img class="page-watermark page-watermark-soft" src="/logo-watermark.png" alt="">
-      </div>
       <header class="topbar">
         <div>
           <h1 id="panelTitle">Panel</h1>
@@ -147,6 +142,11 @@
           <button class="ghost small" id="pushTestBtn" type="button">Test bildirimi gonder</button>
         </div>
         <div class="message" id="pushMessage"></div>
+      </section>
+
+      <section class="dashboard-loading hidden" id="dashboardLoadingBanner" role="status" aria-live="polite">
+        <i aria-hidden="true"></i>
+        <span>Panel verileri hazirlaniyor...</span>
       </section>
 
       <div class="admin-panel hidden" id="adminPanel">
@@ -629,33 +629,6 @@
               <button class="primary" type="submit">E-postayi kaydet</button>
             </form>
             <div class="message" id="emailMessage"></div>
-          </div>
-        </details>
-
-        <details class="panel collapsible" id="brandingPanel">
-          <summary>
-            <span>
-              <strong>Panel logosu</strong>
-              <small>Bu adminin panel ve tipster arka plani</small>
-            </span>
-          </summary>
-          <div class="collapsible-body branding-settings">
-            <div class="brand-preview-card">
-              <div class="brand-preview-pattern" id="brandPreviewPattern"></div>
-              <div>
-                <strong id="brandLogoStatus">Varsayilan amblem kullaniliyor</strong>
-                <span>Yukledigin logo arka planda soluk desen olarak gorunur.</span>
-              </div>
-            </div>
-            <form class="inline-form" id="brandingLogoForm">
-              <label>
-                Logo dosyasi
-                <input id="brandingLogoFile" name="logo" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" required>
-              </label>
-              <button class="primary" type="submit">Logoyu yukle</button>
-              <button class="ghost" id="brandingLogoRemoveBtn" type="button">Varsayilana don</button>
-            </form>
-            <div class="message" id="brandingLogoMessage"></div>
           </div>
         </details>
 
@@ -1475,6 +1448,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=daily-cycle-20260811a"></script>
+  <script src="/app.js?v=fast-dashboard-20260811a"></script>
 </body>
 </html>
