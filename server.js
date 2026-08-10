@@ -1893,6 +1893,32 @@ function latestUploadByType(db, ownerId, uploadType) {
   return uploads[uploads.length - 1] || null;
 }
 
+function currentDailyCycle(db, ownerId) {
+  return cachedCalculation(`currentDailyCycle:${ownerId}`, () => {
+    const weeklyUploads = uploadsByType(db, ownerId, "weekly");
+    const latestWeekly = weeklyUploads[weeklyUploads.length - 1] || null;
+    const boundary = latestWeekly ? new Date(latestWeekly.createdAt || 0).getTime() : Number.NEGATIVE_INFINITY;
+    const dailyUploads = uploadsByType(db, ownerId, "daily").filter(upload => {
+      const createdAt = new Date(upload.createdAt || upload.uploadDate || 0).getTime();
+      return Number.isFinite(createdAt) && createdAt > boundary;
+    });
+    return { latestWeekly, dailyUploads };
+  });
+}
+
+function dailyCycleInfo(db, ownerId) {
+  const cycle = currentDailyCycle(db, ownerId);
+  const latestDaily = cycle.dailyUploads[cycle.dailyUploads.length - 1] || null;
+  return {
+    weeklyUploadId: cycle.latestWeekly?.id || "",
+    weeklyLabel: cycle.latestWeekly?.weekLabel || cycle.latestWeekly?.filename || "Ilk haftalik Excel bekleniyor",
+    startedAt: cycle.latestWeekly?.createdAt || "",
+    dailyUploadCount: cycle.dailyUploads.length,
+    dailyUploadIds: cycle.dailyUploads.map(upload => upload.id),
+    latestDailyDate: latestDaily?.uploadDate || (latestDaily ? dateOnly(latestDaily.createdAt) : "")
+  };
+}
+
 function sharedNumbersEnabledForOwner(db, ownerId) {
   const owner = db.users.find(user => user.id === ownerId && isStaff(user));
   return Boolean(owner?.sharedNumbersEnabled);
@@ -2091,6 +2117,19 @@ function memberDailySummaries(db, user, ownerId) {
       calculated: summary.calculated,
       numberSummaries: summary.numberSummaries,
       createdAt: upload.createdAt
+    };
+  });
+}
+
+function memberDailyCycleSummary(db, user, ownerId) {
+  return cachedCalculation(`memberDailyCycleSummary:${user.id}:${ownerId}`, () => {
+    const cycle = currentDailyCycle(db, ownerId);
+    const summaries = cycle.dailyUploads.map(upload => memberSummary(db, user, upload.id));
+    return {
+      ...dailyCycleInfo(db, ownerId),
+      rowCount: summaries.reduce((sum, summary) => sum + summary.rows.length, 0),
+      total: summaries.reduce((sum, summary) => sum + Number(summary.total || 0), 0),
+      calculated: summaries.reduce((sum, summary) => sum + Number(summary.calculated || 0), 0)
     };
   });
 }
@@ -3175,6 +3214,7 @@ async function handleApi(req, res) {
       });
       const dailyMembers = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
         const summary = dailyUploadId ? memberSummary(db, member, dailyUploadId) : { total: 0, calculated: 0, rows: [] };
+        const cycleSummary = memberDailyCycleSummary(db, member, user.id);
         const publicMember = publicUser(member);
         publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalKeys);
         return {
@@ -3182,7 +3222,10 @@ async function handleApi(req, res) {
           numberCount: publicMember.numberRecords.length,
           dailyTotal: summary.total,
           dailyCalculated: summary.calculated,
-          dailyRowCount: summary.rows.length
+          dailyRowCount: summary.rows.length,
+          cycleDailyTotal: cycleSummary.total,
+          cycleDailyCalculated: cycleSummary.calculated,
+          cycleDailyRowCount: cycleSummary.rowCount
         };
       });
       const messages = db.messages
@@ -3216,7 +3259,7 @@ async function handleApi(req, res) {
         .map(payment => publicPayment(db, payment));
       const selectedPayments = ownerPayments.filter(payment => payment.uploadId === uploadId);
       const chatThreads = chatThreadsForAdmin(db, user);
-      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), deletedItems: recentDeletedItems(db, user.id), members, dailyMembers, uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, chatThreads, chatUnreadCount: chatThreads.reduce((sum, item) => sum + item.unreadCount, 0), unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), deletedItems: recentDeletedItems(db, user.id), members, dailyMembers, dailyCycle: dailyCycleInfo(db, user.id), uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, chatThreads, chatUnreadCount: chatThreads.reduce((sum, item) => sum + item.unreadCount, 0), unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -3246,6 +3289,7 @@ async function handleApi(req, res) {
       numberSummaries: summary.numberSummaries,
       allWeeklyNumberSummaries: allWeeklySummary.numberSummaries,
       dailySummaries: memberDailySummaries(db, user, user.ownerId),
+      dailyCycleSummary: memberDailyCycleSummary(db, user, user.ownerId),
       passiveNumbers: passiveNumberSummary(db, uploadId, user.ownerId).filter(item => item.memberId === user.id),
       deletedItems: recentDeletedItems(db, user.ownerId, user.id),
       chatMessages: chatMessagesFor(db, user.ownerId, user.id, user.id),
