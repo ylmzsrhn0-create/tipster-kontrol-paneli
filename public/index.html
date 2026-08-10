@@ -800,8 +800,16 @@
                 <option value="default">Varsayilan</option>
                 <option value="desc">Gunluk toplam: yuksekten dusuge</option>
                 <option value="asc">Gunluk toplam: dusukten yuksege</option>
+                <option value="cycleDesc">Haftalik biriken: yuksekten dusuge</option>
+                <option value="cycleAsc">Haftalik biriken: dusukten yuksege</option>
               </select>
             </label>
+          </div>
+          <div class="mini-stats" id="adminDailyCycleSummary">
+            <span>Donem: Son haftalik Excel sonrasi</span>
+            <span>Yuklenen gunluk: 0</span>
+            <span>Biriken toplam: 0</span>
+            <span>Biriken kazanc: 0</span>
           </div>
           <div class="table-wrap collapsible-table">
             <table>
@@ -814,6 +822,8 @@
                   <th>Gunluk kayit</th>
                   <th>Gunluk toplam</th>
                   <th>Gunluk kazanc</th>
+                  <th>Haftalik biriken toplam</th>
+                  <th>Haftalik biriken kazanc</th>
                 </tr>
               </thead>
               <tbody id="dailyMemberRows"></tbody>
@@ -1027,6 +1037,12 @@
             <span>Secili gun: -</span>
             <span>Toplam oyun: 0</span>
             <span>Kazanc: 0</span>
+          </div>
+          <div class="mini-stats" id="weeklyDailyAccumulationSummary">
+            <span>Haftalik donem: -</span>
+            <span>Yuklenen gunluk: 0</span>
+            <span>Biriken toplam: 0</span>
+            <span>Biriken kazanc: 0</span>
           </div>
           <div class="table-wrap collapsible-table">
             <table>
@@ -1459,6 +1475,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=faster-startup-20260809a"></script>
+  <script src="/app.js?v=daily-cycle-20260811a"></script>
 </body>
 </html>

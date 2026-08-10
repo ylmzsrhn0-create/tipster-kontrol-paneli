@@ -1217,9 +1217,22 @@ function renderDailyMembers() {
     const text = `${member.name} ${member.username} ${numberRecordText(member)}`;
     return searchMatches(text, query);
   });
-  const rows = sortByAmount(filteredRows, sort, "dailyTotal");
+  const rows = sort === "cycleDesc"
+    ? filteredRows.slice().sort((a, b) => Number(b.cycleDailyTotal || 0) - Number(a.cycleDailyTotal || 0))
+    : sort === "cycleAsc"
+      ? filteredRows.slice().sort((a, b) => Number(a.cycleDailyTotal || 0) - Number(b.cycleDailyTotal || 0))
+      : sortByAmount(filteredRows, sort, "dailyTotal");
   const dailyPlayedTotal = (currentDashboard.dailyMembers || []).reduce((sum, member) => sum + Number(member.dailyTotal || 0), 0);
+  const cyclePlayedTotal = (currentDashboard.dailyMembers || []).reduce((sum, member) => sum + Number(member.cycleDailyTotal || 0), 0);
+  const cycleCalculatedTotal = (currentDashboard.dailyMembers || []).reduce((sum, member) => sum + Number(member.cycleDailyCalculated || 0), 0);
+  const cycle = currentDashboard.dailyCycle || {};
   document.getElementById("dailyPlayedGrandTotal").textContent = money.format(dailyPlayedTotal);
+  document.getElementById("adminDailyCycleSummary").innerHTML = `
+    <span>Donem baslangici: ${escapeHtml(cycle.weeklyLabel || "Ilk haftalik Excel bekleniyor")}</span>
+    <span>Yuklenen gunluk: ${Number(cycle.dailyUploadCount || 0)}</span>
+    <span>Biriken toplam: ${money.format(cyclePlayedTotal)}</span>
+    <span>Biriken kazanc: ${money.format(cycleCalculatedTotal)}</span>
+  `;
   document.getElementById("dailyMemberRows").innerHTML = rows.map(member => `
     <tr>
       <td data-label="Tipster"><strong>${escapeHtml(member.name)}</strong><br><span class="muted">${escapeHtml(member.username)}</span></td>
@@ -1229,8 +1242,10 @@ function renderDailyMembers() {
       <td data-label="Gunluk kayit">${member.dailyRowCount || 0}</td>
       <td data-label="Gunluk toplam">${money.format(member.dailyTotal || 0)}</td>
       <td data-label="Gunluk kazanc"><strong>${money.format(member.dailyCalculated || 0)}</strong></td>
+      <td data-label="Haftalik biriken toplam">${money.format(member.cycleDailyTotal || 0)}<br><span class="muted">${Number(member.cycleDailyRowCount || 0)} kayit</span></td>
+      <td data-label="Haftalik biriken kazanc"><strong>${money.format(member.cycleDailyCalculated || 0)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="7">Gunluk kazanc bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="9">Gunluk kazanc bulunamadi.</td></tr>`;
 }
 
 function renderUnmatchedNumbers(numbers) {
@@ -1601,7 +1616,7 @@ function renderMember(data) {
   document.getElementById("myCalculated").textContent = money.format(data.calculated);
   document.getElementById("myRate").textContent = `%${money.format(data.percentage || data.member.percentage || 0)}`;
   renderCommissionRows(data.numberSummaries || []);
-  renderDailyEarnings(data.dailySummaries || []);
+  renderDailyEarnings(data.dailySummaries || [], data.dailyCycleSummary || {});
   renderMemberPassiveNumbers(data.passiveNumbers || []);
   renderDeletedItems(data.deletedItems || [], false);
   renderNumbers(numbers);
@@ -1785,7 +1800,7 @@ function renderCommissionRows(rows) {
   `).join("") || `<tr><td colspan="8">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
 }
 
-function renderDailyEarnings(rows) {
+function renderDailyEarnings(rows, cycleSummary = currentDashboard?.dailyCycleSummary || {}) {
   const activeDailyUploadId = document.getElementById("memberDailyUploadSelect")?.value || selectedDailyUploadId;
   const visibleRows = activeDailyUploadId ? rows.filter(row => row.uploadId === activeDailyUploadId) : rows;
   const selectedRow = visibleRows[0] || null;
@@ -1807,6 +1822,12 @@ function renderDailyEarnings(rows) {
       <span>Kazanc: 0</span>
     `;
   document.getElementById("dailyEarningCount").textContent = visibleRows.length;
+  document.getElementById("weeklyDailyAccumulationSummary").innerHTML = `
+    <span>Donem baslangici: ${escapeHtml(cycleSummary.weeklyLabel || "Ilk haftalik Excel bekleniyor")}</span>
+    <span>Yuklenen gunluk: ${Number(cycleSummary.dailyUploadCount || 0)}</span>
+    <span>Biriken toplam: ${money.format(cycleSummary.total || 0)}</span>
+    <span>Biriken kazanc: ${money.format(cycleSummary.calculated || 0)}</span>
+  `;
   document.getElementById("dailyEarningRows").innerHTML = visibleRows.map(row => `
     <tr>
       <td data-label="Gun"><strong>${escapeHtml(row.label || row.uploadDate || "-")}</strong><br><span class="muted">${escapeHtml(row.uploadDate || "-")}</span></td>
