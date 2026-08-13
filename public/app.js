@@ -60,6 +60,101 @@ const notificationBadge = document.getElementById("notificationBadge");
 const rememberStorageKey = "tipsterPanelRememberLogin";
 const modalReturnFocus = new WeakMap();
 
+function groupSecondaryPanelOptions(panel, labels, title, description, drawerId) {
+  if (!panel || document.getElementById(drawerId)) return;
+  const labelSet = new Set(labels);
+  const options = [...panel.querySelectorAll("details.collapsible")].filter(details => {
+    const label = details.querySelector(":scope > summary strong")?.textContent.trim();
+    return labelSet.has(label);
+  });
+  if (!options.length) return;
+
+  const drawer = document.createElement("details");
+  drawer.className = "panel wide collapsible options-drawer";
+  drawer.id = drawerId;
+  drawer.innerHTML = `
+    <summary>
+      <span><strong>${title}</strong><small>${description}</small></span>
+      <b>${options.length}</b>
+    </summary>
+    <div class="options-drawer-body"></div>
+  `;
+  options[0].before(drawer);
+  const body = drawer.querySelector(".options-drawer-body");
+  options.forEach(option => {
+    option.classList.add("nested-option-panel");
+    body.appendChild(option);
+  });
+}
+
+groupSecondaryPanelOptions(adminPanel, [
+  "Yedekleme ve guvenlik",
+  "Son Silinenler",
+  "Excel yukleme raporlari",
+  "Islem gecmisi",
+  "Ortak numaralar",
+  "Pasif numaralar",
+  "Hesap makinesi",
+  "Gonderilen mesajlar",
+  "Oneri ve sikayet gonder"
+], "Diger yonetim secenekleri", "Daha az kullanilan araclar ve kayitlar", "adminOtherOptions");
+
+groupSecondaryPanelOptions(memberPanel, [
+  "Son Silinenler",
+  "Oneri ve sikayet gonder",
+  "Pasif numaralarim",
+  "Sifremi degistir",
+  "Benim kayitlarim"
+], "Diger secenekler", "Seyrek kullanilan hesap ve kayit islemleri", "memberOtherOptions");
+
+const adminMenuPanelIds = [
+  "adminOverviewPanel",
+  "adminOtherOptions",
+  "adminUnmatchedPanel",
+  "adminPasswordPanel",
+  "adminMessagePanel"
+];
+
+const memberMenuPanelIds = [
+  "memberMessagesPanel",
+  "memberWeeklyPanel",
+  "memberDailyPanel",
+  "memberNumbersPanel",
+  "memberOtherOptions"
+];
+
+const menuManagedPanelIds = [...adminMenuPanelIds, ...memberMenuPanelIds, "pushPanel"];
+
+function closeMenuManagedPanels(exceptId = "") {
+  menuManagedPanelIds.forEach(id => {
+    const panel = document.getElementById(id);
+    if (!panel || id === exceptId) return;
+    panel.open = false;
+    panel.classList.add("hidden");
+  });
+}
+
+closeMenuManagedPanels();
+
+document.querySelectorAll("[data-panel-target]").forEach(button => {
+  button.addEventListener("click", () => {
+    const targetId = button.dataset.panelTarget;
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    closeMenuManagedPanels(targetId);
+    target.classList.remove("hidden");
+    target.open = true;
+    document.getElementById("panelNavMenu").open = false;
+    requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
+  });
+});
+
+document.addEventListener("toggle", event => {
+  const panel = event.target;
+  if (!(panel instanceof HTMLDetailsElement) || !menuManagedPanelIds.includes(panel.id) || panel.open) return;
+  setTimeout(() => panel.classList.add("hidden"), 0);
+}, true);
+
 function openDialog(modal, initialFocus) {
   if (!modal) return;
   const active = document.activeElement;
@@ -411,6 +506,8 @@ function showApp(user) {
   appView.setAttribute("aria-hidden", "false");
   document.body.classList.remove("login-mode");
   document.body.classList.add("app-mode");
+  document.body.classList.toggle("panel-role-admin", user.role !== "member");
+  document.body.classList.toggle("panel-role-member", user.role === "member");
   document.body.classList.toggle("demo-mode", demoModeActive);
   document.getElementById("demoBanner")?.classList.toggle("hidden", !demoModeActive);
   document.getElementById("panelTitle").textContent = demoModeActive ? "Demo Admin Paneli" : user.role === "owner" ? "Ana Admin Paneli" : user.role === "admin" ? "Admin Paneli" : user.name;
@@ -443,6 +540,7 @@ function showLogin() {
   loginView.inert = false;
   loginView.setAttribute("aria-hidden", "false");
   document.body.classList.remove("app-mode");
+  document.body.classList.remove("panel-role-admin", "panel-role-member");
   document.body.classList.remove("demo-mode");
   document.body.classList.add("login-mode");
   document.getElementById("demoBanner")?.classList.add("hidden");
@@ -2219,7 +2317,7 @@ document.getElementById("pushPromptEnableBtn").addEventListener("click", enableP
 document.getElementById("pushPromptLaterBtn").addEventListener("click", () => closePushPrompt(true));
 
 function openKvkk() {
-  document.getElementById("accountMenu")?.removeAttribute("open");
+  document.getElementById("panelNavMenu")?.removeAttribute("open");
   openDialog(kvkkModal, document.getElementById("closeKvkkBtn"));
 }
 
@@ -2267,7 +2365,7 @@ document.getElementById("closeKvkkBtn").addEventListener("click", closeKvkk);
 document.getElementById("openPasswordResetBtn").addEventListener("click", () => openPasswordReset());
 document.getElementById("closePasswordResetBtn").addEventListener("click", () => closePasswordReset());
 document.getElementById("openPushSettingsBtn").addEventListener("click", () => {
-  document.getElementById("accountMenu")?.removeAttribute("open");
+  document.getElementById("panelNavMenu")?.removeAttribute("open");
   document.getElementById("pushPanel")?.scrollIntoView({ behavior: "smooth", block: "center" });
 });
 document.getElementById("openPublicContactBtn").addEventListener("click", openPublicContact);
@@ -2468,7 +2566,7 @@ document.getElementById("adminRows").addEventListener("change", async event => {
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async () => {
-  document.getElementById("accountMenu")?.removeAttribute("open");
+  document.getElementById("panelNavMenu")?.removeAttribute("open");
   await api("/api/logout", { method: "POST" }).catch(() => {});
   csrfToken = "";
   selectedUploadId = "";

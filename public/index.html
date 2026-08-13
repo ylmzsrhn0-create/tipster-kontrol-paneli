@@ -20,7 +20,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/style.css?v=fast-dashboard-20260811a">
+  <link rel="stylesheet" href="/style.css?v=organized-panel-20260813f">
 </head>
 <body class="login-mode login-role-admin">
   <main class="shell">
@@ -107,20 +107,34 @@
           <h1 id="panelTitle">Panel</h1>
           <span id="panelSubtitle">Guvenli oturum acik.</span>
         </div>
+        <details class="panel-nav-menu" id="panelNavMenu">
+          <summary aria-label="Panel bolumleri">
+            <span></span>
+            <span></span>
+            <span></span>
+          </summary>
+          <div class="panel-nav-menu-panel">
+            <strong class="admin-nav-only">Panel bolumleri</strong>
+            <button class="admin-nav-only" type="button" data-panel-target="adminOverviewPanel">Genel durum</button>
+            <button class="admin-nav-only" type="button" data-panel-target="adminOtherOptions">Diger yonetim secenekleri</button>
+            <button class="admin-nav-only" type="button" data-panel-target="adminUnmatchedPanel">Tipstersiz numaralar</button>
+            <button class="admin-nav-only" type="button" data-panel-target="adminPasswordPanel">Admin sifresini degistir</button>
+            <button class="admin-nav-only" type="button" data-panel-target="adminMessagePanel">Tipsterlara mesaj gonder</button>
+            <strong class="member-nav-only">Tipster bolumleri</strong>
+            <button class="member-nav-only" type="button" data-panel-target="memberMessagesPanel">Admin mesajlari</button>
+            <button class="member-nav-only" type="button" data-panel-target="memberWeeklyPanel">Haftalik komisyon ozeti</button>
+            <button class="member-nav-only" type="button" data-panel-target="memberDailyPanel">Gunluk kazancim</button>
+            <button class="member-nav-only" type="button" data-panel-target="memberNumbersPanel">Kayitli numaralarim</button>
+            <button class="member-nav-only" type="button" data-panel-target="memberOtherOptions">Diger secenekler</button>
+            <span class="panel-nav-divider"></span>
+            <strong>Hesap ve guvenlik</strong>
+            <button id="openPushSettingsBtn" type="button" data-panel-target="pushPanel">Telefon bildirimleri</button>
+            <button id="openKvkkPanelBtn" type="button">KVKK Aydinlatma Metni</button>
+            <button class="danger-text" id="logoutBtn" type="button">Cikis yap</button>
+          </div>
+        </details>
         <div class="top-actions">
           <span class="notification-badge hidden" id="notificationBadge">Yeni mesaj</span>
-          <details class="account-menu" id="accountMenu">
-            <summary aria-label="Hesap menusu">
-              <span></span>
-              <span></span>
-              <span></span>
-            </summary>
-            <div class="account-menu-panel">
-              <button class="menu-action" id="openPushSettingsBtn" type="button">Telefon bildirimleri</button>
-              <button class="menu-action" id="openKvkkPanelBtn" type="button">KVKK Aydinlatma Metni</button>
-              <button class="menu-action danger-text" id="logoutBtn" type="button">Cikis yap</button>
-            </div>
-          </details>
         </div>
       </header>
 
@@ -179,15 +193,15 @@
           <button class="primary small" id="adminUploadApplyBtn" type="button">Sec</button>
         </section>
 
-        <section class="panel wide overview-panel">
-          <div class="section-head">
-            <div>
-              <h2>Genel durum</h2>
-              <p class="muted">Secili haftanin ve panel guvenliginin kisa ozeti</p>
-            </div>
-          </div>
-          <div class="overview-grid" id="overviewGrid"></div>
-        </section>
+        <details class="panel wide collapsible overview-panel" id="adminOverviewPanel">
+          <summary>
+            <span>
+              <strong>Genel durum ayrintilari</strong>
+              <small>Eslesen, pasif ve tipstersiz numaralarin kisa ozeti</small>
+            </span>
+          </summary>
+          <div class="overview-grid collapsible-body" id="overviewGrid"></div>
+        </details>
 
         <details class="panel wide collapsible">
           <summary>
@@ -300,7 +314,7 @@
           <div class="message-list grouped-list collapsible-body" id="auditLogRows"></div>
         </details>
 
-        <details class="panel wide collapsible">
+        <details class="panel wide collapsible" id="adminUnmatchedPanel">
           <summary>
             <span>
               <strong>Tipstersiz numaralar</strong>
@@ -589,7 +603,7 @@
           </details>
         </section>
 
-        <details class="panel collapsible">
+        <details class="panel collapsible" id="adminPasswordPanel">
           <summary>
             <span>
               <strong>Admin sifresini degistir</strong>
@@ -632,7 +646,7 @@
           </div>
         </details>
 
-        <details class="panel wide collapsible">
+        <details class="panel wide collapsible" id="adminMessagePanel">
           <summary>
             <span>
               <strong>Tipsterlara mesaj gonder</strong>
@@ -959,7 +973,7 @@
           <button class="primary small" id="memberDailyUploadApplyBtn" type="button">Sec</button>
         </section>
 
-        <details class="panel wide collapsible">
+        <details class="panel wide collapsible" id="memberWeeklyPanel">
           <summary>
             <span>
               <strong>Haftalik komisyon ozeti</strong>
@@ -998,7 +1012,7 @@
           </div>
         </details>
 
-        <details class="panel wide collapsible">
+        <details class="panel wide collapsible" id="memberDailyPanel">
           <summary>
             <span>
               <strong>Gunluk kazancim</strong>
@@ -1110,7 +1124,7 @@
             <div class="message" id="numberMessage"></div>
           </form>
 
-          <details class="panel collapsible">
+          <details class="panel collapsible" id="memberNumbersPanel">
             <summary>
               <span>
                 <strong>Kayitli numaralarim</strong>
@@ -1448,6 +1462,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=fast-dashboard-20260811a"></script>
+  <script src="/app.js?v=organized-panel-20260813f"></script>
 </body>
 </html>
