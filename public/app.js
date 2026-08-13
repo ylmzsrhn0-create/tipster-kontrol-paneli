@@ -2083,13 +2083,17 @@ async function loadDashboard(uploadId = selectedUploadId, dailyUploadId = select
   try {
     const data = await api(`/api/dashboard${query}`);
     if (requestSequence !== dashboardRequestSequence) return;
-    applyBranding(data.branding);
-    if (data.role === "owner") renderOwner(data);
-    else if (data.role === "admin") renderAdmin(data);
-    else renderMember(data);
+    renderDashboardData(data);
   } finally {
     if (requestSequence === dashboardRequestSequence) setDashboardLoading(false);
   }
+}
+
+function renderDashboardData(data) {
+  applyBranding(data.branding);
+  if (data.role === "owner") renderOwner(data);
+  else if (data.role === "admin") renderAdmin(data);
+  else renderMember(data);
 }
 
 async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedUploadId || "all") {
@@ -3394,7 +3398,10 @@ restoreRememberedLogin();
 const initialPasswordResetToken = new URLSearchParams(window.location.search).get("reset") || "";
 if (initialPasswordResetToken) openPasswordReset(initialPasswordResetToken);
 
-api("/api/me").then(async data => {
+const initialMeRequest = api("/api/me");
+const initialDashboardRequest = api("/api/dashboard").catch(() => null);
+
+Promise.all([initialMeRequest, initialDashboardRequest]).then(async ([data, dashboard]) => {
   setDefaultAdminPeriod();
   setDefaultUploadDate();
   setDefaultPaymentDate();
@@ -3404,7 +3411,11 @@ api("/api/me").then(async data => {
   }
   csrfToken = data.csrf;
   showApp(data.user);
-  await loadDashboard("");
+  if (dashboard) {
+    renderDashboardData(dashboard);
+  } else {
+    await loadDashboard("");
+  }
 }).catch(() => {});
 
 setInterval(() => {
