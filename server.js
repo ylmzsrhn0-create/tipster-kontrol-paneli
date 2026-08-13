@@ -598,6 +598,28 @@ function excelCellMatchesDate(value, uploadDate) {
   return Boolean(match && `${match[1]}.${match[2]}.${match[3]}` === wanted);
 }
 
+function excelCouponDate(value, fallbackDate = "") {
+  const raw = String(value ?? "").trim();
+  if (!raw) return validDateOnly(fallbackDate) ? `${fallbackDate}T00:00:00.000Z` : "";
+  if (/^\d+(?:\.\d+)?$/.test(raw)) {
+    const serial = Number(raw);
+    if (Number.isFinite(serial) && serial > 0) {
+      const excelEpoch = Date.UTC(1899, 11, 30);
+      const parsed = new Date(excelEpoch + Math.round(serial * 86400000));
+      if (!Number.isNaN(parsed.getTime())) return `${parsed.toISOString().slice(0, 10)}T00:00:00.000Z`;
+    }
+  }
+  const localMatch = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (localMatch) {
+    const [, day, month, year] = localMatch;
+    const parsed = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+    if (!Number.isNaN(parsed.getTime())) return `${parsed.toISOString().slice(0, 10)}T00:00:00.000Z`;
+  }
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return `${parsed.toISOString().slice(0, 10)}T00:00:00.000Z`;
+  return validDateOnly(fallbackDate) ? `${fallbackDate}T00:00:00.000Z` : "";
+}
+
 function defaultAccessStartsAt(user) {
   return user.accessStartsAt || dateOnly(user.createdAt);
 }
@@ -1791,6 +1813,9 @@ function parseExcel(buffer, options = {}) {
         const totalAmount = options.uploadType === "daily"
           ? (dailyCalculation ? selectedDailyAmount : directDailyAmount)
           : excelTotalAmount;
+        const couponAt = dateIndex === -1
+          ? (options.uploadType === "daily" ? excelCouponDate("", options.uploadDate) : "")
+          : excelCouponDate(row[dateIndex], options.uploadType === "daily" ? options.uploadDate : "");
         return {
           id: crypto.randomUUID(),
           gsmMasked: normalizeGsm(row[gsmIndex]),
@@ -1802,6 +1827,7 @@ function parseExcel(buffer, options = {}) {
             : (options.uploadType === "daily" ? "tutar" : "toplam tutar"),
           daily,
           sheetName,
+          couponAt,
           importedAt: new Date().toISOString()
         };
       })
@@ -2009,6 +2035,14 @@ function sharedRow(row, shareCounts) {
   };
 }
 
+function couponAtForRow(db, row) {
+  const direct = validIsoDate(row?.couponAt);
+  if (direct) return direct;
+  const upload = db.uploads.find(item => item.id === row?.uploadId);
+  if ((upload?.uploadType || "weekly") !== "daily" || !validDateOnly(upload.uploadDate)) return "";
+  return `${upload.uploadDate}T00:00:00.000Z`;
+}
+
 function memberSummary(db, user, uploadId) {
   return cachedCalculation(`memberSummary:${user.id}:${uploadId || "all"}`, () => {
   const ownerId = user.role === "member" ? user.ownerId : user.id;
@@ -2035,6 +2069,7 @@ function memberSummary(db, user, uploadId) {
     const recordNumber = canonicalGsm(record.number);
     const numberRows = (sourceRowsByNumber.get(recordNumber) || []).map(row => sharedRow(row, shareCounts));
     const numberTotal = numberRows.reduce((sum, row) => sum + row.totalAmount, 0);
+    const lastCouponAt = numberRows.map(row => couponAtForRow(db, row)).filter(Boolean).sort().at(-1) || "";
     const shareCount = Math.max(1, shareCounts.get(recordNumber) || 1);
     return {
       number: record.number,
@@ -2044,6 +2079,7 @@ function memberSummary(db, user, uploadId) {
       portalRegistered: portalHasNumber(portalKeys, recordNumber),
       portalStatusText: portalHasNumber(portalKeys, recordNumber) ? "Listede var" : "Listede yok",
       rowCount: numberRows.length,
+      lastCouponAt,
       shareCount,
       total: numberTotal,
       calculated: numberTotal * (Number(user.percentage) || 0) / 100
@@ -2067,11 +2103,13 @@ function memberAllWeeklySummary(db, user) {
     const recordNumber = canonicalGsm(record.number);
     const numberRows = (rowsByNumber.get(recordNumber) || []).map(row => sharedRow(row, shareCounts));
     const numberTotal = numberRows.reduce((sum, row) => sum + row.totalAmount, 0);
+    const lastCouponAt = numberRows.map(row => couponAtForRow(db, row)).filter(Boolean).sort().at(-1) || "";
     return {
       number: record.number,
       name: record.name,
       createdAt: record.createdAt,
       rowCount: numberRows.length,
+      lastCouponAt,
       total: numberTotal,
       calculated: numberTotal * (Number(user.percentage) || 0) / 100
     };
@@ -2114,7 +2152,8 @@ function mergeAllWeeklyNumberTotals(summary, allWeeklySummary) {
         ...item,
         allWeeklyTotal: Number(allWeekly.total || 0),
         allWeeklyRowCount: Number(allWeekly.rowCount || 0),
-        allWeeklyCalculated: Number(allWeekly.calculated || 0)
+        allWeeklyCalculated: Number(allWeekly.calculated || 0),
+        allWeeklyLastCouponAt: allWeekly.lastCouponAt || ""
       };
     })
   };
