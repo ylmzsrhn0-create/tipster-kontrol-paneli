@@ -2050,6 +2050,20 @@ function couponAtForRow(db, row) {
   return `${upload.uploadDate}T00:00:00.000Z`;
 }
 
+function latestCouponDatesByNumber(db, ownerId) {
+  return cachedCalculation(`latestCouponDatesByNumber:${ownerId}`, () => {
+    const latestByNumber = new Map();
+    selectedRows(db, "all", ownerId).forEach(row => {
+      const number = canonicalGsm(row.gsmMasked);
+      const couponAt = couponAtForRow(db, row);
+      if (!number || !couponAt) return;
+      const current = latestByNumber.get(number) || "";
+      if (couponAt > current) latestByNumber.set(number, couponAt);
+    });
+    return latestByNumber;
+  });
+}
+
 function memberSummary(db, user, uploadId) {
   return cachedCalculation(`memberSummary:${user.id}:${uploadId || "all"}`, () => {
   const ownerId = user.role === "member" ? user.ownerId : user.id;
@@ -2058,6 +2072,7 @@ function memberSummary(db, user, uploadId) {
   const sourceRowsByNumber = selectedRowsByNumber(db, uploadId, ownerId);
   const shareCounts = numberShareCounts(db, ownerId);
   const portalKeys = portalNumberMatchSet(db, ownerId);
+  const latestCoupons = latestCouponDatesByNumber(db, ownerId);
   const rows = numbers.flatMap(number => sourceRowsByNumber.get(number) || []).map(row => {
     const shared = sharedRow(row, shareCounts);
     const sharedNumber = canonicalGsm(shared.gsmMasked);
@@ -2076,7 +2091,7 @@ function memberSummary(db, user, uploadId) {
     const recordNumber = canonicalGsm(record.number);
     const numberRows = (sourceRowsByNumber.get(recordNumber) || []).map(row => sharedRow(row, shareCounts));
     const numberTotal = numberRows.reduce((sum, row) => sum + row.totalAmount, 0);
-    const lastCouponAt = numberRows.map(row => couponAtForRow(db, row)).filter(Boolean).sort().at(-1) || "";
+    const lastCouponAt = latestCoupons.get(recordNumber) || "";
     const shareCount = Math.max(1, shareCounts.get(recordNumber) || 1);
     return {
       number: record.number,
@@ -2103,6 +2118,7 @@ function memberAllWeeklySummary(db, user) {
   const numbers = numberRecords.map(record => canonicalGsm(record.number)).filter(Boolean);
   const rowsByNumber = weeklyRowsByNumber(db, ownerId);
   const shareCounts = numberShareCounts(db, ownerId);
+  const latestCoupons = latestCouponDatesByNumber(db, ownerId);
   const rows = numbers.flatMap(number => rowsByNumber.get(number) || []).map(row => sharedRow(row, shareCounts));
   const total = rows.reduce((sum, row) => sum + row.totalAmount, 0);
   const calculated = total * (Number(user.percentage) || 0) / 100;
@@ -2110,7 +2126,7 @@ function memberAllWeeklySummary(db, user) {
     const recordNumber = canonicalGsm(record.number);
     const numberRows = (rowsByNumber.get(recordNumber) || []).map(row => sharedRow(row, shareCounts));
     const numberTotal = numberRows.reduce((sum, row) => sum + row.totalAmount, 0);
-    const lastCouponAt = numberRows.map(row => couponAtForRow(db, row)).filter(Boolean).sort().at(-1) || "";
+    const lastCouponAt = latestCoupons.get(recordNumber) || "";
     return {
       number: record.number,
       name: record.name,
