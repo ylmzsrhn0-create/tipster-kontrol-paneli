@@ -2038,6 +2038,13 @@ function sharedRow(row, shareCounts) {
 function couponAtForRow(db, row) {
   const direct = validIsoDate(row?.couponAt);
   if (direct) return direct;
+  const latestDailyColumn = Object.entries(row?.daily || {})
+    .filter(([, amount]) => Number(amount || 0) !== 0)
+    .map(([date]) => excelCouponDate(date))
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  if (latestDailyColumn) return latestDailyColumn;
   const upload = db.uploads.find(item => item.id === row?.uploadId);
   if ((upload?.uploadType || "weekly") !== "daily" || !validDateOnly(upload.uploadDate)) return "";
   return `${upload.uploadDate}T00:00:00.000Z`;
