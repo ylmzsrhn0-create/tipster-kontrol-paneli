@@ -284,6 +284,13 @@ function formatDateTime(value) {
   return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString("tr-TR");
 }
 
+function formatCouponDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("tr-TR", { timeZone: "UTC" });
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -1852,7 +1859,8 @@ function withAllWeeklyTotals(rows) {
       ...row,
       allWeeklyTotal: Number(row.allWeeklyTotal ?? allRow.total ?? 0),
       allWeeklyRowCount: Number(row.allWeeklyRowCount ?? allRow.rowCount ?? 0),
-      allWeeklyCalculated: Number(row.allWeeklyCalculated ?? allRow.calculated ?? 0)
+      allWeeklyCalculated: Number(row.allWeeklyCalculated ?? allRow.calculated ?? 0),
+      allWeeklyLastCouponAt: row.allWeeklyLastCouponAt || allRow.lastCouponAt || ""
     };
   });
 }
@@ -1899,11 +1907,12 @@ function renderCommissionRows(rows) {
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Kayit">${row.rowCount}</td>
+      <td data-label="Son kupon"><strong>${escapeHtml(formatCouponDate(row.lastCouponAt))}</strong></td>
       <td data-label="Toplam oyun">${money.format(row.total)}</td>
       <td data-label="Yuklu haftalar toplam">${money.format(row.allWeeklyTotal || 0)}<br><span class="muted">${row.allWeeklyRowCount || 0} kayit</span></td>
       <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="8">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="9">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
 }
 
 function renderDailyEarnings(rows, cycleSummary = currentDashboard?.dailyCycleSummary || {}) {
@@ -1951,10 +1960,11 @@ function renderDailyEarnings(rows, cycleSummary = currentDashboard?.dailyCycleSu
       <td data-label="Numara"><strong>${escapeHtml(row.number || "-")}</strong>${numberDateHtml(row)}</td>
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Oynadi" : "Oynamadi"}</span></td>
       <td data-label="Excel kayit">${Number(row.rowCount || 0)}</td>
+      <td data-label="Son kupon"><strong>${escapeHtml(formatCouponDate(row.lastCouponAt))}</strong></td>
       <td data-label="Toplam oyun">${money.format(row.total || 0)}</td>
       <td data-label="Kazanc"><strong>${money.format(row.calculated || 0)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="6">Secili gun icin numara bazli sonuc bulunmuyor.</td></tr>`;
+  `).join("") || `<tr><td colspan="7">Secili gun icin numara bazli sonuc bulunmuyor.</td></tr>`;
   document.getElementById("dailyNumberTotalCount").textContent = numberRows.reduce((sum, row) => sum + Number(row.rowCount || 0), 0);
   document.getElementById("dailyNumberTotalAmount").textContent = money.format(numberRows.reduce((sum, row) => sum + Number(row.total || 0), 0));
   document.getElementById("dailyNumberTotalCommission").textContent = money.format(numberRows.reduce((sum, row) => sum + Number(row.calculated || 0), 0));
@@ -2119,11 +2129,12 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Kayit">${row.rowCount}</td>
+      <td data-label="Son kupon"><strong>${escapeHtml(formatCouponDate(row.lastCouponAt))}</strong></td>
       <td data-label="Pay">${Number(row.shareCount || 1) > 1 ? `${row.shareCount} tipster` : "Tek"}</td>
       <td data-label="Toplam">${money.format(row.total)}</td>
       <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="8">Bu hafta icin eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="9">Bu hafta icin eslesme bulunamadi.</td></tr>`;
   document.getElementById("detailDailyRows").innerHTML = (data.dailySummaries || []).map(row => `
     <tr>
       <td data-label="Gun"><strong>${escapeHtml(row.label || row.uploadDate || "-")}</strong><br><span class="muted">${escapeHtml(row.uploadDate || "-")}</span></td>

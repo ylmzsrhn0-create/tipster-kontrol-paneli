@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v65-fast-shell-20260813h";
+const CACHE_NAME = "tipster-panel-v66-last-coupon-20260813i";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
   "/style.css?v=fast-start-20260813g",
-  "/app.js?v=fast-start-20260813g",
+  "/app.js?v=last-coupon-20260813i",
   "/manifest.webmanifest",
   "/icon.svg"
 ];
