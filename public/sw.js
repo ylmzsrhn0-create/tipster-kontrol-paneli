@@ -1,4 +1,4 @@
-const CACHE_NAME = "tipster-panel-v64-fast-start-20260813g";
+const CACHE_NAME = "tipster-panel-v65-fast-shell-20260813h";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -30,16 +30,18 @@ self.addEventListener("fetch", event => {
   if (event.request.method !== "GET" || url.pathname.startsWith("/api/")) return;
   const isNavigation = event.request.mode === "navigate" || event.request.headers.get("accept")?.includes("text/html");
   if (isNavigation) {
+    const refresh = fetch(event.request).then(response => {
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put("/index.html", copy));
+      }
+      return response;
+    });
+    event.waitUntil(refresh.then(() => undefined).catch(() => undefined));
     event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put("/index.html", copy));
-          }
-          return response;
-        })
-        .catch(() => caches.match("/index.html").then(cached => cached || caches.match("/maintenance.html")))
+      caches.match("/index.html")
+        .then(cached => cached || refresh)
+        .catch(() => caches.match("/maintenance.html"))
     );
     return;
   }
