@@ -1168,17 +1168,72 @@ function renderPaymentPanel() {
   document.getElementById("paymentCount").textContent = summary.count || 0;
   document.getElementById("paymentCalculatedTotal").textContent = money.format(summary.totalCalculated || 0);
   document.getElementById("paymentPaidTotal").textContent = money.format(summary.totalPaid || 0);
-  document.getElementById("paymentRows").innerHTML = payments.map(payment => `
+  const paymentGroups = new Map();
+  const paymentMemberAliases = new Map();
+  members.forEach(member => {
+    paymentGroups.set(member.id, {
+      memberId: member.id,
+      memberName: member.name || member.username || "Tipster",
+      memberUsername: member.username || "",
+      payments: []
+    });
+    if (member.username) paymentMemberAliases.set(`username:${String(member.username).toLocaleLowerCase("tr")}`, member.id);
+    if (member.name) paymentMemberAliases.set(`name:${String(member.name).toLocaleLowerCase("tr")}`, member.id);
+  });
+  payments.forEach(payment => {
+    const usernameAlias = payment.memberUsername
+      ? paymentMemberAliases.get(`username:${String(payment.memberUsername).toLocaleLowerCase("tr")}`)
+      : "";
+    const nameAlias = payment.memberName
+      ? paymentMemberAliases.get(`name:${String(payment.memberName).toLocaleLowerCase("tr")}`)
+      : "";
+    const key = paymentGroups.has(payment.memberId)
+      ? payment.memberId
+      : usernameAlias || nameAlias || payment.memberId || `deleted:${payment.memberUsername || payment.memberName || payment.id}`;
+    const group = paymentGroups.get(key) || {
+      memberId: key,
+      memberName: payment.memberName || "Silinmis tipster",
+      memberUsername: payment.memberUsername || "",
+      payments: []
+    };
+    group.payments.push(payment);
+    paymentGroups.set(key, group);
+  });
+  const groupedPayments = [...paymentGroups.values()]
+    .map(group => ({
+      ...group,
+      payments: group.payments.slice().sort((a, b) =>
+        String(b.paymentDate || b.createdAt).localeCompare(String(a.paymentDate || a.createdAt))
+      ),
+      totalPaid: group.payments.reduce((sum, payment) => sum + Number(payment.paidAmount || 0), 0)
+    }))
+    .sort((a, b) => String(a.memberName).localeCompare(String(b.memberName), "tr"));
+  document.getElementById("paymentRows").innerHTML = groupedPayments.map(group => `
     <tr>
-      <td data-label="Tarih">${escapeHtml(payment.paymentDate || "-")}</td>
-      <td data-label="Hafta">${escapeHtml(payment.weekLabel || "-")}</td>
-      <td data-label="Tipster"><strong>${escapeHtml(payment.memberName || "-")}</strong><br><span class="muted">${escapeHtml(payment.memberUsername || "")}</span></td>
-      <td data-label="Hesap">${money.format(payment.calculatedAmount || 0)}</td>
-      <td data-label="Odenen"><strong>${money.format(payment.paidAmount || 0)}</strong></td>
-      <td data-label="Not">${escapeHtml(payment.note || "-")}</td>
-      <td data-label="Islem"><button class="danger small" data-payment-delete="${escapeHtml(payment.id)}" type="button">Sil</button></td>
+      <td data-label="Tipster">
+        <strong>${escapeHtml(group.memberName)}</strong><br>
+        <span class="muted">${escapeHtml(group.memberUsername)}</span>
+      </td>
+      <td data-label="Haftalara gore odemeler">
+        <div class="payment-history-list">
+          ${group.payments.map(payment => `
+            <div class="payment-history-item">
+              <div>
+                <strong>${escapeHtml(payment.weekLabel || "Hafta")}</strong>
+                <span>${escapeHtml(payment.paymentDate || "-")} · Hesap: ${money.format(payment.calculatedAmount || 0)}</span>
+                ${payment.note ? `<small>${escapeHtml(payment.note)}</small>` : ""}
+              </div>
+              <div class="payment-history-amount">
+                <b>${money.format(payment.paidAmount || 0)}</b>
+                <button class="danger small" data-payment-delete="${escapeHtml(payment.id)}" type="button">Sil</button>
+              </div>
+            </div>
+          `).join("") || `<span class="muted">Henuz odeme kaydi yok.</span>`}
+        </div>
+      </td>
+      <td data-label="Toplam odenen" class="payment-member-total"><strong>${money.format(group.totalPaid)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="7">Henuz odeme kaydi yok.</td></tr>`;
+  `).join("") || `<tr><td colspan="3">Henuz tipster veya odeme kaydi yok.</td></tr>`;
   setDefaultPaymentDate();
 }
 
@@ -1978,12 +2033,15 @@ async function applyMemberDailyUploadSelection() {
 
 function renderNumbers(records) {
   const query = document.getElementById("numberSearch")?.value || "";
+  const searching = query.trim().length > 0;
   const sort = document.getElementById("numberListSort")?.value || "default";
   const rows = sortByAmount(withAllWeeklyTotals(records), sort, "allWeeklyTotal")
     .filter(record => searchMatches(`${record.name || ""} ${record.number || ""}`, query));
-  document.getElementById("numberList").innerHTML = rows.map(record => `
+  document.getElementById("numberList").innerHTML = rows.map(record => {
+    const appearances = record.excelAppearances || [];
+    return `
     <div class="number-item">
-      <div>
+      <div class="number-item-content">
         <strong>${escapeHtml(record.name || "Isimsiz")}</strong>
         <span>${escapeHtml(record.number)}</span>
         ${numberDateHtml(record)}
@@ -1991,12 +2049,27 @@ function renderNumbers(records) {
         <div class="number-total-box">
           <span>Yuklu haftalar toplam</span>
           <strong>${money.format(record.allWeeklyTotal || 0)}</strong>
-          <small>${record.allWeeklyRowCount || 0} Excel kaydi</small>
+          <small>${record.allWeeklyRowCount || 0} Excel kaydi · ${appearances.length} dosyada bulundu</small>
         </div>
+        ${searching ? `
+          <div class="number-excel-history">
+            <strong>Bulundugu Excel dosyalari</strong>
+            ${appearances.map(item => `
+              <div class="number-excel-match">
+                <div>
+                  <b>${escapeHtml(item.label || item.filename || "Excel")}</b>
+                  <small>${item.uploadType === "daily" ? "Gunluk" : "Haftalik"} · ${escapeHtml(item.uploadDate || "-")} · ${Number(item.rowCount || 0)} kayit</small>
+                </div>
+                <strong>${money.format(item.totalAmount || 0)}</strong>
+              </div>
+            `).join("") || `<span class="muted">Bu numara yuklu Excel dosyalarinda bulunamadi.</span>`}
+          </div>
+        ` : ""}
       </div>
       <button class="danger small" type="button" data-number-delete="${encodeURIComponent(record.number)}">Sil</button>
     </div>
-  `).join("") || `<p class="muted">Henuz numara kaydedilmedi.</p>`;
+  `;
+  }).join("") || `<p class="muted">Aramanizla eslesen numara bulunamadi.</p>`;
 }
 
 function calculateAdminTool() {

@@ -2064,6 +2064,57 @@ function latestCouponDatesByNumber(db, ownerId) {
   });
 }
 
+function excelAppearancesByNumber(db, ownerId) {
+  return cachedCalculation(`excelAppearancesByNumber:${ownerId}`, () => {
+    const uploads = new Map(
+      db.uploads
+        .filter(upload => upload.ownerId === ownerId)
+        .map(upload => [upload.id, upload])
+    );
+    const grouped = new Map();
+
+    selectedRows(db, "all", ownerId).forEach(row => {
+      const number = canonicalGsm(row.gsmMasked);
+      const upload = uploads.get(row.uploadId);
+      if (!number || !upload) return;
+
+      const numberUploads = grouped.get(number) || new Map();
+      const current = numberUploads.get(upload.id) || {
+        uploadId: upload.id,
+        filename: upload.filename || "",
+        label: upload.weekLabel || upload.filename || "Excel",
+        uploadType: upload.uploadType || "weekly",
+        uploadDate: validDateOnly(upload.uploadDate)
+          ? upload.uploadDate
+          : validIsoDate(upload.createdAt)
+            ? dateOnly(upload.createdAt)
+            : "",
+        createdAt: upload.createdAt || "",
+        rowCount: 0,
+        totalAmount: 0
+      };
+      current.rowCount += 1;
+      current.totalAmount += Number(row.totalAmount) || 0;
+      numberUploads.set(upload.id, current);
+      grouped.set(number, numberUploads);
+    });
+
+    return new Map([...grouped].map(([number, numberUploads]) => [
+      number,
+      [...numberUploads.values()].sort((a, b) =>
+        String(b.uploadDate || b.createdAt).localeCompare(String(a.uploadDate || a.createdAt))
+      )
+    ]));
+  });
+}
+
+function withExcelAppearances(records, appearancesByNumber) {
+  return (records || []).map(record => ({
+    ...record,
+    excelAppearances: appearancesByNumber.get(canonicalGsm(record.number)) || []
+  }));
+}
+
 function memberSummary(db, user, uploadId) {
   return cachedCalculation(`memberSummary:${user.id}:${uploadId || "all"}`, () => {
   const ownerId = user.role === "member" ? user.ownerId : user.id;
@@ -3331,9 +3382,7 @@ async function handleApi(req, res) {
         .filter(payment => payment.ownerId === user.id)
         .slice()
         .sort((a, b) => String(b.paymentDate || b.createdAt).localeCompare(String(a.paymentDate || a.createdAt)));
-      const payments = ownerPayments
-        .slice(0, 120)
-        .map(payment => publicPayment(db, payment));
+      const payments = ownerPayments.map(payment => publicPayment(db, payment));
       const selectedPayments = ownerPayments.filter(payment => payment.uploadId === uploadId);
       const chatThreads = chatThreadsForAdmin(db, user);
       const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), deletedItems: recentDeletedItems(db, user.id), members, dailyCycle: dailyCycleInfo(db, user.id), uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, chatThreads, chatUnreadCount: chatThreads.reduce((sum, item) => sum + item.unreadCount, 0), unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
@@ -3351,7 +3400,10 @@ async function handleApi(req, res) {
     const allWeeklySummary = memberPrivateSummary(memberAllWeeklySummary(db, user));
     const summary = mergeAllWeeklyNumberTotals(memberPrivateSummary(memberSummary(db, user, uploadId)), allWeeklySummary);
     const publicMember = publicUser(user);
-    publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalKeys);
+    publicMember.numberRecords = withExcelAppearances(
+      withPortalStatus(publicMember.numberRecords, currentPortalKeys),
+      excelAppearancesByNumber(db, user.ownerId)
+    );
     const portalComparison = portalComparisonSummary(db, user.ownerId, user.id);
     sendJson(res, 200, {
       role: "member",

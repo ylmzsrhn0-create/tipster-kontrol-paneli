@@ -2405,6 +2405,93 @@ details.collapsible.mobile-panel-page > section {
   margin: 14px 0;
 }
 
+.payment-history-list {
+  display: grid;
+  gap: 8px;
+  min-width: 420px;
+}
+
+.payment-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid #dfe7f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.payment-history-item span,
+.payment-history-item small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.payment-history-amount {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.payment-history-amount b,
+.payment-member-total strong {
+  color: var(--brand-dark);
+  font-size: 17px;
+  white-space: nowrap;
+}
+
+.number-item-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.number-excel-history {
+  width: min(680px, 100%);
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #cfe0ef;
+  border-radius: 8px;
+  background: #f3f8fc;
+}
+
+.number-excel-history > strong {
+  color: #254b6c;
+  font-size: 12px;
+}
+
+.number-excel-match {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.number-excel-match b,
+.number-excel-match small {
+  display: block;
+}
+
+.number-excel-match small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.number-excel-match > strong {
+  flex: 0 0 auto;
+  color: var(--brand-dark);
+  font-size: 13px;
+}
+
 .table-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3249,6 +3336,11 @@ body.mobile-select-open {
 }
 
 @media (max-width: 760px) {
+  .payment-history-list { min-width: 0; }
+  .payment-history-item,
+  .number-excel-match { align-items: stretch; flex-direction: column; }
+  .payment-history-amount { justify-content: space-between; }
+  .number-item { align-items: flex-start; }
   .options-drawer-body { grid-template-columns: 1fr; padding: 10px; }
   .options-drawer > summary { min-height: 66px; align-items: center; flex-wrap: nowrap; }
   .options-drawer > summary > span { min-width: 0; }
