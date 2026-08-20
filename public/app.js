@@ -688,7 +688,7 @@ function adminNumberSplitHtml(member, scope, query = "") {
     ? `Listede ${totalRegistered} / Listede yok ${totalUnregistered}`
     : "Bayi Portal listesi yok";
   return `
-    <div class="admin-number-toggle">
+    <div class="admin-number-toggle ${expanded ? "expanded" : ""}">
       <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
         ${query ? `${records.length} eslesen numara` : `${allRecords.length} numarayi goster`} - ${portalSummary}
       </button>
@@ -720,7 +720,7 @@ function adminNumberRecordsToggleHtml(member, scope) {
     ? ` - Listede ${registeredCount} / Listede yok ${unregisteredCount}`
     : " - Bayi Portal listesi yok";
   return `
-    <div class="admin-number-toggle">
+    <div class="admin-number-toggle ${expanded ? "expanded" : ""}">
       <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
         ${expanded ? `Numaralari gizle${portalSummary}` : `${records.length} numarayi goster${portalSummary}`}
       </button>

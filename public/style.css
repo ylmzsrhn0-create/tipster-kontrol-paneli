@@ -2413,6 +2413,7 @@ details.collapsible.mobile-panel-page > section {
 .admin-number-performance-metrics small,
 .admin-number-performance-metrics strong {
   display: block;
+  white-space: nowrap;
 }
 
 .admin-number-performance-metrics small,
@@ -2426,7 +2427,6 @@ details.collapsible.mobile-panel-page > section {
   margin-top: 3px;
   color: var(--brand-dark);
   font-size: 12px;
-  overflow-wrap: anywhere;
 }
 
 .number-split h4 {
@@ -3157,6 +3157,15 @@ td:last-child, th:last-child { text-align: right; }
   min-width: 150px;
 }
 
+.admin-number-toggle.expanded {
+  width: min(980px, 72vw);
+  max-width: none;
+}
+
+.admin-number-toggle.expanded .number-split {
+  grid-template-columns: repeat(2, minmax(420px, 1fr));
+}
+
 .number-toggle-btn {
   justify-self: start;
 }
@@ -3665,6 +3674,8 @@ body.mobile-select-open {
   .search-actions .small { width: 100%; }
   .split-report { grid-template-columns: 1fr; }
   .number-split { grid-template-columns: 1fr; }
+  .admin-number-toggle.expanded { width: 100%; min-width: 0; }
+  .admin-number-toggle.expanded .number-split { grid-template-columns: 1fr; }
   .admin-number-performance-metrics { grid-template-columns: 1fr; }
   .upload-forms { grid-template-columns: 1fr; }
   .panel { padding: 18px; }
