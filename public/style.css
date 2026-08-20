@@ -2372,6 +2372,63 @@ details.collapsible.mobile-panel-page > section {
   padding: 10px;
 }
 
+.admin-number-performance {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #dce5ee;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.admin-number-performance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-number-performance-head > span:first-child {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.admin-number-performance-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.admin-number-performance-metrics > span {
+  min-width: 0;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: #f4f7fa;
+}
+
+.admin-number-performance-metrics small,
+.admin-number-performance-metrics strong {
+  display: block;
+}
+
+.admin-number-performance-metrics small,
+.admin-number-performance-counts {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.admin-number-performance-metrics strong {
+  margin-top: 3px;
+  color: var(--brand-dark);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .number-split h4 {
   align-items: center;
   display: flex;
@@ -3608,6 +3665,7 @@ body.mobile-select-open {
   .search-actions .small { width: 100%; }
   .split-report { grid-template-columns: 1fr; }
   .number-split { grid-template-columns: 1fr; }
+  .admin-number-performance-metrics { grid-template-columns: 1fr; }
   .upload-forms { grid-template-columns: 1fr; }
   .panel { padding: 18px; }
   .modal { padding: 10px; }

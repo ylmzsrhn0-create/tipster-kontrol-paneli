@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v67-payment-history-20260817b";
+const CACHE_NAME = "tipster-panel-v68-admin-number-status-20260820a";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=payment-history-20260817b",
-  "/app.js?v=payment-history-20260817b",
+  "/style.css?v=admin-number-status-20260820a",
+  "/app.js?v=admin-number-status-20260820a",
   "/manifest.webmanifest",
   "/icon.svg"
 ];

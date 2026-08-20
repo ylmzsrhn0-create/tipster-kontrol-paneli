@@ -656,8 +656,18 @@ function filteredNumberRecords(member, query = "") {
 
 function numberMiniList(records, emptyText) {
   return records.map(record => `
-    <div class="number-status-line">
-      <span>${escapeHtml(record.name ? `${record.name} (${record.number})` : record.number)}${numberDateHtml(record)}</span>
+    <div class="admin-number-performance">
+      <div class="admin-number-performance-head">
+        <span>${escapeHtml(record.name ? `${record.name} (${record.number})` : record.number)}</span>
+        <span class="status-pill ${record.active ? "active" : "passive"}">${record.active ? "Aktif" : "Pasif"}</span>
+      </div>
+      <div class="admin-number-performance-metrics">
+        <span><small>Son oyun</small><strong>${escapeHtml(formatCouponDate(record.lastCouponAt))}</strong></span>
+        <span><small>Secili hafta</small><strong>${money.format(record.weeklyTotal || 0)}</strong></span>
+        <span><small>Tum haftalar</small><strong>${money.format(record.allWeeklyTotal || 0)}</strong></span>
+      </div>
+      <small class="admin-number-performance-counts">Haftalik ${Number(record.weeklyRowCount || 0)} kayit · Toplam ${Number(record.allWeeklyRowCount || 0)} kayit</small>
+      ${numberDateHtml(record)}
     </div>
   `).join("") || `<p class="muted mini-empty">${escapeHtml(emptyText)}</p>`;
 }

@@ -1069,8 +1069,8 @@ function demoDashboard(url, session) {
       id: "demo-member-1", role: "member", username: "ornek_tipster_1", name: "Ornek Tipster 1", percentage: 30,
       gsmMasked: "0532***1201", gsmList: ["0532***1201", "0533***3402"],
       numberRecords: [
-        { number: "0532***1201", name: "Ornek Uye A", portalRegistered: true, createdAt },
-        { number: "0533***3402", name: "Ornek Uye B", portalRegistered: false, createdAt }
+        { number: "0532***1201", name: "Ornek Uye A", portalRegistered: true, createdAt, active: true, weeklyTotal: 28450, weeklyRowCount: 47, allWeeklyTotal: 35000, allWeeklyRowCount: 55, lastCouponAt: createdAt },
+        { number: "0533***3402", name: "Ornek Uye B", portalRegistered: false, createdAt, active: false, weeklyTotal: 0, weeklyRowCount: 0, allWeeklyTotal: 20200, allWeeklyRowCount: 36, lastCouponAt: new Date(Date.now() - 7 * 86400000).toISOString() }
       ],
       numberCount: 2, rowCount: 47, total: 28450, calculated: 8535,
       allWeeklyTotal: 55200, allWeeklyCalculated: 16560, allWeeklyRowCount: 91
@@ -1078,14 +1078,14 @@ function demoDashboard(url, session) {
     {
       id: "demo-member-2", role: "member", username: "ornek_tipster_2", name: "Ornek Tipster 2", percentage: 25,
       gsmMasked: "0542***2203", gsmList: ["0542***2203"],
-      numberRecords: [{ number: "0542***2203", name: "Ornek Uye C", portalRegistered: true, createdAt }],
+      numberRecords: [{ number: "0542***2203", name: "Ornek Uye C", portalRegistered: true, createdAt, active: true, weeklyTotal: 19750, weeklyRowCount: 36, allWeeklyTotal: 38900, allWeeklyRowCount: 72, lastCouponAt: createdAt }],
       numberCount: 1, rowCount: 36, total: 19750, calculated: 4937.5,
       allWeeklyTotal: 38900, allWeeklyCalculated: 9725, allWeeklyRowCount: 72
     },
     {
       id: "demo-member-3", role: "member", username: "ornek_tipster_3", name: "Ornek Tipster 3", percentage: 20,
       gsmMasked: "0555***4504", gsmList: ["0555***4504"],
-      numberRecords: [{ number: "0555***4504", name: "Ornek Uye D", portalRegistered: true, createdAt }],
+      numberRecords: [{ number: "0555***4504", name: "Ornek Uye D", portalRegistered: true, createdAt, active: true, weeklyTotal: 14300, weeklyRowCount: 29, allWeeklyTotal: 27150, allWeeklyRowCount: 58, lastCouponAt: createdAt }],
       numberCount: 1, rowCount: 29, total: 14300, calculated: 2860,
       allWeeklyTotal: 27150, allWeeklyCalculated: 5430, allWeeklyRowCount: 58
     }
@@ -2113,6 +2113,29 @@ function withExcelAppearances(records, appearancesByNumber) {
     ...record,
     excelAppearances: appearancesByNumber.get(canonicalGsm(record.number)) || []
   }));
+}
+
+function withNumberPerformance(records, weeklySummaries, allWeeklySummaries) {
+  const weeklyByNumber = new Map(
+    (weeklySummaries || []).map(item => [canonicalGsm(item.number), item])
+  );
+  const allWeeklyByNumber = new Map(
+    (allWeeklySummaries || []).map(item => [canonicalGsm(item.number), item])
+  );
+  return (records || []).map(record => {
+    const number = canonicalGsm(record.number);
+    const weekly = weeklyByNumber.get(number) || {};
+    const allWeekly = allWeeklyByNumber.get(number) || {};
+    return {
+      ...record,
+      active: Boolean(weekly.active),
+      weeklyTotal: Number(weekly.total) || 0,
+      weeklyRowCount: Number(weekly.rowCount) || 0,
+      allWeeklyTotal: Number(allWeekly.total) || 0,
+      allWeeklyRowCount: Number(allWeekly.rowCount) || 0,
+      lastCouponAt: weekly.lastCouponAt || allWeekly.lastCouponAt || ""
+    };
+  });
 }
 
 function memberSummary(db, user, uploadId) {
@@ -3338,7 +3361,11 @@ async function handleApi(req, res) {
         const dailySummary = dailyUploadId ? memberSummary(db, member, dailyUploadId) : { total: 0, calculated: 0, rows: [] };
         const cycleSummary = memberDailyCycleSummary(db, member, user.id);
         const publicMember = publicUser(member);
-        publicMember.numberRecords = withPortalStatus(publicMember.numberRecords, currentPortalKeys);
+        publicMember.numberRecords = withNumberPerformance(
+          withPortalStatus(publicMember.numberRecords, currentPortalKeys),
+          summary.numberSummaries,
+          allWeeklySummary.numberSummaries
+        );
         return {
           ...publicMember,
           numberCount: publicMember.numberRecords.length,
