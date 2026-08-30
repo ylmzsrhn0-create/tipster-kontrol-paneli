@@ -1,12 +1,12 @@
-const CACHE_NAME = "tipster-panel-v69-wide-number-cards-20260820a";
+const CACHE_NAME = "tipster-panel-v70-performance-20260830a";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=wide-number-cards-20260820a",
-  "/app.js?v=wide-number-cards-20260820a",
+  "/style.css?v=performance-20260830a",
+  "/app.js?v=performance-20260830a",
   "/manifest.webmanifest",
-  "/icon.svg"
+  "/icon-192.png"
 ];
 
 self.addEventListener("install", event => {

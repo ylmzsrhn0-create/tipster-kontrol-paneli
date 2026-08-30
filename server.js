@@ -107,6 +107,8 @@ function defaultDb() {
 
 let dbCache = null;
 const calculationCache = new Map();
+const dashboardPayloadCache = new Map();
+const jsonResponseCache = new WeakMap();
 let deferredDbWriteTimer = null;
 
 function cachedCalculation(key, calculate) {
@@ -141,12 +143,15 @@ function writeDb(db) {
   }
   dbCache = db;
   calculationCache.clear();
+  dashboardPayloadCache.clear();
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
   createDailyBackup(db);
 }
 
 function writeDbAfterLogin(db) {
   dbCache = db;
+  calculationCache.clear();
+  dashboardPayloadCache.clear();
   if (deferredDbWriteTimer) clearTimeout(deferredDbWriteTimer);
   deferredDbWriteTimer = setTimeout(() => {
     deferredDbWriteTimer = null;
@@ -797,11 +802,18 @@ function clearSession(req, res) {
   res.setHeader("Set-Cookie", "sid=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0");
 }
 
-function sendJson(res, status, body) {
-  const payload = Buffer.from(JSON.stringify(body), "utf8");
+function sendJson(res, status, body, cacheResponse = false) {
+  const cacheable = cacheResponse && body && typeof body === "object";
+  let cached = cacheable ? jsonResponseCache.get(body) : null;
+  if (!cached) {
+    cached = { payload: Buffer.from(JSON.stringify(body), "utf8"), gzip: null };
+    if (cacheable) jsonResponseCache.set(body, cached);
+  }
+  const payload = cached.payload;
   const acceptsGzip = /\bgzip\b/i.test(String(res.req?.headers?.["accept-encoding"] || ""));
   const shouldCompress = acceptsGzip && payload.length >= 1024;
-  const responseBody = shouldCompress ? zlib.gzipSync(payload) : payload;
+  if (shouldCompress && !cached.gzip) cached.gzip = zlib.gzipSync(payload);
+  const responseBody = shouldCompress ? cached.gzip : payload;
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "X-Content-Type-Options": "nosniff",
@@ -3354,6 +3366,12 @@ async function handleApi(req, res) {
     const uploadId = url.searchParams.get("uploadId") || latestUpload?.id || "all";
     const dailyUploadId = url.searchParams.get("dailyUploadId") || latestDailyUpload?.id || "";
     const uploads = visibleUploads.slice().reverse();
+    const dashboardCacheKey = `${user.id}:${uploadId}:${dailyUploadId}`;
+    const cachedDashboard = dashboardPayloadCache.get(dashboardCacheKey);
+    if (cachedDashboard) {
+      sendJson(res, 200, cachedDashboard, true);
+      return;
+    }
     if (isStaff(user)) {
       const members = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
         const summary = memberSummary(db, member, uploadId);
@@ -3421,7 +3439,8 @@ async function handleApi(req, res) {
           .slice(0, 80)
           .map(publicFeedback);
       }
-      sendJson(res, 200, payload);
+      dashboardPayloadCache.set(dashboardCacheKey, payload);
+      sendJson(res, 200, payload, true);
       return;
     }
     const allWeeklySummary = memberPrivateSummary(memberAllWeeklySummary(db, user));
@@ -3432,7 +3451,7 @@ async function handleApi(req, res) {
       excelAppearancesByNumber(db, user.ownerId)
     );
     const portalComparison = portalComparisonSummary(db, user.ownerId, user.id);
-    sendJson(res, 200, {
+    const payload = {
       role: "member",
       branding: brandingForUser(db, user),
       member: publicMember,
@@ -3462,7 +3481,9 @@ async function handleApi(req, res) {
       portalComparison,
       selectedUploadId: uploadId,
       selectedDailyUploadId: dailyUploadId
-    });
+    };
+    dashboardPayloadCache.set(dashboardCacheKey, payload);
+    sendJson(res, 200, payload, true);
     return;
   }
 

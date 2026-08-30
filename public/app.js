@@ -687,12 +687,8 @@ function adminNumberSplitHtml(member, scope, query = "") {
   const portalSummary = hasPortalList
     ? `Listede ${totalRegistered} / Listede yok ${totalUnregistered}`
     : "Bayi Portal listesi yok";
-  return `
-    <div class="admin-number-toggle ${expanded ? "expanded" : ""}">
-      <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
-        ${query ? `${records.length} eslesen numara` : `${allRecords.length} numarayi goster`} - ${portalSummary}
-      </button>
-      <div class="admin-number-list ${expanded ? "" : "hidden"}">
+  const expandedContent = expanded ? `
+      <div class="admin-number-list">
         <div class="number-split">
           <section>
             <h3>Listede var <span>${registered.length}</span></h3>
@@ -704,6 +700,13 @@ function adminNumberSplitHtml(member, scope, query = "") {
           </section>
         </div>
       </div>
+  ` : "";
+  return `
+    <div class="admin-number-toggle ${expanded ? "expanded" : ""}">
+      <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
+        ${query ? `${records.length} eslesen numara` : `${allRecords.length} numarayi goster`} - ${portalSummary}
+      </button>
+      ${expandedContent}
     </div>
   `;
 }
@@ -3385,8 +3388,8 @@ function toggleAdminNumberList(button) {
   if (!key) return;
   if (expandedAdminNumbers.has(key)) expandedAdminNumbers.delete(key);
   else expandedAdminNumbers.add(key);
-  renderMembers();
-  renderDailyMembers();
+  if (key.startsWith("daily:")) renderDailyMembers();
+  else renderMembers();
 }
 
 document.getElementById("memberRows").addEventListener("click", async event => {
