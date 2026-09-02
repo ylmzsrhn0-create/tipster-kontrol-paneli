@@ -637,6 +637,12 @@ function numberDateHtml(record) {
   return record?.createdAt ? `<small class="number-date">Kayit: ${escapeHtml(formatDateTime(record.createdAt))}</small>` : "";
 }
 
+function lastCouponDateHtml(record) {
+  const value = record?.lastCouponAt || record?.allWeeklyLastCouponAt || "";
+  const text = value ? formatCouponDate(value) : "Tarih bilgisi yok";
+  return `<small class="number-date">Son kupon: ${escapeHtml(text)}</small>`;
+}
+
 function numberRecordsHtml(member) {
   const records = numberRecordsOf(member);
   if (!records.length) return "-";
@@ -2058,6 +2064,7 @@ function renderNumbers(records) {
         <strong>${escapeHtml(record.name || "Isimsiz")}</strong>
         <span>${escapeHtml(record.number)}</span>
         ${numberDateHtml(record)}
+        ${lastCouponDateHtml(record)}
         ${portalStatusPill(record)}
         <div class="number-total-box">
           <span>Yuklu haftalar toplam</span>
