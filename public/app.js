@@ -312,11 +312,16 @@ function api(path, options = {}) {
   }
   const headers = options.headers || {};
   if (csrfToken && options.method && options.method !== "GET") headers["X-CSRF-Token"] = csrfToken;
-  return fetch(path, { ...options, headers }).then(async response => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
+  return fetch(path, { ...options, headers, signal: controller.signal }).then(async response => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Islem basarisiz.");
     return data;
-  });
+  }).catch(error => {
+    if (error?.name === "AbortError") throw new Error("Sunucu 45 saniye icinde yanit vermedi. Lutfen tekrar deneyin.");
+    throw error;
+  }).finally(() => clearTimeout(timeout));
 }
 
 function cssUrl(value) {
@@ -3502,10 +3507,7 @@ restoreRememberedLogin();
 const initialPasswordResetToken = new URLSearchParams(window.location.search).get("reset") || "";
 if (initialPasswordResetToken) openPasswordReset(initialPasswordResetToken);
 
-const initialMeRequest = api("/api/me");
-const initialDashboardRequest = api("/api/dashboard").catch(() => null);
-
-Promise.all([initialMeRequest, initialDashboardRequest]).then(async ([data, dashboard]) => {
+api("/api/me").then(async data => {
   setDefaultAdminPeriod();
   setDefaultUploadDate();
   setDefaultPaymentDate();
@@ -3515,12 +3517,8 @@ Promise.all([initialMeRequest, initialDashboardRequest]).then(async ([data, dash
   }
   csrfToken = data.csrf;
   showApp(data.user);
-  if (dashboard) {
-    renderDashboardData(dashboard);
-  } else {
-    await loadDashboard("");
-  }
-}).catch(() => {});
+  await loadDashboard("");
+}).catch(error => setMessage("loginMessage", error.message));
 
 setInterval(() => {
   if (currentDashboard?.role !== "member" || document.hidden) return;

@@ -2,6 +2,7 @@ services:
   - type: web
     name: tipster-kontrol-paneli
     runtime: docker
+    healthCheckPath: /api/health
     envVars:
       - key: PORT
         value: 3000

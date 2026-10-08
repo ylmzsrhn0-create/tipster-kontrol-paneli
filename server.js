@@ -109,13 +109,32 @@ let dbCache = null;
 const calculationCache = new Map();
 const dashboardPayloadCache = new Map();
 const jsonResponseCache = new WeakMap();
+const CALCULATION_CACHE_MAX_ENTRIES = 180;
+const DASHBOARD_CACHE_MAX_ENTRIES = 8;
 let deferredDbWriteTimer = null;
 
-function cachedCalculation(key, calculate) {
-  if (calculationCache.has(key)) return calculationCache.get(key);
-  const value = calculate();
-  calculationCache.set(key, value);
+function lruGet(cache, key) {
+  if (!cache.has(key)) return undefined;
+  const value = cache.get(key);
+  cache.delete(key);
+  cache.set(key, value);
   return value;
+}
+
+function lruSet(cache, key, value, maxEntries) {
+  if (cache.has(key)) cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > maxEntries) {
+    cache.delete(cache.keys().next().value);
+  }
+  return value;
+}
+
+function cachedCalculation(key, calculate) {
+  const cached = lruGet(calculationCache, key);
+  if (cached !== undefined) return cached;
+  const value = calculate();
+  return lruSet(calculationCache, key, value, CALCULATION_CACHE_MAX_ENTRIES);
 }
 
 function readDb() {
@@ -144,18 +163,17 @@ function writeDb(db) {
   dbCache = db;
   calculationCache.clear();
   dashboardPayloadCache.clear();
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  fs.writeFileSync(DB_FILE, JSON.stringify(db));
   createDailyBackup(db);
 }
 
 function writeDbAfterLogin(db) {
   dbCache = db;
-  calculationCache.clear();
   dashboardPayloadCache.clear();
   if (deferredDbWriteTimer) clearTimeout(deferredDbWriteTimer);
   deferredDbWriteTimer = setTimeout(() => {
     deferredDbWriteTimer = null;
-    fs.writeFileSync(DB_FILE, JSON.stringify(dbCache, null, 2));
+    fs.writeFileSync(DB_FILE, JSON.stringify(dbCache));
     createDailyBackup(dbCache);
   }, 1500);
 }
@@ -2227,6 +2245,89 @@ function memberAllWeeklySummary(db, user) {
   });
 }
 
+function sharedRowsMetrics(rows, shareCounts) {
+  let total = 0;
+  for (const row of rows || []) {
+    const number = canonicalGsm(row.gsmMasked);
+    const shareCount = Math.max(1, shareCounts.get(row.gsmMasked) || shareCounts.get(number) || 1);
+    total += (Number(row.totalAmount) || 0) / shareCount;
+  }
+  return { rowCount: (rows || []).length, total };
+}
+
+function staffDashboardMembers(db, user, uploadId, dailyUploadId, portalKeys) {
+  return cachedCalculation(`staffDashboardMembers:${user.id}:${uploadId || "all"}:${dailyUploadId || "none"}`, () => {
+    const selectedRowsMap = selectedRowsByNumber(db, uploadId, user.id);
+    const allWeeklyRowsMap = weeklyRowsByNumber(db, user.id);
+    const dailyRowsMap = dailyUploadId ? selectedRowsByNumber(db, dailyUploadId, user.id) : new Map();
+    const cycleRowsMap = dailyCycleRowsByNumber(db, user.id);
+    const shareCounts = numberShareCounts(db, user.id);
+    const latestCoupons = latestCouponDatesByNumber(db, user.id);
+
+    return db.users
+      .filter(item => item.role === "member" && item.ownerId === user.id)
+      .map(member => {
+        const percentage = Number(member.percentage) || 0;
+        const publicMember = publicUser(member);
+        let total = 0;
+        let rowCount = 0;
+        let allWeeklyTotal = 0;
+        let allWeeklyRowCount = 0;
+        let dailyTotal = 0;
+        let dailyRowCount = 0;
+        let cycleDailyTotal = 0;
+        let cycleDailyRowCount = 0;
+
+        publicMember.numberRecords = (publicMember.numberRecords || []).map(record => {
+          const number = canonicalGsm(record.number);
+          const weekly = sharedRowsMetrics(selectedRowsMap.get(number) || [], shareCounts);
+          const allWeekly = sharedRowsMetrics(allWeeklyRowsMap.get(number) || [], shareCounts);
+          const daily = sharedRowsMetrics(dailyRowsMap.get(number) || [], shareCounts);
+          const cycle = sharedRowsMetrics(cycleRowsMap.get(number) || [], shareCounts);
+          const registered = portalHasNumber(portalKeys, number);
+
+          total += weekly.total;
+          rowCount += weekly.rowCount;
+          allWeeklyTotal += allWeekly.total;
+          allWeeklyRowCount += allWeekly.rowCount;
+          dailyTotal += daily.total;
+          dailyRowCount += daily.rowCount;
+          cycleDailyTotal += cycle.total;
+          cycleDailyRowCount += cycle.rowCount;
+
+          return {
+            ...record,
+            active: weekly.rowCount > 0,
+            portalRegistered: registered,
+            portalStatusText: registered ? "Listede var" : "Listede yok",
+            weeklyTotal: weekly.total,
+            weeklyRowCount: weekly.rowCount,
+            allWeeklyTotal: allWeekly.total,
+            allWeeklyRowCount: allWeekly.rowCount,
+            lastCouponAt: latestCoupons.get(number) || ""
+          };
+        });
+
+        return {
+          ...publicMember,
+          numberCount: publicMember.numberRecords.length,
+          total,
+          calculated: total * percentage / 100,
+          allWeeklyTotal,
+          allWeeklyCalculated: allWeeklyTotal * percentage / 100,
+          allWeeklyRowCount,
+          rowCount,
+          dailyTotal,
+          dailyCalculated: dailyTotal * percentage / 100,
+          dailyRowCount,
+          cycleDailyTotal,
+          cycleDailyCalculated: cycleDailyTotal * percentage / 100,
+          cycleDailyRowCount
+        };
+      });
+  });
+}
+
 function weeklyRowsByNumber(db, ownerId) {
   return cachedCalculation(`weeklyRowsByNumber:${ownerId}`, () => {
     const weeklyIds = new Set(uploadsByType(db, ownerId, "weekly").map(upload => upload.id));
@@ -2305,11 +2406,13 @@ function memberDailyCycleSummary(db, user, ownerId) {
   });
 }
 
-function adminSummary(db, uploadId, ownerId) {
-  const members = db.users.filter(user => user.role === "member" && user.ownerId === ownerId);
+function adminSummary(db, uploadId, ownerId, preparedMembers = null) {
+  const members = preparedMembers || db.users.filter(user => user.role === "member" && user.ownerId === ownerId);
   const rows = selectedRows(db, uploadId, ownerId);
   const totalAmount = rows.reduce((sum, row) => sum + row.totalAmount, 0);
-  const totalCommission = members.reduce((sum, member) => sum + memberSummary(db, member, uploadId).calculated, 0);
+  const totalCommission = preparedMembers
+    ? members.reduce((sum, member) => sum + (Number(member.calculated) || 0), 0)
+    : members.reduce((sum, member) => sum + memberSummary(db, member, uploadId).calculated, 0);
   return {
     memberCount: members.length,
     rowCount: rows.length,
@@ -3367,40 +3470,13 @@ async function handleApi(req, res) {
     const dailyUploadId = url.searchParams.get("dailyUploadId") || latestDailyUpload?.id || "";
     const uploads = visibleUploads.slice().reverse();
     const dashboardCacheKey = `${user.id}:${uploadId}:${dailyUploadId}`;
-    const cachedDashboard = dashboardPayloadCache.get(dashboardCacheKey);
+    const cachedDashboard = lruGet(dashboardPayloadCache, dashboardCacheKey);
     if (cachedDashboard) {
       sendJson(res, 200, cachedDashboard, true);
       return;
     }
     if (isStaff(user)) {
-      const members = db.users.filter(item => item.role === "member" && item.ownerId === user.id).map(member => {
-        const summary = memberSummary(db, member, uploadId);
-        const allWeeklySummary = memberAllWeeklySummary(db, member);
-        const dailySummary = dailyUploadId ? memberSummary(db, member, dailyUploadId) : { total: 0, calculated: 0, rows: [] };
-        const cycleSummary = memberDailyCycleSummary(db, member, user.id);
-        const publicMember = publicUser(member);
-        publicMember.numberRecords = withNumberPerformance(
-          withPortalStatus(publicMember.numberRecords, currentPortalKeys),
-          summary.numberSummaries,
-          allWeeklySummary.numberSummaries
-        );
-        return {
-          ...publicMember,
-          numberCount: publicMember.numberRecords.length,
-          total: summary.total,
-          calculated: summary.calculated,
-          allWeeklyTotal: allWeeklySummary.total,
-          allWeeklyCalculated: allWeeklySummary.calculated,
-          allWeeklyRowCount: allWeeklySummary.rowCount,
-          rowCount: summary.rows.length,
-          dailyTotal: dailySummary.total,
-          dailyCalculated: dailySummary.calculated,
-          dailyRowCount: dailySummary.rows.length,
-          cycleDailyTotal: cycleSummary.total,
-          cycleDailyCalculated: cycleSummary.calculated,
-          cycleDailyRowCount: cycleSummary.rowCount
-        };
-      });
+      const members = staffDashboardMembers(db, user, uploadId, dailyUploadId, currentPortalKeys);
       const messages = db.messages
         .filter(message => message.ownerId === user.id && (message.kind || "broadcast") === "broadcast")
         .slice()
@@ -3430,7 +3506,7 @@ async function handleApi(req, res) {
       const payments = ownerPayments.map(payment => publicPayment(db, payment));
       const selectedPayments = ownerPayments.filter(payment => payment.uploadId === uploadId);
       const chatThreads = chatThreadsForAdmin(db, user);
-      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), deletedItems: recentDeletedItems(db, user.id), members, dailyCycle: dailyCycleInfo(db, user.id), uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, chatThreads, chatUnreadCount: chatThreads.reduce((sum, item) => sum + item.unreadCount, 0), unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
+      const payload = { role: user.role, branding: brandingForUser(db, user), currentAdmin: publicUser(user), summary: adminSummary(db, uploadId, user.id, members), overview: adminOverview(db, uploadId, user.id, [uploadId, dailyUploadId]), backups: listBackups().slice(0, 10), deletedItems: recentDeletedItems(db, user.id), members, dailyCycle: dailyCycleInfo(db, user.id), uploads, dailyUploads: dailyUploads.slice().reverse(), portalLists: portalLists.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(publicPortalList), currentPortalList: currentPortalList ? publicPortalList(currentPortalList) : null, portalComparison, messages, chatThreads, chatUnreadCount: chatThreads.reduce((sum, item) => sum + item.unreadCount, 0), unmatchedNumbers, passiveNumbers, sharedNumbers, uploadReports, auditLogs, payments, paymentSummary: paymentSummary(selectedPayments), selectedUploadId: uploadId, selectedDailyUploadId: dailyUploadId };
       if (user.role === "owner") {
         payload.admins = db.users.filter(item => item.role === "admin" && item.createdBy === user.id).map(publicAdmin);
         payload.feedbacks = db.feedbacks
@@ -3439,7 +3515,7 @@ async function handleApi(req, res) {
           .slice(0, 80)
           .map(publicFeedback);
       }
-      dashboardPayloadCache.set(dashboardCacheKey, payload);
+      lruSet(dashboardPayloadCache, dashboardCacheKey, payload, DASHBOARD_CACHE_MAX_ENTRIES);
       sendJson(res, 200, payload, true);
       return;
     }
@@ -3482,7 +3558,7 @@ async function handleApi(req, res) {
       selectedUploadId: uploadId,
       selectedDailyUploadId: dailyUploadId
     };
-    dashboardPayloadCache.set(dashboardCacheKey, payload);
+    lruSet(dashboardPayloadCache, dashboardCacheKey, payload, DASHBOARD_CACHE_MAX_ENTRIES);
     sendJson(res, 200, payload, true);
     return;
   }
@@ -4559,6 +4635,10 @@ async function handleApi(req, res) {
 
 const server = http.createServer((req, res) => {
   applySecurityHeaders(res);
+  if (req.method === "GET" && req.url === "/api/health") {
+    sendJson(res, 200, { ok: true, uptimeSeconds: Math.floor(process.uptime()) });
+    return;
+  }
   if (req.url.startsWith("/branding/")) {
     serveBrandingLogo(req, res);
     return;
