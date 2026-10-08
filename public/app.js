@@ -23,6 +23,7 @@ let demoModeActive = false;
 let demoExpiresAt = 0;
 let demoCountdownTimer = null;
 let dashboardRequestSequence = 0;
+let memberPeriodMode = "weekly";
 const expandedAdminNumbers = new Set();
 const mobileSelectIds = ["adminUploadSelect", "adminWeeklyResultsSelect", "adminDailyUploadSelect", "adminMemberSort", "adminDailyMemberSort", "memberUploadSelect", "memberDailyUploadSelect", "commissionRowsSort", "myRowsSort", "numberListSort", "detailUploadSelect", "paymentMemberSelect", "adminFeedbackType"];
 
@@ -1824,8 +1825,93 @@ function renderMember(data) {
   renderDeletedItems(data.deletedItems || [], false);
   renderNumbers(numbers);
   renderMyRows(data.rows || []);
+  renderMemberPeriodDetails();
   renderMemberMessages(data.messages || []);
   renderChatWidget(data);
+}
+
+function memberPeriodState() {
+  const daily = memberPeriodMode === "daily";
+  const uploads = daily ? (currentDashboard?.dailyUploads || []) : (currentDashboard?.uploads || []);
+  const selectedId = daily ? selectedDailyUploadId : selectedUploadId;
+  let index = uploads.findIndex(upload => upload.id === selectedId);
+  if (index < 0) index = 0;
+  const upload = uploads[index] || null;
+  if (daily) {
+    const summary = (currentDashboard?.dailySummaries || []).find(row => row.uploadId === upload?.id) || null;
+    return {
+      daily, uploads, index, upload,
+      total: Number(summary?.total || 0),
+      calculated: Number(summary?.calculated || 0),
+      rowCount: Number(summary?.rowCount || 0),
+      numbers: summary?.numberSummaries || []
+    };
+  }
+  return {
+    daily, uploads, index, upload,
+    total: Number(currentDashboard?.total || 0),
+    calculated: Number(currentDashboard?.calculated || 0),
+    rowCount: Number(currentDashboard?.rows?.length || 0),
+    numbers: currentDashboard?.numberSummaries || []
+  };
+}
+
+function memberPeriodDisplayDate(upload) {
+  if (!upload) return "-";
+  const value = upload.uploadDate || upload.createdAt;
+  if (!value) return "Tarih bilgisi yok";
+  const date = new Date(String(value).length === 10 ? `${value}T12:00:00` : value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("tr-TR");
+}
+
+function renderMemberPeriodDetails() {
+  const panel = document.getElementById("memberPeriodDetailPanel");
+  if (!panel || currentDashboard?.role !== "member") return;
+  const state = memberPeriodState();
+  const percentage = Number(currentDashboard?.percentage || currentDashboard?.member?.percentage || 0);
+  const activeNumbers = state.numbers.filter(row => row.active !== false && Number(row.rowCount || 0) > 0).length;
+  const weeklyTab = document.getElementById("memberPeriodWeeklyTab");
+  const dailyTab = document.getElementById("memberPeriodDailyTab");
+  weeklyTab.classList.toggle("active", !state.daily);
+  dailyTab.classList.toggle("active", state.daily);
+  weeklyTab.setAttribute("aria-selected", String(!state.daily));
+  dailyTab.setAttribute("aria-selected", String(state.daily));
+  document.getElementById("memberPeriodLabel").textContent = state.upload?.weekLabel || state.upload?.filename || "Excel yüklenmedi";
+  document.getElementById("memberPeriodDate").textContent = memberPeriodDisplayDate(state.upload);
+  document.getElementById("memberPeriodPreviousBtn").disabled = !state.upload || state.index >= state.uploads.length - 1;
+  document.getElementById("memberPeriodNextBtn").disabled = !state.upload || state.index <= 0;
+  document.getElementById("memberPeriodMetrics").innerHTML = `
+    <div><span>Excel kayıtları</span><strong>${state.rowCount}</strong></div>
+    <div><span>Oynayan numara</span><strong>${activeNumbers}</strong></div>
+    <div><span>Komisyon oranı</span><strong>%${money.format(percentage)}</strong></div>
+  `;
+  document.getElementById("memberPeriodTotal").textContent = money.format(state.total);
+  document.getElementById("memberPeriodEarningLabel").textContent = state.daily ? "Günlük kazanç" : "Haftalık komisyon";
+  document.getElementById("memberPeriodEarning").textContent = money.format(state.calculated);
+  document.getElementById("memberPeriodNumberCount").textContent = `${state.numbers.length} numara`;
+  document.getElementById("memberPeriodNumberRows").innerHTML = state.numbers.map(row => `
+    <article class="period-number-row">
+      <div>
+        <strong>${escapeHtml(row.name || "İsimsiz")}</strong>
+        <span>${escapeHtml(row.number || "-")}</span>
+      </div>
+      <div>
+        <span>${Number(row.rowCount || 0)} kayıt</span>
+        <strong>${money.format(row.total || 0)}</strong>
+      </div>
+    </article>
+  `).join("") || `<p class="period-detail-empty">Bu Excel için eşleşen numara bulunamadı.</p>`;
+}
+
+async function moveMemberPeriod(direction) {
+  const state = memberPeriodState();
+  const target = state.uploads[state.index + direction];
+  if (!target) return;
+  if (state.daily) selectedDailyUploadId = target.id;
+  else selectedUploadId = target.id;
+  await loadDashboard(selectedUploadId, selectedDailyUploadId);
+  openDashboardTarget("memberPeriodDetailPanel");
+  renderMemberPeriodDetails();
 }
 
 function renderMemberMessages(messages) {
@@ -3298,6 +3384,26 @@ document.getElementById("memberUploadApplyBtn").addEventListener("click", () => 
 });
 document.getElementById("memberDailyUploadApplyBtn").addEventListener("click", () => {
   applyMemberDailyUploadSelection().catch(error => setMessage("memberPasswordMessage", error.message));
+});
+document.getElementById("memberTotalGameBtn").addEventListener("click", () => {
+  memberPeriodMode = "weekly";
+  openDashboardTarget("memberPeriodDetailPanel");
+  renderMemberPeriodDetails();
+});
+document.getElementById("memberPeriodBackBtn").addEventListener("click", showDashboardHome);
+document.getElementById("memberPeriodWeeklyTab").addEventListener("click", () => {
+  memberPeriodMode = "weekly";
+  renderMemberPeriodDetails();
+});
+document.getElementById("memberPeriodDailyTab").addEventListener("click", () => {
+  memberPeriodMode = "daily";
+  renderMemberPeriodDetails();
+});
+document.getElementById("memberPeriodPreviousBtn").addEventListener("click", () => {
+  moveMemberPeriod(1).catch(error => setMessage("memberPasswordMessage", error.message));
+});
+document.getElementById("memberPeriodNextBtn").addEventListener("click", () => {
+  moveMemberPeriod(-1).catch(error => setMessage("memberPasswordMessage", error.message));
 });
 document.getElementById("detailUploadSelect").addEventListener("change", event => {
   updateMobileSelectTrigger(event.target);

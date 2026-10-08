@@ -20,7 +20,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/style.css?v=bayim-layout-20261008">
+  <link rel="stylesheet" href="/style.css?v=period-details-20261008">
 </head>
 <body class="login-mode login-role-admin">
   <main class="shell">
@@ -929,10 +929,11 @@
             <small>Günlük sonuçlarını ve kayıtlı numaralarını buradan takip edebilirsin.</small>
           </div>
           <div class="dashboard-period-card">
-            <div>
+            <button class="dashboard-period-action" id="memberTotalGameBtn" type="button" aria-label="Seçili Excel toplam oyun ayrıntılarını aç">
               <span>Toplam oyun</span>
               <strong data-mirror-id="myTotal">0</strong>
-            </div>
+              <small>Ayrıntıları gör <b aria-hidden="true">›</b></small>
+            </button>
             <div>
               <span>Haftalık komisyon</span>
               <strong class="positive" data-mirror-id="myCalculated">0</strong>
@@ -947,6 +948,34 @@
             <button type="button" data-dashboard-target="memberMessagesPanel"><i aria-hidden="true">✉</i><span>Mesajlar</span></button>
             <button type="button" data-dashboard-target="memberOtherOptions"><i aria-hidden="true">•••</i><span>Diğer işlemler</span></button>
           </div>
+        </section>
+
+        <section class="member-period-detail" id="memberPeriodDetailPanel" aria-label="Excel dönem ayrıntıları">
+          <header class="period-detail-header">
+            <button class="period-detail-back" id="memberPeriodBackBtn" type="button" aria-label="Ana sayfaya dön">‹</button>
+            <h2>Oyun Detaylarım</h2>
+          </header>
+          <div class="period-detail-tabs" role="tablist" aria-label="Excel türü">
+            <button class="active" id="memberPeriodWeeklyTab" type="button" role="tab" aria-selected="true">Haftalık</button>
+            <button id="memberPeriodDailyTab" type="button" role="tab" aria-selected="false">Günlük</button>
+          </div>
+          <div class="period-detail-navigator">
+            <button id="memberPeriodPreviousBtn" type="button" aria-label="Önceki Excel">‹</button>
+            <div>
+              <strong id="memberPeriodLabel">Excel seçilmedi</strong>
+              <span id="memberPeriodDate">-</span>
+            </div>
+            <button id="memberPeriodNextBtn" type="button" aria-label="Sonraki Excel">›</button>
+          </div>
+          <div class="period-detail-metrics" id="memberPeriodMetrics"></div>
+          <section class="period-detail-total-card">
+            <div><span>Toplam oyun</span><strong id="memberPeriodTotal">0</strong></div>
+            <div><span id="memberPeriodEarningLabel">Komisyon</span><strong class="positive" id="memberPeriodEarning">0</strong></div>
+          </section>
+          <details class="period-detail-breakdown" open>
+            <summary>Numara bazlı ayrıntılar <span id="memberPeriodNumberCount">0 numara</span></summary>
+            <div id="memberPeriodNumberRows"></div>
+          </details>
         </section>
         <section class="info-banner">
           Sali gunu komisyonlariniz ogleden sonra belirttiginiz IBAN'lara aktarilir.
@@ -1530,6 +1559,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=bayim-layout-20261008"></script>
+  <script src="/app.js?v=period-details-20261008"></script>
 </body>
 </html>

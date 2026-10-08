@@ -156,9 +156,146 @@ body.app-mode .panel-nav-menu-panel button:hover {
 }
 
 .dashboard-period-card > div:last-child { text-align: right; }
+.dashboard-period-action {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.dashboard-period-action small {
+  display: block;
+  margin-top: 5px;
+  color: #0a766d;
+  font-size: 11px;
+  font-weight: 800;
+}
+.dashboard-period-action small b { font-size: 16px; vertical-align: -1px; }
 .dashboard-period-card span { color: var(--muted); font-size: 13px; font-weight: 700; }
 .dashboard-period-card strong { overflow-wrap: anywhere; font-size: clamp(18px, 3vw, 24px); }
 .dashboard-period-card .positive { color: #159a69; }
+
+.member-period-detail {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 26px;
+  background: #edf3f5;
+  box-shadow: 0 18px 50px rgba(16, 47, 53, .16);
+}
+.period-detail-header {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  padding: 18px;
+  color: #fff;
+  background: #083f3b;
+}
+.period-detail-header h2 { margin: 0; text-align: center; font-size: 22px; }
+.period-detail-back {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 38px;
+  line-height: 1;
+  cursor: pointer;
+}
+.period-detail-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 14px 18px 0;
+}
+.period-detail-tabs button {
+  border: 0;
+  border-radius: 999px;
+  padding: 11px;
+  color: #516068;
+  background: #dfe7ea;
+  font-weight: 800;
+  cursor: pointer;
+}
+.period-detail-tabs button.active { color: #fff; background: #0a5a54; }
+.period-detail-navigator {
+  display: grid;
+  grid-template-columns: 52px 1fr 52px;
+  gap: 12px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 16px 18px;
+  background: #fff;
+  border-bottom: 1px solid #d7e0e3;
+}
+.period-detail-navigator > div { min-width: 0; text-align: center; }
+.period-detail-navigator strong,
+.period-detail-navigator span { display: block; overflow-wrap: anywhere; }
+.period-detail-navigator strong { font-size: 20px; }
+.period-detail-navigator span { margin-top: 4px; color: #68777f; font-weight: 700; }
+.period-detail-navigator button {
+  width: 52px;
+  height: 52px;
+  border: 1px solid #22343b;
+  border-radius: 12px;
+  color: #22343b;
+  background: #fff;
+  font-size: 34px;
+  cursor: pointer;
+}
+.period-detail-navigator button:disabled { opacity: .25; cursor: default; }
+.period-detail-metrics { background: #fff; }
+.period-detail-metrics > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  min-height: 72px;
+  padding: 14px 22px;
+  border-bottom: 1px solid #d7e0e3;
+}
+.period-detail-metrics span { font-size: 18px; font-weight: 800; }
+.period-detail-metrics strong { color: #159a69; font-size: 21px; }
+.period-detail-total-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 18px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(23, 48, 54, .1);
+}
+.period-detail-total-card div:last-child { text-align: right; }
+.period-detail-total-card span,
+.period-detail-total-card strong { display: block; }
+.period-detail-total-card span { color: #66767e; font-weight: 700; }
+.period-detail-total-card strong { margin-top: 6px; font-size: 22px; }
+.period-detail-total-card strong.positive { color: #159a69; }
+.period-detail-breakdown { margin: 0 18px 20px; border-radius: 18px; background: #fff; overflow: hidden; }
+.period-detail-breakdown summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px;
+  cursor: pointer;
+  font-weight: 900;
+}
+.period-detail-breakdown summary span { color: #66767e; font-size: 13px; }
+.period-number-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 18px;
+  border-top: 1px solid #e1e7e9;
+}
+.period-number-row > div:last-child { text-align: right; }
+.period-number-row strong,
+.period-number-row span { display: block; }
+.period-number-row span { margin-top: 3px; color: #6a7880; font-size: 13px; }
+.period-number-row > div:last-child strong { color: #0a766d; font-size: 17px; }
+.period-detail-empty { margin: 0; padding: 20px; color: #68777f; text-align: center; }
 
 .dashboard-section-title {
   margin: 7px 0 -3px;

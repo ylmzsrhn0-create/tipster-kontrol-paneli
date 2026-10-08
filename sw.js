@@ -1,10 +1,10 @@
-const CACHE_NAME = "tipster-panel-v73-bayim-layout-20261008";
+const CACHE_NAME = "tipster-panel-v74-period-details-20261008";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/maintenance.html",
-  "/style.css?v=bayim-layout-20261008",
-  "/app.js?v=bayim-layout-20261008",
+  "/style.css?v=period-details-20261008",
+  "/app.js?v=period-details-20261008",
   "/manifest.webmanifest",
   "/icon.svg"
 ];
