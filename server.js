@@ -52,6 +52,7 @@ const SMTP_PASS = String(process.env.SMTP_PASS || "");
 const SMTP_FROM = String(process.env.SMTP_FROM || SMTP_USER || "").trim();
 const APP_BASE_URL = String(process.env.APP_BASE_URL || "https://tipsterkontrolpaneli.com").trim().replace(/\/+$/, "");
 const PUSH_SUBJECT = String(process.env.PUSH_SUBJECT || SMTP_FROM || "mailto:admin@tipsterkontrolpaneli.com").trim();
+const DB_SCHEMA_VERSION = 1;
 
 fs.mkdirSync(DATA, { recursive: true });
 fs.mkdirSync(BACKUP_DIR, { recursive: true });
@@ -77,6 +78,7 @@ function verifyPassword(password, stored) {
 
 function defaultDb() {
   return {
+    schemaVersion: DB_SCHEMA_VERSION,
     users: [
       {
         id: crypto.randomUUID(),
@@ -145,13 +147,12 @@ function readDb() {
     return db;
   }
   const raw = JSON.parse(fs.readFileSync(DB_FILE, "utf8").replace(/^\uFEFF/, ""));
-  const beforeNormalize = JSON.stringify(raw);
-  const normalized = normalizeDb(raw);
-  if (beforeNormalize !== JSON.stringify(normalized)) {
-    writeDb(normalized);
-  } else {
-    dbCache = normalized;
+  if (raw.schemaVersion === DB_SCHEMA_VERSION) {
+    dbCache = raw;
+    return raw;
   }
+  const normalized = normalizeDb(raw);
+  dbCache = normalized;
   return normalized;
 }
 
@@ -239,6 +240,7 @@ function cleanupBackups() {
 }
 
 function normalizeDb(db) {
+  db.schemaVersion = DB_SCHEMA_VERSION;
   db.users ||= [];
   db.rows ||= [];
   db.uploads ||= [];
@@ -278,10 +280,10 @@ function normalizeDb(db) {
     upload.uploadType = upload.uploadType === "daily" ? "daily" : "weekly";
     upload.uploadDate ||= dateOnly(upload.createdAt);
   });
+  const uploadOwners = new Map(db.uploads.map(upload => [upload.id, upload.ownerId || ownerId]));
   db.rows.forEach(row => {
     if (!row.ownerId) {
-      const upload = db.uploads.find(item => item.id === row.uploadId);
-      row.ownerId = upload?.ownerId || ownerId;
+      row.ownerId = uploadOwners.get(row.uploadId) || ownerId;
     }
   });
   const rowUploadIds = new Set(db.rows.map(row => row.uploadId).filter(Boolean));
