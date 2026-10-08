@@ -94,7 +94,6 @@ groupSecondaryPanelOptions(adminPanel, [
   "Islem gecmisi",
   "Ortak numaralar",
   "Pasif numaralar",
-  "Hesap makinesi",
   "Gonderilen mesajlar",
   "Oneri ve sikayet gonder"
 ], "Diger yonetim secenekleri", "Daha az kullanilan araclar ve kayitlar", "adminOtherOptions");
@@ -141,6 +140,7 @@ document.querySelectorAll("[data-panel-target]").forEach(button => {
     const targetId = button.dataset.panelTarget;
     const target = document.getElementById(targetId);
     if (!target) return;
+    activateDashboardSection(target);
     closeMenuManagedPanels(targetId);
     target.classList.remove("hidden");
     target.open = true;
@@ -149,10 +149,104 @@ document.querySelectorAll("[data-panel-target]").forEach(button => {
   });
 });
 
+function clearDashboardSectionState() {
+  [adminPanel, memberPanel, ownerPanel].forEach(panel => {
+    panel?.classList.remove("dashboard-home-active", "dashboard-detail-active", "dashboard-external-hidden");
+    panel?.querySelectorAll(".dashboard-target-open").forEach(item => item.classList.remove("dashboard-target-open"));
+  });
+}
+
+function showDashboardHome() {
+  clearDashboardSectionState();
+  document.body.classList.add("dashboard-home-mode");
+  const panel = document.body.classList.contains("panel-role-member") ? memberPanel : adminPanel;
+  panel?.classList.add("dashboard-home-active");
+  panel?.querySelector(".mobile-dashboard-home")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function activateDashboardSection(target) {
+  if (!target) return;
+  clearDashboardSectionState();
+  document.body.classList.remove("dashboard-home-mode");
+  const panel = target.closest("#adminPanel, #memberPanel, #ownerPanel");
+  if (!panel) return;
+  panel.classList.add("dashboard-detail-active");
+  let topLevel = target;
+  while (topLevel.parentElement && topLevel.parentElement !== panel) topLevel = topLevel.parentElement;
+  topLevel.classList.add("dashboard-target-open");
+  target.classList.add("dashboard-target-open");
+  if (panel === ownerPanel) adminPanel.classList.add("dashboard-external-hidden");
+}
+
+function openDashboardTarget(targetId) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  activateDashboardSection(target);
+  const managedTarget = menuManagedPanelIds.includes(targetId);
+  if (managedTarget) closeMenuManagedPanels(targetId);
+  target.classList.remove("hidden");
+  if (target instanceof HTMLDetailsElement) target.open = true;
+  let parentDetails = target.parentElement?.closest("details");
+  while (parentDetails) {
+    parentDetails.classList.remove("hidden");
+    parentDetails.open = true;
+    parentDetails = parentDetails.parentElement?.closest("details");
+  }
+  document.getElementById("panelNavMenu")?.removeAttribute("open");
+  requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
+}
+
+document.querySelectorAll("[data-dashboard-target]").forEach(button => {
+  button.addEventListener("click", () => openDashboardTarget(button.dataset.dashboardTarget));
+});
+
+document.querySelectorAll("[data-dashboard-home]").forEach(button => {
+  button.addEventListener("click", () => {
+    showDashboardHome();
+  });
+});
+
+document.querySelectorAll("[data-dashboard-profile]").forEach(button => {
+  button.addEventListener("click", () => {
+    openDashboardTarget(document.body.classList.contains("panel-role-member") ? "memberOtherOptions" : "adminPasswordPanel");
+  });
+});
+
+function dashboardMirrorText(source) {
+  if (source instanceof HTMLSelectElement) return source.selectedOptions[0]?.textContent?.trim() || "Henüz seçilmedi";
+  return source.textContent?.trim() || "0";
+}
+
+function syncDashboardMirrors(sourceId) {
+  const source = document.getElementById(sourceId);
+  if (!source) return;
+  document.querySelectorAll(`[data-mirror-id="${sourceId}"]`).forEach(target => {
+    target.textContent = dashboardMirrorText(source);
+  });
+}
+
+["adminUploadSelect", "totalCommission", "myTotal", "myCalculated"].forEach(sourceId => {
+  const source = document.getElementById(sourceId);
+  if (!source) return;
+  syncDashboardMirrors(sourceId);
+  source.addEventListener("change", () => syncDashboardMirrors(sourceId));
+  new MutationObserver(() => syncDashboardMirrors(sourceId)).observe(source, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+});
+
 document.addEventListener("toggle", event => {
   const panel = event.target;
   if (!(panel instanceof HTMLDetailsElement) || !menuManagedPanelIds.includes(panel.id) || panel.open) return;
   setTimeout(() => panel.classList.add("hidden"), 0);
+}, true);
+
+document.addEventListener("toggle", event => {
+  const panel = event.target;
+  if (!(panel instanceof HTMLDetailsElement) || panel.open || !panel.classList.contains("dashboard-target-open")) return;
+  setTimeout(showDashboardHome, 0);
 }, true);
 
 function openDialog(modal, initialFocus) {
@@ -284,13 +378,6 @@ function formatDateTime(value) {
   return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString("tr-TR");
 }
 
-function formatCouponDate(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("tr-TR", { timeZone: "UTC" });
-}
-
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -312,16 +399,11 @@ function api(path, options = {}) {
   }
   const headers = options.headers || {};
   if (csrfToken && options.method && options.method !== "GET") headers["X-CSRF-Token"] = csrfToken;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
-  return fetch(path, { ...options, headers, signal: controller.signal }).then(async response => {
+  return fetch(path, { ...options, headers }).then(async response => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Islem basarisiz.");
     return data;
-  }).catch(error => {
-    if (error?.name === "AbortError") throw new Error("Sunucu 45 saniye icinde yanit vermedi. Lutfen tekrar deneyin.");
-    throw error;
-  }).finally(() => clearTimeout(timeout));
+  });
 }
 
 function cssUrl(value) {
@@ -520,6 +602,7 @@ function showApp(user) {
   document.body.classList.add("app-mode");
   document.body.classList.toggle("panel-role-admin", user.role !== "member");
   document.body.classList.toggle("panel-role-member", user.role === "member");
+  document.body.classList.toggle("panel-role-owner", user.role === "owner");
   document.body.classList.toggle("demo-mode", demoModeActive);
   document.getElementById("demoBanner")?.classList.toggle("hidden", !demoModeActive);
   document.getElementById("panelTitle").textContent = demoModeActive ? "Demo Admin Paneli" : user.role === "owner" ? "Ana Admin Paneli" : user.role === "admin" ? "Admin Paneli" : user.name;
@@ -540,6 +623,7 @@ function showApp(user) {
   }
   if (demoModeActive) startDemoCountdown(user.demoExpiresAt);
   else stopDemoCountdown();
+  showDashboardHome();
 }
 
 function showLogin() {
@@ -552,7 +636,8 @@ function showLogin() {
   loginView.inert = false;
   loginView.setAttribute("aria-hidden", "false");
   document.body.classList.remove("app-mode");
-  document.body.classList.remove("panel-role-admin", "panel-role-member");
+  document.body.classList.remove("panel-role-admin", "panel-role-member", "panel-role-owner", "dashboard-home-mode");
+  clearDashboardSectionState();
   document.body.classList.remove("demo-mode");
   document.body.classList.add("login-mode");
   document.getElementById("demoBanner")?.classList.add("hidden");
@@ -642,12 +727,6 @@ function numberDateHtml(record) {
   return record?.createdAt ? `<small class="number-date">Kayit: ${escapeHtml(formatDateTime(record.createdAt))}</small>` : "";
 }
 
-function lastCouponDateHtml(record) {
-  const value = record?.lastCouponAt || record?.allWeeklyLastCouponAt || "";
-  const text = value ? formatCouponDate(value) : "Tarih bilgisi yok";
-  return `<small class="number-date">Son kupon: ${escapeHtml(text)}</small>`;
-}
-
 function numberRecordsHtml(member) {
   const records = numberRecordsOf(member);
   if (!records.length) return "-";
@@ -667,18 +746,8 @@ function filteredNumberRecords(member, query = "") {
 
 function numberMiniList(records, emptyText) {
   return records.map(record => `
-    <div class="admin-number-performance">
-      <div class="admin-number-performance-head">
-        <span>${escapeHtml(record.name ? `${record.name} (${record.number})` : record.number)}</span>
-        <span class="status-pill ${record.active ? "active" : "passive"}">${record.active ? "Aktif" : "Pasif"}</span>
-      </div>
-      <div class="admin-number-performance-metrics">
-        <span><small>Son oyun</small><strong>${escapeHtml(formatCouponDate(record.lastCouponAt))}</strong></span>
-        <span><small>Secili hafta</small><strong>${money.format(record.weeklyTotal || 0)}</strong></span>
-        <span><small>Tum haftalar</small><strong>${money.format(record.allWeeklyTotal || 0)}</strong></span>
-      </div>
-      <small class="admin-number-performance-counts">Haftalik ${Number(record.weeklyRowCount || 0)} kayit · Toplam ${Number(record.allWeeklyRowCount || 0)} kayit</small>
-      ${numberDateHtml(record)}
+    <div class="number-status-line">
+      <span>${escapeHtml(record.name ? `${record.name} (${record.number})` : record.number)}${numberDateHtml(record)}</span>
     </div>
   `).join("") || `<p class="muted mini-empty">${escapeHtml(emptyText)}</p>`;
 }
@@ -698,8 +767,12 @@ function adminNumberSplitHtml(member, scope, query = "") {
   const portalSummary = hasPortalList
     ? `Listede ${totalRegistered} / Listede yok ${totalUnregistered}`
     : "Bayi Portal listesi yok";
-  const expandedContent = expanded ? `
-      <div class="admin-number-list">
+  return `
+    <div class="admin-number-toggle">
+      <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
+        ${query ? `${records.length} eslesen numara` : `${allRecords.length} numarayi goster`} - ${portalSummary}
+      </button>
+      <div class="admin-number-list ${expanded ? "" : "hidden"}">
         <div class="number-split">
           <section>
             <h3>Listede var <span>${registered.length}</span></h3>
@@ -711,13 +784,6 @@ function adminNumberSplitHtml(member, scope, query = "") {
           </section>
         </div>
       </div>
-  ` : "";
-  return `
-    <div class="admin-number-toggle ${expanded ? "expanded" : ""}">
-      <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
-        ${query ? `${records.length} eslesen numara` : `${allRecords.length} numarayi goster`} - ${portalSummary}
-      </button>
-      ${expandedContent}
     </div>
   `;
 }
@@ -734,7 +800,7 @@ function adminNumberRecordsToggleHtml(member, scope) {
     ? ` - Listede ${registeredCount} / Listede yok ${unregisteredCount}`
     : " - Bayi Portal listesi yok";
   return `
-    <div class="admin-number-toggle ${expanded ? "expanded" : ""}">
+    <div class="admin-number-toggle">
       <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
         ${expanded ? `Numaralari gizle${portalSummary}` : `${records.length} numarayi goster${portalSummary}`}
       </button>
@@ -1192,72 +1258,17 @@ function renderPaymentPanel() {
   document.getElementById("paymentCount").textContent = summary.count || 0;
   document.getElementById("paymentCalculatedTotal").textContent = money.format(summary.totalCalculated || 0);
   document.getElementById("paymentPaidTotal").textContent = money.format(summary.totalPaid || 0);
-  const paymentGroups = new Map();
-  const paymentMemberAliases = new Map();
-  members.forEach(member => {
-    paymentGroups.set(member.id, {
-      memberId: member.id,
-      memberName: member.name || member.username || "Tipster",
-      memberUsername: member.username || "",
-      payments: []
-    });
-    if (member.username) paymentMemberAliases.set(`username:${String(member.username).toLocaleLowerCase("tr")}`, member.id);
-    if (member.name) paymentMemberAliases.set(`name:${String(member.name).toLocaleLowerCase("tr")}`, member.id);
-  });
-  payments.forEach(payment => {
-    const usernameAlias = payment.memberUsername
-      ? paymentMemberAliases.get(`username:${String(payment.memberUsername).toLocaleLowerCase("tr")}`)
-      : "";
-    const nameAlias = payment.memberName
-      ? paymentMemberAliases.get(`name:${String(payment.memberName).toLocaleLowerCase("tr")}`)
-      : "";
-    const key = paymentGroups.has(payment.memberId)
-      ? payment.memberId
-      : usernameAlias || nameAlias || payment.memberId || `deleted:${payment.memberUsername || payment.memberName || payment.id}`;
-    const group = paymentGroups.get(key) || {
-      memberId: key,
-      memberName: payment.memberName || "Silinmis tipster",
-      memberUsername: payment.memberUsername || "",
-      payments: []
-    };
-    group.payments.push(payment);
-    paymentGroups.set(key, group);
-  });
-  const groupedPayments = [...paymentGroups.values()]
-    .map(group => ({
-      ...group,
-      payments: group.payments.slice().sort((a, b) =>
-        String(b.paymentDate || b.createdAt).localeCompare(String(a.paymentDate || a.createdAt))
-      ),
-      totalPaid: group.payments.reduce((sum, payment) => sum + Number(payment.paidAmount || 0), 0)
-    }))
-    .sort((a, b) => String(a.memberName).localeCompare(String(b.memberName), "tr"));
-  document.getElementById("paymentRows").innerHTML = groupedPayments.map(group => `
+  document.getElementById("paymentRows").innerHTML = payments.map(payment => `
     <tr>
-      <td data-label="Tipster">
-        <strong>${escapeHtml(group.memberName)}</strong><br>
-        <span class="muted">${escapeHtml(group.memberUsername)}</span>
-      </td>
-      <td data-label="Haftalara gore odemeler">
-        <div class="payment-history-list">
-          ${group.payments.map(payment => `
-            <div class="payment-history-item">
-              <div>
-                <strong>${escapeHtml(payment.weekLabel || "Hafta")}</strong>
-                <span>${escapeHtml(payment.paymentDate || "-")} · Hesap: ${money.format(payment.calculatedAmount || 0)}</span>
-                ${payment.note ? `<small>${escapeHtml(payment.note)}</small>` : ""}
-              </div>
-              <div class="payment-history-amount">
-                <b>${money.format(payment.paidAmount || 0)}</b>
-                <button class="danger small" data-payment-delete="${escapeHtml(payment.id)}" type="button">Sil</button>
-              </div>
-            </div>
-          `).join("") || `<span class="muted">Henuz odeme kaydi yok.</span>`}
-        </div>
-      </td>
-      <td data-label="Toplam odenen" class="payment-member-total"><strong>${money.format(group.totalPaid)}</strong></td>
+      <td data-label="Tarih">${escapeHtml(payment.paymentDate || "-")}</td>
+      <td data-label="Hafta">${escapeHtml(payment.weekLabel || "-")}</td>
+      <td data-label="Tipster"><strong>${escapeHtml(payment.memberName || "-")}</strong><br><span class="muted">${escapeHtml(payment.memberUsername || "")}</span></td>
+      <td data-label="Hesap">${money.format(payment.calculatedAmount || 0)}</td>
+      <td data-label="Odenen"><strong>${money.format(payment.paidAmount || 0)}</strong></td>
+      <td data-label="Not">${escapeHtml(payment.note || "-")}</td>
+      <td data-label="Islem"><button class="danger small" data-payment-delete="${escapeHtml(payment.id)}" type="button">Sil</button></td>
     </tr>
-  `).join("") || `<tr><td colspan="3">Henuz tipster veya odeme kaydi yok.</td></tr>`;
+  `).join("") || `<tr><td colspan="7">Henuz odeme kaydi yok.</td></tr>`;
   setDefaultPaymentDate();
 }
 
@@ -1938,8 +1949,7 @@ function withAllWeeklyTotals(rows) {
       ...row,
       allWeeklyTotal: Number(row.allWeeklyTotal ?? allRow.total ?? 0),
       allWeeklyRowCount: Number(row.allWeeklyRowCount ?? allRow.rowCount ?? 0),
-      allWeeklyCalculated: Number(row.allWeeklyCalculated ?? allRow.calculated ?? 0),
-      allWeeklyLastCouponAt: row.allWeeklyLastCouponAt || allRow.lastCouponAt || ""
+      allWeeklyCalculated: Number(row.allWeeklyCalculated ?? allRow.calculated ?? 0)
     };
   });
 }
@@ -1986,12 +1996,11 @@ function renderCommissionRows(rows) {
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Kayit">${row.rowCount}</td>
-      <td data-label="Son kupon"><strong>${escapeHtml(formatCouponDate(row.lastCouponAt))}</strong></td>
       <td data-label="Toplam oyun">${money.format(row.total)}</td>
       <td data-label="Yuklu haftalar toplam">${money.format(row.allWeeklyTotal || 0)}<br><span class="muted">${row.allWeeklyRowCount || 0} kayit</span></td>
       <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="9">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="8">Bu hafta icin kayitli numaralarda eslesme bulunamadi.</td></tr>`;
 }
 
 function renderDailyEarnings(rows, cycleSummary = currentDashboard?.dailyCycleSummary || {}) {
@@ -2039,11 +2048,10 @@ function renderDailyEarnings(rows, cycleSummary = currentDashboard?.dailyCycleSu
       <td data-label="Numara"><strong>${escapeHtml(row.number || "-")}</strong>${numberDateHtml(row)}</td>
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Oynadi" : "Oynamadi"}</span></td>
       <td data-label="Excel kayit">${Number(row.rowCount || 0)}</td>
-      <td data-label="Son kupon"><strong>${escapeHtml(formatCouponDate(row.lastCouponAt))}</strong></td>
       <td data-label="Toplam oyun">${money.format(row.total || 0)}</td>
       <td data-label="Kazanc"><strong>${money.format(row.calculated || 0)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="7">Secili gun icin numara bazli sonuc bulunmuyor.</td></tr>`;
+  `).join("") || `<tr><td colspan="6">Secili gun icin numara bazli sonuc bulunmuyor.</td></tr>`;
   document.getElementById("dailyNumberTotalCount").textContent = numberRows.reduce((sum, row) => sum + Number(row.rowCount || 0), 0);
   document.getElementById("dailyNumberTotalAmount").textContent = money.format(numberRows.reduce((sum, row) => sum + Number(row.total || 0), 0));
   document.getElementById("dailyNumberTotalCommission").textContent = money.format(numberRows.reduce((sum, row) => sum + Number(row.calculated || 0), 0));
@@ -2057,44 +2065,25 @@ async function applyMemberDailyUploadSelection() {
 
 function renderNumbers(records) {
   const query = document.getElementById("numberSearch")?.value || "";
-  const searching = query.trim().length > 0;
   const sort = document.getElementById("numberListSort")?.value || "default";
   const rows = sortByAmount(withAllWeeklyTotals(records), sort, "allWeeklyTotal")
     .filter(record => searchMatches(`${record.name || ""} ${record.number || ""}`, query));
-  document.getElementById("numberList").innerHTML = rows.map(record => {
-    const appearances = record.excelAppearances || [];
-    return `
+  document.getElementById("numberList").innerHTML = rows.map(record => `
     <div class="number-item">
-      <div class="number-item-content">
+      <div>
         <strong>${escapeHtml(record.name || "Isimsiz")}</strong>
         <span>${escapeHtml(record.number)}</span>
         ${numberDateHtml(record)}
-        ${lastCouponDateHtml(record)}
         ${portalStatusPill(record)}
         <div class="number-total-box">
           <span>Yuklu haftalar toplam</span>
           <strong>${money.format(record.allWeeklyTotal || 0)}</strong>
-          <small>${record.allWeeklyRowCount || 0} Excel kaydi · ${appearances.length} dosyada bulundu</small>
+          <small>${record.allWeeklyRowCount || 0} Excel kaydi</small>
         </div>
-        ${searching ? `
-          <div class="number-excel-history">
-            <strong>Bulundugu Excel dosyalari</strong>
-            ${appearances.map(item => `
-              <div class="number-excel-match">
-                <div>
-                  <b>${escapeHtml(item.label || item.filename || "Excel")}</b>
-                  <small>${item.uploadType === "daily" ? "Gunluk" : "Haftalik"} · ${escapeHtml(item.uploadDate || "-")} · ${Number(item.rowCount || 0)} kayit</small>
-                </div>
-                <strong>${money.format(item.totalAmount || 0)}</strong>
-              </div>
-            `).join("") || `<span class="muted">Bu numara yuklu Excel dosyalarinda bulunamadi.</span>`}
-          </div>
-        ` : ""}
       </div>
       <button class="danger small" type="button" data-number-delete="${encodeURIComponent(record.number)}">Sil</button>
     </div>
-  `;
-  }).join("") || `<p class="muted">Aramanizla eslesen numara bulunamadi.</p>`;
+  `).join("") || `<p class="muted">Henuz numara kaydedilmedi.</p>`;
 }
 
 function calculateAdminTool() {
@@ -2191,17 +2180,13 @@ async function loadDashboard(uploadId = selectedUploadId, dailyUploadId = select
   try {
     const data = await api(`/api/dashboard${query}`);
     if (requestSequence !== dashboardRequestSequence) return;
-    renderDashboardData(data);
+    applyBranding(data.branding);
+    if (data.role === "owner") renderOwner(data);
+    else if (data.role === "admin") renderAdmin(data);
+    else renderMember(data);
   } finally {
     if (requestSequence === dashboardRequestSequence) setDashboardLoading(false);
   }
-}
-
-function renderDashboardData(data) {
-  applyBranding(data.branding);
-  if (data.role === "owner") renderOwner(data);
-  else if (data.role === "admin") renderAdmin(data);
-  else renderMember(data);
 }
 
 async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedUploadId || "all") {
@@ -2227,12 +2212,11 @@ async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedU
       <td data-label="Durum"><span class="status-pill ${row.active ? "active" : "passive"}">${row.active ? "Aktif" : "Pasif"}</span></td>
       <td data-label="Bayi Portal">${portalStatusPill(row)}</td>
       <td data-label="Kayit">${row.rowCount}</td>
-      <td data-label="Son kupon"><strong>${escapeHtml(formatCouponDate(row.lastCouponAt))}</strong></td>
       <td data-label="Pay">${Number(row.shareCount || 1) > 1 ? `${row.shareCount} tipster` : "Tek"}</td>
       <td data-label="Toplam">${money.format(row.total)}</td>
       <td data-label="Komisyon"><strong>${money.format(row.calculated)}</strong></td>
     </tr>
-  `).join("") || `<tr><td colspan="9">Bu hafta icin eslesme bulunamadi.</td></tr>`;
+  `).join("") || `<tr><td colspan="8">Bu hafta icin eslesme bulunamadi.</td></tr>`;
   document.getElementById("detailDailyRows").innerHTML = (data.dailySummaries || []).map(row => `
     <tr>
       <td data-label="Gun"><strong>${escapeHtml(row.label || row.uploadDate || "-")}</strong><br><span class="muted">${escapeHtml(row.uploadDate || "-")}</span></td>
@@ -3400,8 +3384,8 @@ function toggleAdminNumberList(button) {
   if (!key) return;
   if (expandedAdminNumbers.has(key)) expandedAdminNumbers.delete(key);
   else expandedAdminNumbers.add(key);
-  if (key.startsWith("daily:")) renderDailyMembers();
-  else renderMembers();
+  renderMembers();
+  renderDailyMembers();
 }
 
 document.getElementById("memberRows").addEventListener("click", async event => {
@@ -3518,7 +3502,7 @@ api("/api/me").then(async data => {
   csrfToken = data.csrf;
   showApp(data.user);
   await loadDashboard("");
-}).catch(error => setMessage("loginMessage", error.message));
+}).catch(() => {});
 
 setInterval(() => {
   if (currentDashboard?.role !== "member" || document.hidden) return;

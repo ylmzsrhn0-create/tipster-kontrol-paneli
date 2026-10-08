@@ -12,6 +12,305 @@
   --shadow: 0 18px 55px rgba(23, 32, 51, .11);
 }
 
+/* Bayim uygulamasi esintili, Tipster Kontrol'e ozgu panel duzeni */
+body.app-mode {
+  --bg: #eef3f4;
+  --ink: #152329;
+  --muted: #6d7b80;
+  --panel: #ffffff;
+  --line: #dce6e7;
+  --brand: #31c98a;
+  --brand-dark: #064943;
+  --accent: #31c98a;
+  --ok: #11825d;
+  background: #eef3f4;
+}
+
+body.app-mode .app-view .topbar {
+  min-height: 78px;
+  padding: 14px max(20px, calc((100% - 1200px) / 2));
+  justify-content: flex-start;
+  gap: 12px;
+  background: rgba(255,255,255,.96);
+  border-bottom: 1px solid #e1e9ea;
+  backdrop-filter: blur(14px);
+}
+
+body.app-mode .app-view .topbar > div:first-child {
+  display: grid;
+  gap: 2px;
+  margin-right: auto;
+}
+
+body.app-mode .app-view .topbar h1 {
+  margin: 0;
+  color: var(--brand-dark);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+body.app-mode .app-view .topbar > div:first-child span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+body.app-mode .panel-nav-menu { margin-right: 0; order: 2; }
+body.app-mode .top-actions { order: 1; }
+
+body.app-mode .panel-nav-menu > summary {
+  border: 0;
+  border-radius: 50%;
+  background: #31c98a;
+  box-shadow: none;
+}
+
+body.app-mode .panel-nav-menu > summary span { background: #064943; }
+body.app-mode .panel-nav-menu[open] > summary { background: #064943; }
+body.app-mode .panel-nav-menu[open] > summary span { background: #fff; }
+
+body.app-mode .panel-nav-menu-panel {
+  left: auto;
+  right: 0;
+  border: 0;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(4,51,47,.2);
+}
+
+body.app-mode .panel-nav-menu-panel button:hover {
+  background: #e7f8f1;
+  color: #075d4b;
+}
+
+.mobile-dashboard-home {
+  display: grid;
+  gap: 16px;
+}
+
+.dashboard-announcement {
+  min-height: 170px;
+  padding: 26px;
+  display: grid;
+  align-content: center;
+  gap: 9px;
+  overflow: hidden;
+  position: relative;
+  border-radius: 22px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 84% 22%, rgba(49,201,138,.42), transparent 32%),
+    linear-gradient(135deg, #063f3b, #07584f);
+  box-shadow: 0 16px 36px rgba(6,73,67,.13);
+}
+
+.dashboard-announcement::after {
+  content: "";
+  position: absolute;
+  right: -40px;
+  bottom: -76px;
+  width: 210px;
+  height: 210px;
+  border: 34px solid rgba(255,255,255,.055);
+  border-radius: 50%;
+}
+
+.dashboard-announcement span {
+  color: #98efc7;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .09em;
+}
+
+.dashboard-announcement strong {
+  max-width: 620px;
+  font-size: clamp(22px, 4vw, 30px);
+  line-height: 1.15;
+}
+
+.dashboard-announcement small {
+  max-width: 620px;
+  color: rgba(255,255,255,.78);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.member-dashboard-announcement {
+  background:
+    radial-gradient(circle at 84% 22%, rgba(49,201,138,.46), transparent 32%),
+    linear-gradient(135deg, #0a3e55, #07584f);
+}
+
+.dashboard-period-card {
+  padding: 22px;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: 18px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(16,50,53,.06);
+}
+
+.dashboard-period-card > div {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.dashboard-period-card > div:last-child { text-align: right; }
+.dashboard-period-card span { color: var(--muted); font-size: 13px; font-weight: 700; }
+.dashboard-period-card strong { overflow-wrap: anywhere; font-size: clamp(18px, 3vw, 24px); }
+.dashboard-period-card .positive { color: #159a69; }
+
+.dashboard-section-title {
+  margin: 7px 0 -3px;
+  color: #7a8588;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.dashboard-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(92px,1fr));
+  gap: 18px 12px;
+}
+
+.dashboard-quick-grid button {
+  min-height: 112px;
+  padding: 5px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 11px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.dashboard-quick-grid button:hover {
+  transform: translateY(-2px);
+  box-shadow: none;
+}
+
+.dashboard-quick-grid i {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #0c5c55, #0b8a70);
+  color: #fff;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(6,73,67,.2), inset 0 1px 0 rgba(255,255,255,.18);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.dashboard-quick-grid button:hover i {
+  transform: scale(1.04);
+  box-shadow: 0 14px 28px rgba(6,73,67,.26), inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+.dashboard-quick-grid button > span {
+  max-width: 108px;
+  text-align: center;
+}
+
+body.app-mode .admin-panel,
+body.app-mode .member-panel,
+body.app-mode .owner-panel { gap: 16px; }
+
+body.app-mode .stat,
+body.app-mode .panel {
+  border-color: #e0e8e9;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(16,50,53,.055);
+}
+
+body.app-mode .stat strong { color: var(--brand-dark); }
+
+body.app-mode .primary {
+  background: #08735e;
+  border-color: #08735e;
+}
+
+body.app-mode .primary:hover { background: #075d4d; }
+
+body.app-mode input:focus,
+body.app-mode select:focus,
+body.app-mode textarea:focus { border-color: #31c98a; box-shadow: 0 0 0 3px rgba(49,201,138,.18); }
+
+.mobile-app-navigation { display: none; }
+.member-bottom-only { display: none !important; }
+body.panel-role-member .admin-bottom-only { display: none !important; }
+body.panel-role-member .member-bottom-only { display: grid !important; }
+
+@media (max-width: 900px) {
+  body.app-mode .app-view { padding-bottom: 82px; }
+  body.app-mode .app-view .topbar {
+    min-height: 72px;
+    padding: 11px 14px;
+    align-items: center;
+  }
+  body.app-mode .app-view .topbar h1 { font-size: 17px; }
+  body.app-mode .app-view .topbar > div:first-child span { max-width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.app-mode .admin-panel,
+  body.app-mode .member-panel,
+  body.app-mode .owner-panel {
+    width: min(100% - 24px, 1200px);
+    margin-top: 14px;
+  }
+  .dashboard-announcement { min-height: 152px; padding: 22px; }
+  .dashboard-quick-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .dashboard-quick-grid button { min-height: 108px; padding: 5px; font-size: 13px; }
+  .dashboard-quick-grid i { width: 64px; height: 64px; }
+  .mobile-app-navigation {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    min-height: 70px;
+    padding: 7px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+    border-top: 1px solid #dce6e7;
+    background: rgba(255,255,255,.97);
+    box-shadow: 0 -10px 30px rgba(16,50,53,.08);
+    backdrop-filter: blur(14px);
+  }
+  .mobile-app-navigation button {
+    min-height: 54px;
+    padding: 4px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 2px;
+    border-radius: 12px;
+    background: transparent;
+    color: #6f7e82;
+    font-size: 10px;
+  }
+  .mobile-app-navigation button:first-child { color: #08735e; background: #e7f8f1; }
+  .mobile-app-navigation i { font-size: 20px; font-style: normal; line-height: 1; }
+  body.app-mode .chat-widget { bottom: 82px; right: 12px; }
+  body.app-mode .calculator-panel { bottom: 82px; }
+}
+
+@media (max-width: 430px) {
+  .dashboard-period-card { padding: 18px; gap: 12px; }
+  .dashboard-period-card strong { font-size: 17px; }
+  .dashboard-quick-grid { gap: 14px 7px; }
+  .dashboard-quick-grid button { min-height: 104px; }
+  .dashboard-quick-grid i { width: 62px; height: 62px; font-size: 21px; }
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -3577,5 +3876,47 @@ body.mobile-select-open {
   .compact-table table,
   .detail-grid table {
     min-width: 0;
+  }
+}
+
+/* Ana ekranda eski uzun listeyi gizle; secilen islem tek sayfa olarak acilir. */
+.owner-nav-only,
+.owner-quick-only { display: none !important; }
+
+body.panel-role-owner .owner-nav-only { display: block !important; }
+body.panel-role-owner .owner-quick-only { display: grid !important; }
+
+body.dashboard-home-mode .owner-panel { display: none !important; }
+body:not(.dashboard-home-mode) .admin-panel.dashboard-detail-active ~ .owner-panel { display: none !important; }
+
+.admin-panel.dashboard-home-active > :not(.mobile-dashboard-home):not(.period-banner),
+.member-panel.dashboard-home-active > :not(.mobile-dashboard-home):not(.period-banner) {
+  display: none !important;
+}
+
+.admin-panel.dashboard-detail-active > :not(.dashboard-target-open),
+.member-panel.dashboard-detail-active > :not(.dashboard-target-open),
+.owner-panel.dashboard-detail-active > :not(.dashboard-target-open),
+.dashboard-external-hidden {
+  display: none !important;
+}
+
+.dashboard-detail-active .grid.dashboard-target-open > :not(.dashboard-target-open),
+.dashboard-detail-active .options-drawer-body.dashboard-target-open > :not(.dashboard-target-open) {
+  display: none !important;
+}
+
+.dashboard-detail-active > .dashboard-target-open {
+  width: 100%;
+  margin: 0;
+}
+
+.options-drawer > summary > b { display: none; }
+
+@media (min-width: 901px) {
+  .admin-panel.dashboard-detail-active,
+  .member-panel.dashboard-detail-active,
+  .owner-panel.dashboard-detail-active {
+    max-width: 980px;
   }
 }

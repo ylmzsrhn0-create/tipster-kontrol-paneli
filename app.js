@@ -94,7 +94,6 @@ groupSecondaryPanelOptions(adminPanel, [
   "Islem gecmisi",
   "Ortak numaralar",
   "Pasif numaralar",
-  "Hesap makinesi",
   "Gonderilen mesajlar",
   "Oneri ve sikayet gonder"
 ], "Diger yonetim secenekleri", "Daha az kullanilan araclar ve kayitlar", "adminOtherOptions");
@@ -141,6 +140,7 @@ document.querySelectorAll("[data-panel-target]").forEach(button => {
     const targetId = button.dataset.panelTarget;
     const target = document.getElementById(targetId);
     if (!target) return;
+    activateDashboardSection(target);
     closeMenuManagedPanels(targetId);
     target.classList.remove("hidden");
     target.open = true;
@@ -149,10 +149,104 @@ document.querySelectorAll("[data-panel-target]").forEach(button => {
   });
 });
 
+function clearDashboardSectionState() {
+  [adminPanel, memberPanel, ownerPanel].forEach(panel => {
+    panel?.classList.remove("dashboard-home-active", "dashboard-detail-active", "dashboard-external-hidden");
+    panel?.querySelectorAll(".dashboard-target-open").forEach(item => item.classList.remove("dashboard-target-open"));
+  });
+}
+
+function showDashboardHome() {
+  clearDashboardSectionState();
+  document.body.classList.add("dashboard-home-mode");
+  const panel = document.body.classList.contains("panel-role-member") ? memberPanel : adminPanel;
+  panel?.classList.add("dashboard-home-active");
+  panel?.querySelector(".mobile-dashboard-home")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function activateDashboardSection(target) {
+  if (!target) return;
+  clearDashboardSectionState();
+  document.body.classList.remove("dashboard-home-mode");
+  const panel = target.closest("#adminPanel, #memberPanel, #ownerPanel");
+  if (!panel) return;
+  panel.classList.add("dashboard-detail-active");
+  let topLevel = target;
+  while (topLevel.parentElement && topLevel.parentElement !== panel) topLevel = topLevel.parentElement;
+  topLevel.classList.add("dashboard-target-open");
+  target.classList.add("dashboard-target-open");
+  if (panel === ownerPanel) adminPanel.classList.add("dashboard-external-hidden");
+}
+
+function openDashboardTarget(targetId) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  activateDashboardSection(target);
+  const managedTarget = menuManagedPanelIds.includes(targetId);
+  if (managedTarget) closeMenuManagedPanels(targetId);
+  target.classList.remove("hidden");
+  if (target instanceof HTMLDetailsElement) target.open = true;
+  let parentDetails = target.parentElement?.closest("details");
+  while (parentDetails) {
+    parentDetails.classList.remove("hidden");
+    parentDetails.open = true;
+    parentDetails = parentDetails.parentElement?.closest("details");
+  }
+  document.getElementById("panelNavMenu")?.removeAttribute("open");
+  requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
+}
+
+document.querySelectorAll("[data-dashboard-target]").forEach(button => {
+  button.addEventListener("click", () => openDashboardTarget(button.dataset.dashboardTarget));
+});
+
+document.querySelectorAll("[data-dashboard-home]").forEach(button => {
+  button.addEventListener("click", () => {
+    showDashboardHome();
+  });
+});
+
+document.querySelectorAll("[data-dashboard-profile]").forEach(button => {
+  button.addEventListener("click", () => {
+    openDashboardTarget(document.body.classList.contains("panel-role-member") ? "memberOtherOptions" : "adminPasswordPanel");
+  });
+});
+
+function dashboardMirrorText(source) {
+  if (source instanceof HTMLSelectElement) return source.selectedOptions[0]?.textContent?.trim() || "Henüz seçilmedi";
+  return source.textContent?.trim() || "0";
+}
+
+function syncDashboardMirrors(sourceId) {
+  const source = document.getElementById(sourceId);
+  if (!source) return;
+  document.querySelectorAll(`[data-mirror-id="${sourceId}"]`).forEach(target => {
+    target.textContent = dashboardMirrorText(source);
+  });
+}
+
+["adminUploadSelect", "totalCommission", "myTotal", "myCalculated"].forEach(sourceId => {
+  const source = document.getElementById(sourceId);
+  if (!source) return;
+  syncDashboardMirrors(sourceId);
+  source.addEventListener("change", () => syncDashboardMirrors(sourceId));
+  new MutationObserver(() => syncDashboardMirrors(sourceId)).observe(source, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+});
+
 document.addEventListener("toggle", event => {
   const panel = event.target;
   if (!(panel instanceof HTMLDetailsElement) || !menuManagedPanelIds.includes(panel.id) || panel.open) return;
   setTimeout(() => panel.classList.add("hidden"), 0);
+}, true);
+
+document.addEventListener("toggle", event => {
+  const panel = event.target;
+  if (!(panel instanceof HTMLDetailsElement) || panel.open || !panel.classList.contains("dashboard-target-open")) return;
+  setTimeout(showDashboardHome, 0);
 }, true);
 
 function openDialog(modal, initialFocus) {
@@ -508,6 +602,7 @@ function showApp(user) {
   document.body.classList.add("app-mode");
   document.body.classList.toggle("panel-role-admin", user.role !== "member");
   document.body.classList.toggle("panel-role-member", user.role === "member");
+  document.body.classList.toggle("panel-role-owner", user.role === "owner");
   document.body.classList.toggle("demo-mode", demoModeActive);
   document.getElementById("demoBanner")?.classList.toggle("hidden", !demoModeActive);
   document.getElementById("panelTitle").textContent = demoModeActive ? "Demo Admin Paneli" : user.role === "owner" ? "Ana Admin Paneli" : user.role === "admin" ? "Admin Paneli" : user.name;
@@ -528,6 +623,7 @@ function showApp(user) {
   }
   if (demoModeActive) startDemoCountdown(user.demoExpiresAt);
   else stopDemoCountdown();
+  showDashboardHome();
 }
 
 function showLogin() {
@@ -540,7 +636,8 @@ function showLogin() {
   loginView.inert = false;
   loginView.setAttribute("aria-hidden", "false");
   document.body.classList.remove("app-mode");
-  document.body.classList.remove("panel-role-admin", "panel-role-member");
+  document.body.classList.remove("panel-role-admin", "panel-role-member", "panel-role-owner", "dashboard-home-mode");
+  clearDashboardSectionState();
   document.body.classList.remove("demo-mode");
   document.body.classList.add("login-mode");
   document.getElementById("demoBanner")?.classList.add("hidden");

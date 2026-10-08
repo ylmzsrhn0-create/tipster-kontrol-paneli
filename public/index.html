@@ -18,9 +18,9 @@
   <meta name="apple-mobile-web-app-title" content="Tipster Panel">
   <title>Tipster Kontrol Paneli</title>
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/style.css?v=performance-recovery-20261008a">
+  <link rel="stylesheet" href="/style.css?v=bayim-layout-20261008">
 </head>
 <body class="login-mode login-role-admin">
   <main class="shell">
@@ -120,6 +120,7 @@
             <button class="admin-nav-only" type="button" data-panel-target="adminUnmatchedPanel">Tipstersiz numaralar</button>
             <button class="admin-nav-only" type="button" data-panel-target="adminPasswordPanel">Admin sifresini degistir</button>
             <button class="admin-nav-only" type="button" data-panel-target="adminMessagePanel">Tipsterlara mesaj gonder</button>
+            <button class="owner-nav-only" type="button" data-dashboard-target="ownerAccountsPanel">Admin hesaplari</button>
             <strong class="member-nav-only">Tipster bolumleri</strong>
             <button class="member-nav-only" type="button" data-panel-target="memberMessagesPanel">Admin mesajlari</button>
             <button class="member-nav-only" type="button" data-panel-target="memberWeeklyPanel">Haftalik komisyon ozeti</button>
@@ -165,6 +166,38 @@
 
       <div class="admin-panel hidden" id="adminPanel">
         <section class="period-banner hidden" id="adminPeriodBanner"></section>
+
+        <section class="mobile-dashboard-home" aria-label="Admin ana sayfa">
+          <div class="dashboard-announcement">
+            <span>BUGÜNÜN ÖZETİ</span>
+            <strong>Tipster işlemleri tek ekranda</strong>
+            <small>Excel yüklemeleri, haftalık sonuçlar ve ödemeler hızlı erişimde.</small>
+          </div>
+          <div class="dashboard-period-card">
+            <div>
+              <span>Seçili hafta</span>
+              <strong data-mirror-id="adminUploadSelect">Henüz seçilmedi</strong>
+            </div>
+            <div>
+              <span>Toplam komisyon</span>
+              <strong class="positive" data-mirror-id="totalCommission">0</strong>
+            </div>
+          </div>
+          <h2 class="dashboard-section-title">Hızlı işlemler</h2>
+          <div class="dashboard-quick-grid">
+            <button type="button" data-dashboard-target="adminUploadPanel"><i aria-hidden="true">↑</i><span>Excel yükle</span></button>
+            <button type="button" data-dashboard-target="adminWeeklyResultsPanel"><i aria-hidden="true">%</i><span>Haftalık sonuçlar</span></button>
+            <button type="button" data-dashboard-target="adminDailyResultsPanel"><i aria-hidden="true">↗</i><span>Günlük sonuçlar</span></button>
+            <button type="button" data-dashboard-target="adminCreateMemberPanel"><i aria-hidden="true">+</i><span>Tipster ekle</span></button>
+            <button type="button" data-dashboard-target="adminUnmatchedPanel"><i aria-hidden="true">?</i><span>Tipstersiz numaralar</span></button>
+            <button type="button" data-dashboard-target="adminPaymentsPanel"><i aria-hidden="true">₺</i><span>Ödemeler</span></button>
+            <button type="button" data-dashboard-target="adminMessagePanel"><i aria-hidden="true">✉</i><span>Mesajlar</span></button>
+            <button type="button" data-dashboard-target="adminOverviewPanel"><i aria-hidden="true">▦</i><span>Genel durum</span></button>
+            <button type="button" data-dashboard-target="adminCalculatorPanel"><i aria-hidden="true">%</i><span>Hesap makinesi</span></button>
+            <button type="button" data-dashboard-target="adminOtherOptions"><i aria-hidden="true">•••</i><span>Diğer işlemler</span></button>
+            <button class="owner-quick-only" type="button" data-dashboard-target="ownerAccountsPanel"><i aria-hidden="true">A</i><span>Admin hesapları</span></button>
+          </div>
+        </section>
 
         <section class="stats stats-four">
           <div class="stat">
@@ -238,7 +271,7 @@
           </div>
         </details>
 
-        <details class="panel wide collapsible">
+        <details class="panel wide collapsible" id="adminPaymentsPanel">
           <summary>
             <span>
               <strong>Haftalik odeme kayitlari</strong>
@@ -279,9 +312,13 @@
               <table>
                 <thead>
                   <tr>
+                    <th>Tarih</th>
+                    <th>Hafta</th>
                     <th>Tipster</th>
-                    <th>Haftalara gore odemeler</th>
-                    <th>Toplam odenen</th>
+                    <th>Hesap</th>
+                    <th>Odenen</th>
+                    <th>Not</th>
+                    <th>Islem</th>
                   </tr>
                 </thead>
                 <tbody id="paymentRows"></tbody>
@@ -413,7 +450,7 @@
           <div class="message-list grouped-list collapsible-body" id="passiveNumberRows"></div>
         </details>
 
-        <details class="panel collapsible calculator-panel">
+        <details class="panel collapsible calculator-panel" id="adminCalculatorPanel">
           <summary>
             <span>
               <strong>Hesap makinesi</strong>
@@ -484,7 +521,7 @@
         </details>
 
         <section class="grid">
-          <details class="panel collapsible">
+          <details class="panel collapsible" id="adminCreateMemberPanel">
             <summary>
               <span>
                 <strong>Tipster olustur</strong>
@@ -517,7 +554,7 @@
             </form>
           </details>
 
-          <details class="panel collapsible">
+          <details class="panel collapsible" id="adminUploadPanel">
             <summary>
               <span>
                 <strong>Excel yukle</strong>
@@ -706,7 +743,7 @@
           </form>
         </details>
 
-        <details class="panel wide collapsible">
+        <details class="panel wide collapsible" id="adminWeeklyResultsPanel">
           <summary>
             <span>
               <strong>Tipster haftalik Excel sonuclari</strong>
@@ -763,7 +800,7 @@
           </div>
         </details>
 
-        <details class="panel wide collapsible">
+        <details class="panel wide collapsible" id="adminDailyResultsPanel">
           <summary>
             <span>
               <strong>Tipster gunluk kazanc</strong>
@@ -820,7 +857,7 @@
       </div>
 
       <div class="owner-panel hidden" id="ownerPanel">
-        <details class="panel wide collapsible">
+        <details class="panel wide collapsible" id="ownerAccountsPanel">
           <summary>
             <span>
               <strong>Admin hesaplari</strong>
@@ -885,6 +922,32 @@
       </div>
 
       <div class="member-panel hidden" id="memberPanel">
+        <section class="mobile-dashboard-home" aria-label="Tipster ana sayfa">
+          <div class="dashboard-announcement member-dashboard-announcement">
+            <span>HAFTALIK DURUM</span>
+            <strong>Kazanç ve numaraların hazır</strong>
+            <small>Günlük sonuçlarını ve kayıtlı numaralarını buradan takip edebilirsin.</small>
+          </div>
+          <div class="dashboard-period-card">
+            <div>
+              <span>Toplam oyun</span>
+              <strong data-mirror-id="myTotal">0</strong>
+            </div>
+            <div>
+              <span>Haftalık komisyon</span>
+              <strong class="positive" data-mirror-id="myCalculated">0</strong>
+            </div>
+          </div>
+          <h2 class="dashboard-section-title">Hızlı işlemler</h2>
+          <div class="dashboard-quick-grid">
+            <button type="button" data-dashboard-target="memberWeeklyPanel"><i aria-hidden="true">%</i><span>Haftalık kazanç</span></button>
+            <button type="button" data-dashboard-target="memberDailyPanel"><i aria-hidden="true">↗</i><span>Günlük kazanç</span></button>
+            <button type="button" data-dashboard-target="memberNumbersPanel"><i aria-hidden="true">#</i><span>Numaralarım</span></button>
+            <button type="button" data-dashboard-target="numberForm"><i aria-hidden="true">+</i><span>Numara ekle</span></button>
+            <button type="button" data-dashboard-target="memberMessagesPanel"><i aria-hidden="true">✉</i><span>Mesajlar</span></button>
+            <button type="button" data-dashboard-target="memberOtherOptions"><i aria-hidden="true">•••</i><span>Diğer işlemler</span></button>
+          </div>
+        </section>
         <section class="info-banner">
           Sali gunu komisyonlariniz ogleden sonra belirttiginiz IBAN'lara aktarilir.
         </section>
@@ -998,7 +1061,6 @@
                   <th>Durum</th>
                   <th>Bayi Portal</th>
                   <th>Kayit</th>
-                  <th>Son kupon</th>
                   <th>Toplam oyun</th>
                   <th>Yuklu haftalar toplam</th>
                   <th>Komisyon</th>
@@ -1063,7 +1125,6 @@
                   <th>Numara</th>
                   <th>Durum</th>
                   <th>Excel kayit</th>
-                  <th>Son kupon</th>
                   <th>Toplam oyun</th>
                   <th>Kazanc</th>
                 </tr>
@@ -1075,7 +1136,6 @@
                   <td>-</td>
                   <td>-</td>
                   <td id="dailyNumberTotalCount">0</td>
-                  <td>-</td>
                   <td id="dailyNumberTotalAmount">0</td>
                   <td id="dailyNumberTotalCommission">0</td>
                 </tr>
@@ -1207,6 +1267,15 @@
           <div class="table-summary" id="myRowsSummary"></div>
         </details>
       </div>
+
+      <nav class="mobile-app-navigation" id="mobileAppNavigation" aria-label="Alt menü">
+        <button type="button" data-dashboard-home><i aria-hidden="true">⌂</i><span>Ana sayfa</span></button>
+        <button class="admin-bottom-only" type="button" data-dashboard-target="adminWeeklyResultsPanel"><i aria-hidden="true">▥</i><span>Raporlar</span></button>
+        <button class="admin-bottom-only" type="button" data-dashboard-target="adminCreateMemberPanel"><i aria-hidden="true">♙</i><span>Tipsterlar</span></button>
+        <button class="member-bottom-only" type="button" data-dashboard-target="memberWeeklyPanel"><i aria-hidden="true">▥</i><span>Kazanç</span></button>
+        <button class="member-bottom-only" type="button" data-dashboard-target="memberNumbersPanel"><i aria-hidden="true">#</i><span>Numaralar</span></button>
+        <button type="button" data-dashboard-profile><i aria-hidden="true">○</i><span>Profil</span></button>
+      </nav>
     </section>
 
     <section class="modal hidden" id="kvkkModal" aria-modal="true" role="dialog" aria-labelledby="kvkkTitle">
@@ -1404,7 +1473,6 @@
                     <th>Durum</th>
                     <th>Bayi Portal</th>
                     <th>Kayit</th>
-                    <th>Son kupon</th>
                     <th>Pay</th>
                     <th>Toplam</th>
                     <th>Komisyon</th>
@@ -1462,6 +1530,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=performance-recovery-20261008a"></script>
+  <script src="/app.js?v=bayim-layout-20261008"></script>
 </body>
 </html>
