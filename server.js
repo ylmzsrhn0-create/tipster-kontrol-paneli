@@ -1919,13 +1919,28 @@ function parseMultipart(buffer, contentType) {
   return parts;
 }
 
-function selectedRows(db, uploadId, ownerId) {
-  return cachedCalculation(`selectedRows:${ownerId || "all-owners"}:${uploadId || "all"}`, () => {
-  const rows = (ownerId ? db.rows.filter(row => row.ownerId === ownerId) : db.rows)
-    .filter(row => isBonusDisiKuponOynama(row.processType));
-  if (!uploadId || uploadId === "all") return rows;
-  return rows.filter(row => row.uploadId === uploadId);
+function eligibleRows(db, ownerId) {
+  return cachedCalculation(`eligibleRows:${ownerId || "all-owners"}`, () =>
+    (ownerId ? db.rows.filter(row => row.ownerId === ownerId) : db.rows)
+      .filter(row => isBonusDisiKuponOynama(row.processType))
+  );
+}
+
+function eligibleRowsByUpload(db, ownerId) {
+  return cachedCalculation(`eligibleRowsByUpload:${ownerId || "all-owners"}`, () => {
+    const grouped = new Map();
+    eligibleRows(db, ownerId).forEach(row => {
+      const rows = grouped.get(row.uploadId) || [];
+      rows.push(row);
+      grouped.set(row.uploadId, rows);
+    });
+    return grouped;
   });
+}
+
+function selectedRows(db, uploadId, ownerId) {
+  if (!uploadId || uploadId === "all") return eligibleRows(db, ownerId);
+  return eligibleRowsByUpload(db, ownerId).get(uploadId) || [];
 }
 
 function selectedRowsByNumber(db, uploadId, ownerId) {
@@ -2067,17 +2082,17 @@ function sharedRow(row, shareCounts) {
   };
 }
 
-function couponAtForRow(db, row) {
+function couponAtForRow(db, row, uploadMap = null) {
   const direct = validIsoDate(row?.couponAt);
   if (direct) return direct;
-  const latestDailyColumn = Object.entries(row?.daily || {})
-    .filter(([, amount]) => Number(amount || 0) !== 0)
-    .map(([date]) => excelCouponDate(date))
-    .filter(Boolean)
-    .sort()
-    .at(-1);
+  let latestDailyColumn = "";
+  for (const [date, amount] of Object.entries(row?.daily || {})) {
+    if (Number(amount || 0) === 0) continue;
+    const couponDate = excelCouponDate(date);
+    if (couponDate && couponDate > latestDailyColumn) latestDailyColumn = couponDate;
+  }
   if (latestDailyColumn) return latestDailyColumn;
-  const upload = db.uploads.find(item => item.id === row?.uploadId);
+  const upload = uploadMap?.get(row?.uploadId) || db.uploads.find(item => item.id === row?.uploadId);
   if ((upload?.uploadType || "weekly") !== "daily" || !validDateOnly(upload.uploadDate)) return "";
   return `${upload.uploadDate}T00:00:00.000Z`;
 }
@@ -2085,9 +2100,10 @@ function couponAtForRow(db, row) {
 function latestCouponDatesByNumber(db, ownerId) {
   return cachedCalculation(`latestCouponDatesByNumber:${ownerId}`, () => {
     const latestByNumber = new Map();
+    const uploadMap = new Map(db.uploads.map(upload => [upload.id, upload]));
     selectedRows(db, "all", ownerId).forEach(row => {
       const number = canonicalGsm(row.gsmMasked);
-      const couponAt = couponAtForRow(db, row);
+      const couponAt = couponAtForRow(db, row, uploadMap);
       if (!number || !couponAt) return;
       const current = latestByNumber.get(number) || "";
       if (couponAt > current) latestByNumber.set(number, couponAt);
