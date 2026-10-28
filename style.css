@@ -81,6 +81,43 @@ body.app-mode .top-actions { order: 1; }
 .panel-refresh-control small { max-width: 140px; color: #13795b; font-size: 10px; text-align: center; }
 .panel-refresh-control small:empty { display: none; }
 .panel-refresh-control small.refresh-error { color: #b42318; }
+.number-filter-toolbar.section-head {
+  position: sticky;
+  top: 78px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  margin: 0;
+  background: #f5f9f8;
+  border-bottom: 1px solid #dce6e7;
+}
+.number-filter-search { flex: 1 1 240px; min-width: 0; }
+.number-filter-search input { width: 100%; min-width: 0; margin: 0; }
+.number-filter-search .search-actions { width: 100%; }
+.number-filter-chips { display: flex; gap: 5px; }
+.number-filter-chips button {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid #cbdcda;
+  border-radius: 999px;
+  background: #fff;
+  color: #31544f;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.number-filter-chips button[aria-pressed="true"] { background: #064943; border-color: #064943; color: #fff; }
+.number-filter-chips button:focus-visible { outline: 3px solid #31c98a; outline-offset: 2px; }
+.number-filter-toolbar > small { flex-basis: 100%; color: #687b77; font-size: 11px; }
+@media (max-width: 760px) {
+  .number-filter-toolbar.section-head { top: 76px; padding: 10px 12px; }
+  .number-filter-chips { flex: 1; }
+  .number-filter-chips button { flex: 1; }
+}
 @media (max-width: 480px) {
   body.app-mode .app-view .topbar { gap: 6px; padding-left: 10px; padding-right: 10px; }
   body.app-mode .app-view .topbar > div:first-child { min-width: 0; }

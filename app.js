@@ -61,6 +61,63 @@ const notificationBadge = document.getElementById("notificationBadge");
 const rememberStorageKey = "tipsterPanelRememberLogin";
 const modalReturnFocus = new WeakMap();
 
+const numberFilterPanels = [
+  ["adminWeeklyResultsPanel", "search", "Tipster, isim veya numara ara", () => renderMembers()],
+  ["adminDailyResultsPanel", "dailyNumberSearch", "Tipster, isim veya numara ara", () => renderDailyMembers()],
+  ["memberNumbersPanel", "numberSearch", "İsim veya numara ara", () => renderNumbers(numberRecordsOf(currentDashboard.member))],
+  ["memberWeeklyPanel", "weeklyNumberSearch", "İsim veya numara ara", () => renderCommissionRows(currentDashboard.numberSummaries || [])],
+  ["memberDailyPanel", "dailyMemberNumberSearch", "İsim veya numara ara", () => renderDailyEarnings(currentDashboard.dailySummaries || [])],
+  ["memberPeriodDetailPanel", "periodNumberSearch", "İsim veya numara ara", () => renderMemberPeriodDetails()]
+];
+
+numberFilterPanels.forEach(([panelId, inputId, placeholder, render]) => {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  const toolbar = document.createElement("div");
+  toolbar.className = "number-filter-toolbar section-head";
+  toolbar.dataset.status = "all";
+  toolbar.innerHTML = `<div class="number-filter-search"></div>
+    <div class="number-filter-chips" role="group" aria-label="Oynama durumuna göre filtrele">
+      <button type="button" data-status="all" aria-pressed="true">Tümü</button>
+      <button type="button" data-status="active" aria-pressed="false">Aktif</button>
+      <button type="button" data-status="passive" aria-pressed="false">Pasif</button>
+    </div><small>Durum, seçili Excel'deki oyun kayıtlarına göredir.</small>`;
+  let input = document.getElementById(inputId);
+  const searchContainer = toolbar.querySelector(".number-filter-search");
+  if (input) {
+    const actions = input.closest(".search-actions");
+    searchContainer.append(actions || input);
+  } else {
+    input = document.createElement("input");
+    input.id = inputId;
+    input.type = "search";
+    input.placeholder = placeholder;
+    searchContainer.append(input);
+    input.addEventListener("input", () => { if (currentDashboard) render(); });
+  }
+  input.setAttribute("aria-label", placeholder);
+  const anchor = panel.querySelector(":scope > summary, :scope > header");
+  if (anchor) anchor.after(toolbar);
+  else panel.prepend(toolbar);
+  toolbar.querySelectorAll("button[data-status]").forEach(button => {
+    button.addEventListener("click", () => {
+      toolbar.dataset.status = button.dataset.status;
+      toolbar.querySelectorAll("button[data-status]").forEach(item => {
+        item.setAttribute("aria-pressed", String(item === button));
+      });
+      if (currentDashboard) render();
+    });
+  });
+});
+
+function numberFilterMatches(panelId, record, active, extraText = "") {
+  const config = numberFilterPanels.find(item => item[0] === panelId);
+  const query = config ? document.getElementById(config[1])?.value || "" : "";
+  const status = document.querySelector(`#${panelId} > .number-filter-toolbar`)?.dataset.status || "all";
+  return (status === "all" || (status === "active" ? active : !active))
+    && searchMatches(`${record.name || ""} ${record.number || ""} ${extraText}`, query);
+}
+
 function groupSecondaryPanelOptions(panel, labels, title, description, drawerId) {
   if (!panel || document.getElementById(drawerId)) return;
   const labelSet = new Set(labels);
@@ -755,23 +812,28 @@ function numberMiniList(records, emptyText) {
 
 function adminNumberSplitHtml(member, scope, query = "") {
   const numberQuery = searchNumber(query) || searchDigits(query);
-  const records = numberQuery ? filteredNumberRecords(member, query) : numberRecordsOf(member);
+  const panelId = scope === "daily" ? "adminDailyResultsPanel" : "adminWeeklyResultsPanel";
+  const records = (numberQuery ? filteredNumberRecords(member, query) : numberRecordsOf(member))
+    .filter(record => numberFilterMatches(panelId, record,
+      Number(scope === "daily" ? record.dailyRowCount : record.weeklyRowCount) > 0,
+      `${member.name} ${member.username}`));
   if (!records.length) return query ? `<span class="muted">Aranan numara bu tipsterda yok.</span>` : "-";
   const key = `${scope}:${member.id}`;
-  const expanded = expandedAdminNumbers.has(key) || Boolean(query);
+  const expanded = expandedAdminNumbers.has(key) || Boolean(query)
+    || document.querySelector(`#${panelId} > .number-filter-toolbar`)?.dataset.status !== "all";
   const hasPortalList = Boolean(currentDashboard?.currentPortalList);
   const registered = hasPortalList ? records.filter(record => record.portalRegistered) : [];
   const unregistered = hasPortalList ? records.filter(record => !record.portalRegistered) : records;
   const allRecords = numberRecordsOf(member);
-  const totalRegistered = hasPortalList ? allRecords.filter(record => record.portalRegistered).length : 0;
-  const totalUnregistered = hasPortalList ? allRecords.length - totalRegistered : allRecords.length;
+  const totalRegistered = hasPortalList ? records.filter(record => record.portalRegistered).length : 0;
+  const totalUnregistered = hasPortalList ? records.length - totalRegistered : records.length;
   const portalSummary = hasPortalList
     ? `Listede ${totalRegistered} / Listede yok ${totalUnregistered}`
     : "Bayi Portal listesi yok";
   return `
     <div class="admin-number-toggle">
       <button class="ghost small number-toggle-btn" type="button" data-number-toggle="${escapeHtml(key)}" aria-expanded="${expanded ? "true" : "false"}">
-        ${query ? `${records.length} eslesen numara` : `${allRecords.length} numarayi goster`} - ${portalSummary}
+        ${query ? `${records.length} eslesen numara` : `${records.length} numarayi goster`} - ${portalSummary}
       </button>
       <div class="admin-number-list ${expanded ? "" : "hidden"}">
         <div class="number-split">
@@ -1390,7 +1452,10 @@ function renderMembers() {
   const sort = document.getElementById("adminMemberSort")?.value || "default";
   const filteredRows = currentDashboard.members.filter(member => {
     const text = `${member.name} ${member.username} ${numberRecordText(member)}`;
-    return searchMatches(text, query);
+    return searchMatches(text, query) && numberRecordsOf(member).some(record =>
+      numberFilterMatches("adminWeeklyResultsPanel", record, Number(record.weeklyRowCount) > 0, `${member.name} ${member.username}`))
+      || (!numberRecordsOf(member).length && searchMatches(text, query)
+        && document.querySelector("#adminWeeklyResultsPanel > .number-filter-toolbar")?.dataset.status === "all");
   });
   const rows = sortByAmount(filteredRows, sort, "total");
   const weeklyPlayedTotal = (currentDashboard.members || []).reduce((sum, member) => sum + Number(member.total || 0), 0);
@@ -1414,12 +1479,15 @@ function renderMembers() {
 }
 
 function renderDailyMembers() {
-  const query = document.getElementById("search").value;
+  const query = document.getElementById("dailyNumberSearch").value;
   const sort = document.getElementById("adminDailyMemberSort")?.value || "default";
   const dailyMembers = currentDashboard.dailyMembers || currentDashboard.members || [];
   const filteredRows = dailyMembers.filter(member => {
     const text = `${member.name} ${member.username} ${numberRecordText(member)}`;
-    return searchMatches(text, query);
+    return searchMatches(text, query) && numberRecordsOf(member).some(record =>
+      numberFilterMatches("adminDailyResultsPanel", record, Number(record.dailyRowCount) > 0, `${member.name} ${member.username}`))
+      || (!numberRecordsOf(member).length && searchMatches(text, query)
+        && document.querySelector("#adminDailyResultsPanel > .number-filter-toolbar")?.dataset.status === "all");
   });
   const rows = sort === "cycleDesc"
     ? filteredRows.slice().sort((a, b) => Number(b.cycleDailyTotal || 0) - Number(a.cycleDailyTotal || 0))
@@ -1889,7 +1957,8 @@ function renderMemberPeriodDetails() {
   document.getElementById("memberPeriodEarningLabel").textContent = state.daily ? "Günlük kazanç" : "Haftalık komisyon";
   document.getElementById("memberPeriodEarning").textContent = money.format(state.calculated);
   document.getElementById("memberPeriodNumberCount").textContent = `${state.numbers.length} numara`;
-  document.getElementById("memberPeriodNumberRows").innerHTML = state.numbers.map(row => `
+  document.getElementById("memberPeriodNumberRows").innerHTML = state.numbers
+    .filter(row => numberFilterMatches("memberPeriodDetailPanel", row, Number(row.rowCount) > 0)).map(row => `
     <article class="period-number-row">
       <div>
         <strong>${escapeHtml(row.name || "İsimsiz")}</strong>
@@ -2074,7 +2143,8 @@ function renderMyRows(rows) {
 
 function renderCommissionRows(rows) {
   const sort = document.getElementById("commissionRowsSort")?.value || "default";
-  const visibleRows = sortByAmount(withAllWeeklyTotals(rows), sort, "total");
+  const visibleRows = sortByAmount(withAllWeeklyTotals(rows), sort, "total")
+    .filter(row => numberFilterMatches("memberWeeklyPanel", row, Number(row.rowCount) > 0));
   document.getElementById("commissionRows").innerHTML = visibleRows.map(row => `
     <tr>
       <td data-label="Isim">${escapeHtml(row.name || "-")}</td>
@@ -2093,7 +2163,8 @@ function renderDailyEarnings(rows, cycleSummary = currentDashboard?.dailyCycleSu
   const activeDailyUploadId = document.getElementById("memberDailyUploadSelect")?.value || selectedDailyUploadId;
   const visibleRows = activeDailyUploadId ? rows.filter(row => row.uploadId === activeDailyUploadId) : rows;
   const selectedRow = visibleRows[0] || null;
-  const numberRows = selectedRow?.numberSummaries || [];
+  const numberRows = (selectedRow?.numberSummaries || [])
+    .filter(row => numberFilterMatches("memberDailyPanel", row, Number(row.rowCount) > 0));
   const totals = visibleRows.reduce((sum, row) => ({
     rowCount: sum.rowCount + Number(row.rowCount || 0),
     total: sum.total + Number(row.total || 0),
@@ -2152,13 +2223,17 @@ async function applyMemberDailyUploadSelection() {
 function renderNumbers(records) {
   const query = document.getElementById("numberSearch")?.value || "";
   const sort = document.getElementById("numberListSort")?.value || "default";
+  const weeklyByNumber = new Map((currentDashboard?.numberSummaries || []).map(row => [canonicalGsm(row.number), row]));
   const rows = sortByAmount(withAllWeeklyTotals(records), sort, "allWeeklyTotal")
-    .filter(record => searchMatches(`${record.name || ""} ${record.number || ""}`, query));
+    .map(record => ({ ...record, active: Number(weeklyByNumber.get(canonicalGsm(record.number))?.rowCount) > 0 }))
+    .filter(record => searchMatches(`${record.name || ""} ${record.number || ""}`, query)
+      && numberFilterMatches("memberNumbersPanel", record, record.active));
   document.getElementById("numberList").innerHTML = rows.map(record => `
     <div class="number-item">
       <div>
         <strong>${escapeHtml(record.name || "Isimsiz")}</strong>
         <span>${escapeHtml(record.number)}</span>
+        <span class="status-pill ${record.active ? "active" : "passive"}">${record.active ? "Aktif" : "Pasif"}</span>
         ${numberDateHtml(record)}
         ${portalStatusPill(record)}
         <div class="number-total-box">

@@ -2320,6 +2320,7 @@ function staffDashboardMembers(db, user, uploadId, dailyUploadId, portalKeys) {
             portalStatusText: registered ? "Listede var" : "Listede yok",
             weeklyTotal: weekly.total,
             weeklyRowCount: weekly.rowCount,
+            dailyRowCount: daily.rowCount,
             allWeeklyTotal: allWeekly.total,
             allWeeklyRowCount: allWeekly.rowCount,
             lastCouponAt: latestCoupons.get(number) || ""
