@@ -57,6 +57,37 @@ body.app-mode .app-view .topbar > div:first-child span {
 body.app-mode .panel-nav-menu { margin-right: 0; order: 2; }
 body.app-mode .top-actions { order: 1; }
 
+.panel-refresh-control { display: grid; justify-items: center; gap: 3px; flex-shrink: 0; }
+.panel-refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #cbdcda;
+  border-radius: 14px;
+  background: #fff;
+  color: #064943;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.topbar .panel-refresh-button span { color: inherit; font-size: 13px; }
+.panel-refresh-button b { font-size: 23px; line-height: 1; }
+.panel-refresh-button:hover { background: #e7f8f1; }
+.panel-refresh-button:disabled { opacity: .65; cursor: wait; }
+.panel-refresh-button:focus-visible { outline: 3px solid #31c98a; outline-offset: 2px; }
+.panel-refresh-control small { max-width: 140px; color: #13795b; font-size: 10px; text-align: center; }
+.panel-refresh-control small:empty { display: none; }
+.panel-refresh-control small.refresh-error { color: #b42318; }
+@media (max-width: 480px) {
+  body.app-mode .app-view .topbar { gap: 6px; padding-left: 10px; padding-right: 10px; }
+  body.app-mode .app-view .topbar > div:first-child { min-width: 0; }
+  body.app-mode .app-view .topbar h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .panel-refresh-button { padding: 8px; }
+}
+
 body.app-mode .panel-nav-menu > summary {
   border: 0;
   border-radius: 50%;

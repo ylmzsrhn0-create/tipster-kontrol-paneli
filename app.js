@@ -2275,6 +2275,30 @@ async function loadDashboard(uploadId = selectedUploadId, dailyUploadId = select
   }
 }
 
+document.getElementById("panelRefreshBtn").addEventListener("click", async () => {
+  const button = document.getElementById("panelRefreshBtn");
+  const status = document.getElementById("panelRefreshStatus");
+  const label = button.querySelector("span");
+  const scrollPosition = { left: window.scrollX, top: window.scrollY };
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  label.textContent = "Yenileniyor…";
+  status.textContent = "";
+  try {
+    await loadDashboard(selectedUploadId, selectedDailyUploadId);
+    status.textContent = `Güncel · ${new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
+    status.classList.remove("refresh-error");
+    window.scrollTo({ ...scrollPosition, behavior: "instant" });
+  } catch (error) {
+    status.textContent = "Yenilenemedi, tekrar deneyin";
+    status.classList.add("refresh-error");
+  } finally {
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+    label.textContent = "Yenile";
+  }
+});
+
 async function loadMemberDetail(memberId, uploadId = detailUploadId || selectedUploadId || "all") {
   detailMemberId = memberId;
   detailUploadId = uploadId;
